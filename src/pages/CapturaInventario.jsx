@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
@@ -12,6 +13,10 @@ export default function CapturaInventario() {
   const [modo, setModo] = useState(null);
   const [datos, setDatos] = useState([]);
   const [bloqueado, setBloqueado] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
+  const navigate = useNavigate();
+  const [mensajeModo, setMensajeModo] = useState("");
+  const [mostrarComparar, setMostrarComparar] = useState(false);
 
   useEffect(() => {
     setModo(null);
@@ -31,8 +36,20 @@ export default function CapturaInventario() {
       });
 
       if (!r1.data.success) throw new Error(r1.data.error);
-      setModo(r1.data.modo);
-      setBloqueado(r1.data.modo === "solo lectura");
+
+
+      const modo = r1.data.modo;
+      const mensaje = r1.data.mensaje || "";
+      const capturista = r1.data.capturista || null;
+
+      setModo(modo);
+      setBloqueado(modo === "solo lectura");
+      setMensajeModo(mensaje);
+
+      const esCapturista = capturista === null || parseInt(capturista) === parseInt(empleado);
+      setMostrarComparar(modo === "solo lectura" && esCapturista);
+
+
 
       const r2 = await axios.get("https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/obtener_inventario.php", {
         params: { almacen, fecha, empleado },
@@ -52,50 +69,60 @@ export default function CapturaInventario() {
   };
 
   const confirmarInventario = async () => {
-    const incompletos = datos.some(
-      (item) =>
-        item.cant_invfis === "" ||
-        item.cant_invfis === null ||
-        isNaN(parseFloat(item.cant_invfis)) ||
-        parseFloat(item.cant_invfis) <= 0
+  const hayCaptura = datos.some(
+    (item) =>
+      item.cant_invfis !== "" &&
+      item.cant_invfis !== null &&
+      !isNaN(parseFloat(item.cant_invfis)) &&
+      parseFloat(item.cant_invfis) > 0
+  );
+
+  if (!hayCaptura) {
+    MySwal.fire("Sin captura", "Debes ingresar al menos un inventario físico antes de confirmar.", "warning");
+    return;
+  }
+
+  const confirmacion = await MySwal.fire({
+    title: "¿Confirmar inventario?",
+    text: "Esta acción es irreversible. ¿Estás seguro?",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Sí, confirmar",
+    cancelButtonText: "Cancelar",
+  });
+
+  if (!confirmacion.isConfirmed) return;
+
+  try {
+    const payload = new FormData();
+    payload.append("almacen", almacen);
+    payload.append("fecha", fecha);
+    payload.append("empleado", empleado);
+    payload.append("datos", JSON.stringify(datos));
+
+    const res = await axios.post(
+      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/confirmar_inventario.php",
+      payload
     );
 
-    if (incompletos) {
-      MySwal.fire("Campos incompletos", "Todos los productos deben tener inventario físico capturado.", "warning");
-      return;
-    }
+    if (!res.data.success) throw new Error(res.data.error);
 
-    const confirmacion = await MySwal.fire({
-      title: "¿Confirmar inventario?",
-      text: "Esta acción es irreversible. ¿Estás seguro?",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Sí, confirmar",
-      cancelButtonText: "Cancelar",
+    MySwal.fire("Confirmado", res.data.mensaje, "success");
+    setBloqueado(true);
+
+    // Redirigir a vista de comparación
+    navigate("/comparar", {
+      state: {
+        almacen,
+        fecha,
+        empleado,
+      },
     });
+  } catch (error) {
+    MySwal.fire("Error", error.message, "error");
+  }
+};
 
-    if (!confirmacion.isConfirmed) return;
-
-    try {
-      const payload = new FormData();
-      payload.append("almacen", almacen);
-      payload.append("fecha", fecha);
-      payload.append("empleado", empleado);
-      payload.append("datos", JSON.stringify(datos));
-
-      const res = await axios.post(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/confirmar_inventario.php",
-        payload
-      );
-
-      if (!res.data.success) throw new Error(res.data.error);
-
-      MySwal.fire("Confirmado", res.data.mensaje, "success");
-      setBloqueado(true);
-    } catch (error) {
-      MySwal.fire("Error", error.message, "error");
-    }
-  };
 
   return (
 
@@ -138,8 +165,35 @@ export default function CapturaInventario() {
       {modo && (
         <div className="mt-8">
           <p className={`flex items-center gap-2 mb-4 text-lg font-medium ${bloqueado ? "text-red-600" : "text-green-600"}`}>
-            {bloqueado ? "🔒 Modo: Solo lectura (otro usuario está capturando)" : "✍️ Modo: Edición habilitada"}
+            {mensajeModo}
+
           </p>
+
+
+          <div className="mb-4 flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="Buscar por código o nombre"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              className="w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+
+            {mostrarComparar && (
+              <button
+                onClick={() =>
+                  navigate("/comparar", {
+                    state: { almacen, fecha, empleado },
+                  })
+                }
+                className="px-4 py-2 bg-blue-200 hover:bg-blue-300 text-blue-900 font-semibold rounded-lg shadow-md text-sm transition-all duration-200 whitespace-nowrap"
+
+              >
+                📊 Comparar inventario
+              </button>
+            )}
+          </div>
+
 
           <div className="overflow-auto max-h-[70vh] border rounded-lg shadow-md">
             <table className="min-w-full text-sm table-auto">
@@ -154,7 +208,13 @@ export default function CapturaInventario() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
-                {datos.map((item, i) => {
+                {datos
+  .filter((item) =>
+    item.ItemCode.toLowerCase().includes(busqueda.toLowerCase()) ||
+    item.Itemname.toLowerCase().includes(busqueda.toLowerCase())
+  )
+  .map((item, i) => {
+
                   const valor = item.cant_invfis;
                   const editado = parseFloat(valor) > 0;
                   const invalido = valor === "" || valor === null || isNaN(Number(valor)) || parseFloat(valor) <= 0;

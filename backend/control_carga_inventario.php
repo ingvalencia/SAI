@@ -22,50 +22,36 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-// Paso 1: verificar si ya existe captura de otro usuario para ese almacén y fecha
-$sqlExisteOtro = "
-  SELECT TOP 1 usuario
-  FROM CAP_INVENTARIO
-  WHERE almacen = '$almacen' AND fecha_inv = '$fecha' AND usuario <> $empleado
-";
-
-$resOtro = mssql_query($sqlExisteOtro, $conn);
-if (!$resOtro) {
-  echo json_encode(['success' => false, 'error' => mssql_get_last_message()]);
-  exit;
-}
-
-if (mssql_fetch_assoc($resOtro)) {
-  echo json_encode(['success' => true, 'modo' => 'solo lectura']);
-  exit;
-}
-
-// Paso 2: Si no hay otro usuario, revisar si ya se hizo confirmación (estatus = 1)
+// 🟢 1. Verificar si ya fue confirmado o cerrado (estatus 1 o 2)
 $sqlConfirmado = "
-  SELECT TOP 1 estatus
+  SELECT TOP 1 usuario, estatus
   FROM CAP_INVENTARIO
-  WHERE almacen = '$almacen' AND fecha_inv = '$fecha'
+  WHERE almacen = '$almacen' AND fecha_inv = '$fecha' AND estatus IN (1, 2)
 ";
-
 $resConf = mssql_query($sqlConfirmado, $conn);
-if (!$resConf) {
-  echo json_encode(['success' => false, 'error' => mssql_get_last_message()]);
+if ($resConf && $rowConf = mssql_fetch_assoc($resConf)) {
+  $usuario_confirmo = intval($rowConf['usuario']);
+  $estatus_confirmado = intval($rowConf['estatus']);
+
+  $mensajeFinal = $estatus_confirmado === 1
+    ? "🔒 Modo: Solo lectura (por confirmación previa)"
+    : "✅ Modo: Solo lectura (diferencias confirmadas)";
+
+  echo json_encode([
+    'success' => true,
+    'modo' => 'solo lectura',
+    'mensaje' => $mensajeFinal,
+    'capturista' => $usuario_confirmo
+  ]);
   exit;
 }
 
-$rowConf = mssql_fetch_assoc($resConf);
-if ($rowConf && $rowConf['estatus'] == 1) {
-  echo json_encode(['success' => true, 'modo' => 'solo lectura']);
-  exit;
-}
-
-// Paso 3: Ejecutar el SP para registrar o definir el modo
+// 🟢 2. Ejecutar SP (el SP ya inserta si es necesario y retorna el modo)
 $sql = "
   DECLARE @modo NVARCHAR(20);
   EXEC USP_CONTROL_CARGA_INVENTARIO '$almacen', '$fecha', $empleado, @modo OUTPUT;
   SELECT @modo as modo_resultado;
 ";
-
 $resSP = mssql_query($sql, $conn);
 if (!$resSP) {
   echo json_encode(['success' => false, 'error' => mssql_get_last_message()]);
@@ -79,9 +65,34 @@ if (!$rowSP) {
 }
 
 $modo = $rowSP['modo_resultado'];
+$capturista = null;
+$mensaje = "";
 
+// 🟢 3. Verificar capturista activo solo si modo = solo lectura
+if ($modo === 'solo lectura') {
+  $sqlUsuario = "
+    SELECT TOP 1 usuario
+    FROM CAP_INVENTARIO
+    WHERE almacen = '$almacen' AND fecha_inv = '$fecha' AND estatus = 0
+  ";
+  $resUsuario = mssql_query($sqlUsuario, $conn);
+  if ($resUsuario && $rowUsuario = mssql_fetch_assoc($resUsuario)) {
+    $capturista = intval($rowUsuario['usuario']);
+  }
+
+  $mensaje = ($capturista !== null && $capturista != $empleado)
+    ? "🔒 Modo: Solo lectura (otro usuario está capturando)"
+    : "🔒 Modo: Solo lectura (por confirmación previa)";
+} else {
+  $mensaje = "✍️ Modo: Edición habilitada";
+  $capturista = $empleado;
+}
+
+// 🟢 4. Devolver al frontend
 echo json_encode([
   'success' => true,
-  'modo' => $modo
+  'modo' => $modo,
+  'mensaje' => $mensaje,
+  'capturista' => $capturista
 ]);
 exit;
