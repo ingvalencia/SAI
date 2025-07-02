@@ -8,7 +8,7 @@ export default function App() {
   const [estadoSistema, setEstadoSistema] = useState(null);
 
   // Asignar empleado directamente (modo desarrollo)
-  const EMPLEADO_FORZADO = "1648";
+  const EMPLEADO_FORZADO = "42371";
   localStorage.setItem("empleado", EMPLEADO_FORZADO);
 
   useEffect(() => {

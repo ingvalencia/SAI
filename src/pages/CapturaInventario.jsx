@@ -17,6 +17,8 @@ export default function CapturaInventario() {
   const navigate = useNavigate();
   const [mensajeModo, setMensajeModo] = useState("");
   const [mostrarComparar, setMostrarComparar] = useState(false);
+  const [mensajeValidacion, setMensajeValidacion] = useState("");
+
 
   useEffect(() => {
 
@@ -150,13 +152,13 @@ export default function CapturaInventario() {
 
               if (valor.trim() === "") {
                 setFecha("");
-                setMensajeModo("⚠ Ingresa un almacén válido.");
+                setMensajeValidacion("⚠ Ingresa un almacén válido.");
                 return;
               }
 
               if (!valor.includes("-")) {
-                setMensajeModo("⚠ El formato debe ser: CEF-guion (ej: AXM-p)");
                 setFecha("");
+                setMensajeValidacion("⚠ El formato debe ser: CEF-guion (ej: AXM-p)");
                 return;
               }
 
@@ -168,37 +170,36 @@ export default function CapturaInventario() {
 
                 if (res.data.success && res.data.fecha) {
                   setFecha(res.data.fecha);
-                  setMensajeModo("");
+                  setMensajeValidacion("");
                 } else {
                   setFecha("");
-                  setMensajeModo("⚠ No se encontró fecha para ese almacén.");
+                  setMensajeValidacion("⚠ No se encontró fecha para ese almacén.");
                 }
               } catch (error) {
                 console.error("Error al obtener fecha automática:", error.message);
                 setFecha("");
-                setMensajeModo("❌ Error al buscar la fecha del almacén.");
+                setMensajeValidacion("❌ Error al buscar la fecha del almacén.");
               }
             }}
             className={`border rounded px-4 py-2 shadow-sm w-full transition focus:outline-none focus:ring-2 ${
-              mensajeModo ? "border-red-500 ring-red-200" : "border-gray-300 focus:ring-blue-400"
+              mensajeValidacion ? "border-red-500 ring-red-200" : "border-gray-300 focus:ring-blue-400"
             }`}
           />
-          {mensajeModo && (
+
+          {mensajeValidacion && (
             <div className="absolute top-full left-0 mt-1 text-xs text-red-600 font-mono whitespace-nowrap z-10">
-              {mensajeModo}
+              {mensajeValidacion}
             </div>
           )}
         </div>
 
-
-
         <input
           type="date"
           value={fecha}
-          readOnly
-          disabled
-          className="bg-gray-100 border border-gray-300 rounded px-4 py-2 shadow-sm text-gray-500 cursor-not-allowed"
+          onChange={(e) => setFecha(e.target.value)}
+          className="border border-gray-300 rounded px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
         />
+
 
         <input
           type="number"
