@@ -19,6 +19,11 @@ export default function CapturaInventario() {
   const [mostrarComparar, setMostrarComparar] = useState(false);
 
   useEffect(() => {
+
+    const emp = localStorage.getItem("empleado");
+    if (emp) {
+      setEmpleado(emp);
+    }
     setModo(null);
     setDatos([]);
     setBloqueado(false);
@@ -134,26 +139,76 @@ export default function CapturaInventario() {
       </h1>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 items-end">
-        <input
-          type="text"
-          placeholder="Almacén"
-          value={almacen}
-          onChange={(e) => setAlmacen(e.target.value)}
-          className="border border-gray-300 rounded px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
-        />
+        <div className="relative w-full">
+          <input
+            type="text"
+            placeholder="Almacén (ej: fbm-s)"
+            value={almacen}
+            onChange={async (e) => {
+              const valor = e.target.value;
+              setAlmacen(valor);
+
+              if (valor.trim() === "") {
+                setFecha("");
+                setMensajeModo("⚠ Ingresa un almacén válido.");
+                return;
+              }
+
+              if (!valor.includes("-")) {
+                setMensajeModo("⚠ El formato debe ser: CEF-guion (ej: AXM-p)");
+                setFecha("");
+                return;
+              }
+
+              try {
+                const res = await axios.get(
+                  "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/buscar_fecha_nexdate.php",
+                  { params: { almacen: valor } }
+                );
+
+                if (res.data.success && res.data.fecha) {
+                  setFecha(res.data.fecha);
+                  setMensajeModo("");
+                } else {
+                  setFecha("");
+                  setMensajeModo("⚠ No se encontró fecha para ese almacén.");
+                }
+              } catch (error) {
+                console.error("Error al obtener fecha automática:", error.message);
+                setFecha("");
+                setMensajeModo("❌ Error al buscar la fecha del almacén.");
+              }
+            }}
+            className={`border rounded px-4 py-2 shadow-sm w-full transition focus:outline-none focus:ring-2 ${
+              mensajeModo ? "border-red-500 ring-red-200" : "border-gray-300 focus:ring-blue-400"
+            }`}
+          />
+          {mensajeModo && (
+            <div className="absolute top-full left-0 mt-1 text-xs text-red-600 font-mono whitespace-nowrap z-10">
+              {mensajeModo}
+            </div>
+          )}
+        </div>
+
+
+
         <input
           type="date"
           value={fecha}
-          onChange={(e) => setFecha(e.target.value)}
-          className="border border-gray-300 rounded px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+          readOnly
+          disabled
+          className="bg-gray-100 border border-gray-300 rounded px-4 py-2 shadow-sm text-gray-500 cursor-not-allowed"
         />
+
         <input
           type="number"
           placeholder="Empleado"
           value={empleado}
-          onChange={(e) => setEmpleado(e.target.value)}
-          className="border border-gray-300 rounded px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+          readOnly
+          disabled
+          className="border border-gray-300 rounded px-4 py-2 shadow-sm bg-gray-100 text-gray-500 cursor-not-allowed"
         />
+
         <button
           onClick={iniciarCaptura}
           className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded shadow transition flex items-center gap-2 justify-center"

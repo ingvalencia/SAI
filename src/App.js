@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import CapturaInventario from "./pages/CapturaInventario";
 import CompararInventario from "./pages/CompararInventario";
 import EnMantenimiento from "./pages/EnMantenimiento";
@@ -8,7 +8,7 @@ export default function App() {
   const [estadoSistema, setEstadoSistema] = useState(null);
 
   // Asignar empleado directamente (modo desarrollo)
-  const EMPLEADO_FORZADO = "42371";
+  const EMPLEADO_FORZADO = "1648";
   localStorage.setItem("empleado", EMPLEADO_FORZADO);
 
   useEffect(() => {

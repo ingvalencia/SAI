@@ -117,6 +117,7 @@ export default function CompararInventario() {
           onChange={(e) => setBusqueda(e.target.value)}
           className="w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
         />
+
       </div>
 
       <div className="relative overflow-auto max-h-[70vh] border rounded-lg shadow-md">
