@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 import * as XLSX from "xlsx";
+import Select from "react-select";
 
 
 const MySwal = withReactContent(Swal);
@@ -22,8 +23,9 @@ export default function CapturaInventario() {
   const [mensajeValidacion, setMensajeValidacion] = useState("");
   const [familiaSeleccionada, setFamiliaSeleccionada] = useState("");
   const [subfamiliaSeleccionada, setSubfamiliaSeleccionada] = useState("");
-
-
+  const [catalogoAlmacenes, setCatalogoAlmacenes] = useState([]);
+  const [ciaSeleccionada, setCiaSeleccionada] = useState("");
+  const [mostrarCatalogo, setMostrarCatalogo] = useState(false);
 
   useEffect(() => {
 
@@ -44,7 +46,7 @@ export default function CapturaInventario() {
 
     try {
       const r1 = await axios.get("https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/control_carga_inventario.php", {
-        params: { almacen, fecha, empleado },
+        params: { almacen, fecha, empleado, cia: ciaSeleccionada },
       });
 
       if (!r1.data.success) throw new Error(r1.data.error);
@@ -110,7 +112,9 @@ export default function CapturaInventario() {
       payload.append("almacen", almacen);
       payload.append("fecha", fecha);
       payload.append("empleado", empleado);
+      payload.append("cia", ciaSeleccionada);
       payload.append("datos", JSON.stringify(datos));
+
 
       const res = await axios.post(
         "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/confirmar_inventario.php",
@@ -128,6 +132,7 @@ export default function CapturaInventario() {
           almacen,
           fecha,
           empleado,
+          cia: ciaSeleccionada,
         },
       });
     } catch (error) {
@@ -143,12 +148,16 @@ export default function CapturaInventario() {
 
     const datosExportar = datosFiltrados.map((item, i) => ({
         "#": i + 1,
+        CIA: item.cias,
+        ALMACÉN: item.almacen,
         FAMILIA: item.nom_fam,
         SUBFAMILIA: item.nom_subfam,
         CÓDIGO: item.ItemCode,
         NOMBRE: item.Itemname,
+        "CÓDIGO BARRAS": item.codebars,
         "INVENTARIO FÍSICO": item.cant_invfis,
       }));
+
 
       const worksheet = XLSX.utils.json_to_sheet(datosExportar);
       const workbook = XLSX.utils.book_new();
@@ -164,6 +173,11 @@ export default function CapturaInventario() {
       .map(item => item.nom_subfam)
   )];
 
+  const opcionesAlmacenes = catalogoAlmacenes.map((alm) => ({
+    value: alm.codigo,
+    label: `${alm.codigo} - ${alm.nombre}`,
+  }));
+
 
   return (
 
@@ -174,82 +188,145 @@ export default function CapturaInventario() {
          Captura de Inventario Físico
       </h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 items-end">
-        <div className="relative w-full">
-          <input
-            type="text"
-            placeholder="Almacén (ej: fbm-s)"
-            value={almacen}
-            onChange={async (e) => {
-              const valor = e.target.value;
-              setAlmacen(valor);
+      {/* BLOQUE DE SELECCIÓN PRINCIPAL EN ESTILO TARJETA */}
+      <div className="bg-white border border-gray-300 rounded-lg shadow-sm p-4 mb-6">
+        <h2 className="text-sm font-semibold text-gray-700 mb-4">📌 Selección de captura</h2>
 
-              if (valor.trim() === "") {
-                setFecha("");
-                setMensajeValidacion("⚠ Ingresa un almacén válido.");
-                return;
-              }
-
-              if (!valor.includes("-")) {
-                setFecha("");
-                setMensajeValidacion("⚠ El formato debe ser: CEF-guion (ej: AXM-p)");
-                return;
-              }
-
-              try {
-                const res = await axios.get(
-                  "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/buscar_fecha_nexdate.php",
-                  { params: { almacen: valor } }
-                );
-
-                if (res.data.success && res.data.fecha) {
-                  setFecha(res.data.fecha);
-                  setMensajeValidacion("");
-                } else {
-                  setFecha("");
-                  setMensajeValidacion("⚠ No se encontró fecha para ese almacén.");
-                }
-              } catch (error) {
-                console.error("Error al obtener fecha automática:", error.message);
-                setFecha("");
-                setMensajeValidacion("❌ Error al buscar la fecha del almacén.");
-              }
+        {/* Select de CIA */}
+        <div className="mb-4">
+          <label className="block text-xs font-bold text-gray-700 mb-1 uppercase">CIA a Capturar</label>
+          <select
+            value={ciaSeleccionada}
+            onChange={(e) => {
+              setCiaSeleccionada(e.target.value);
+              setAlmacen("");
+              setFecha("");
+              setCatalogoAlmacenes([]);
+              setMostrarCatalogo(false);
             }}
-            className={`border rounded px-4 py-2 shadow-sm w-full transition focus:outline-none focus:ring-2 ${
-              mensajeValidacion ? "border-red-500 ring-red-200" : "border-gray-300 focus:ring-blue-400"
-            }`}
-          />
-
-          {mensajeValidacion && (
-            <div className="absolute top-full left-0 mt-1 text-xs text-red-600 font-mono whitespace-nowrap z-10">
-              {mensajeValidacion}
-            </div>
-          )}
+            className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          >
+            <option value="">-- Selecciona una CIA --</option>
+            <option value="recrefam">RECREFAM</option>
+            <option value="veser">VESER</option>
+            <option value="opardiv">OPARDIV</option>
+          </select>
         </div>
 
-        <input
-          type="date"
-          value={fecha}
-          onChange={(e) => setFecha(e.target.value)}
-          className="border border-gray-300 rounded px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
-        />
+        {/* Grid: almacén, fecha, empleado, botón */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+          {/* Almacén */}
+          <div className="w-full">
+            <Select
+              options={catalogoAlmacenes.map((alm) => ({
+                value: alm.codigo,
+                label: `${alm.codigo} - ${alm.nombre}`,
+              }))}
+              placeholder="Escribe o selecciona un almacén (ej: AAA-G)"
+              isDisabled={ciaSeleccionada === ""}
+              onMenuOpen={async () => {
+                if (ciaSeleccionada === "") {
+                  setMensajeValidacion("⚠ Debes seleccionar una CIA primero.");
+                  return;
+                }
+                if (catalogoAlmacenes.length === 0) {
+                  try {
+                    const res = await axios.get(
+                      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/catalogo_almacenes.php",
+                      { params: { cia: ciaSeleccionada } }
+                    );
+                    if (res.data.success && res.data.data) {
+                      setCatalogoAlmacenes(res.data.data);
+                      setMensajeValidacion("");
+                    } else {
+                      setMensajeValidacion("⚠ No se encontraron almacenes para esa CIA.");
+                    }
+                  } catch (error) {
+                    console.error("Error al obtener almacenes:", error.message);
+                    setMensajeValidacion("❌ Error al consultar el catálogo.");
+                  }
+                }
+              }}
+              value={
+                almacen
+                  ? {
+                      value: almacen,
+                      label:
+                        catalogoAlmacenes.find((a) => a.codigo === almacen)?.codigo +
+                        " - " +
+                        catalogoAlmacenes.find((a) => a.codigo === almacen)?.nombre,
+                    }
+                  : null
+              }
+              onChange={(opcion) => {
+                const valor = opcion?.value || "";
+                setAlmacen(valor);
+                setMensajeValidacion("");
 
+                axios
+                  .get(
+                    "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/buscar_fecha_nexdate.php",
+                    { params: { almacen: valor } }
+                  )
+                  .then((res) => {
+                    if (res.data.success && res.data.fecha) {
+                      setFecha(res.data.fecha);
+                    } else {
+                      setFecha("");
+                    }
+                  })
+                  .catch((error) => {
+                    console.error("Error al buscar fecha:", error.message);
+                  });
+              }}
+              isClearable
+              noOptionsMessage={() => "No encontrado"}
+              filterOption={(option, inputValue) =>
+                option.label.toLowerCase().includes(inputValue.toLowerCase())
+              }
+              styles={{
+                control: (base) => ({
+                  ...base,
+                  borderColor: mensajeValidacion ? "#f87171" : base.borderColor,
+                  boxShadow: mensajeValidacion ? "0 0 0 1px #f87171" : base.boxShadow,
+                  minHeight: "42px",
+                }),
+              }}
+            />
+            {mensajeValidacion && (
+              <div className="mt-1 text-xs text-red-600 font-mono whitespace-nowrap">
+                {mensajeValidacion}
+              </div>
+            )}
+          </div>
 
-        <input
-          type="number"
-          placeholder="Empleado"
-          value={empleado}
-          readOnly
-          disabled
-          className="border border-gray-300 rounded px-4 py-2 shadow-sm bg-gray-100 text-gray-500 cursor-not-allowed"
-        />
+          {/* Fecha */}
+          <input
+            type="date"
+            value={fecha}
+            onChange={(e) => setFecha(e.target.value)}
+            disabled={ciaSeleccionada === ""}
+            className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
 
-        <button
-          onClick={iniciarCaptura}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded shadow transition flex items-center gap-2 justify-center"
-        >
-           Iniciar captura
-        </button>
+          {/* Empleado */}
+          <input
+            type="number"
+            placeholder="Empleado"
+            value={empleado}
+            readOnly
+            disabled
+            className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm bg-gray-100 text-gray-500 cursor-not-allowed"
+          />
+
+          {/* Botón */}
+          <button
+            onClick={iniciarCaptura}
+            className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+          >
+            Iniciar captura
+          </button>
+        </div>
       </div>
 
       {modo && (
@@ -341,10 +418,13 @@ export default function CapturaInventario() {
               <thead className="sticky top-0 bg-gradient-to-r from-blue-100 via-white to-blue-100 text-gray-800 text-xs uppercase tracking-wider shadow-md z-10">
                 <tr>
                   <th className="p-3 text-left w-10">#</th>
+                  <th className="p-3 text-left">CIA</th>
+                  <th className="p-3 text-left">Almacen</th>
                   <th className="p-3 text-left">Familia</th>
                   <th className="p-3 text-left">Subfamilia</th>
                   <th className="p-3 text-left">Código</th>
-                  <th className="p-3 text-left">Nombre</th>
+                  <th className="p-3 text-left w-64 max-w-[16rem]">NOMBRE</th>
+                  <th className="p-3 text-left">Código de Barras</th>
                   <th className="p-3 text-left">Inventario Físico</th>
                 </tr>
               </thead>
@@ -353,7 +433,10 @@ export default function CapturaInventario() {
                   .filter((item) => {
                     const matchBusqueda =
                       item.ItemCode.toLowerCase().includes(busqueda.toLowerCase()) ||
-                      item.Itemname.toLowerCase().includes(busqueda.toLowerCase());
+                      item.Itemname.toLowerCase().includes(busqueda.toLowerCase()) ||
+                      item.codebars.toLowerCase().includes(busqueda.toLowerCase()) ||
+                      item.almacen.toLowerCase().includes(busqueda.toLowerCase()) ||
+                      item.cias.toLowerCase().includes(busqueda.toLowerCase());
 
                     const matchFamilia = !familiaSeleccionada || item.nom_fam === familiaSeleccionada;
                     const matchSubfamilia = !subfamiliaSeleccionada || item.nom_subfam === subfamiliaSeleccionada;
@@ -369,10 +452,13 @@ export default function CapturaInventario() {
                     return (
                       <tr key={i} className="hover:bg-blue-50 transition duration-150 ease-in-out">
                         <td className="p-3 text-sm text-gray-500 font-semibold whitespace-nowrap">{i + 1}</td>
+                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.cias}</td>
+                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.almacen}</td>
                         <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.nom_fam}</td>
                         <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.nom_subfam}</td>
                         <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.ItemCode}</td>
-                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.Itemname}</td>
+                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap truncate max-w-[16rem]">{item.Itemname}</td>
+                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.codebars}</td>
                         <td className="p-3">
                           {bloqueado ? (
                             <span className="text-gray-600 text-sm font-medium">{valor}</span>

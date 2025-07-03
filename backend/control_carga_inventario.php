@@ -4,8 +4,9 @@ header('Content-Type: application/json');
 $almacen  = isset($_GET['almacen'])  ? $_GET['almacen']  : null;
 $fecha    = isset($_GET['fecha'])    ? $_GET['fecha']    : null;
 $empleado = isset($_GET['empleado']) ? intval($_GET['empleado']) : null;
+$cia      = isset($_GET['cia'])      ? $_GET['cia']      : null;
 
-if (!$almacen || !$fecha || !$empleado) {
+if (!$almacen || !$fecha || !$empleado || !$cia) {
   echo json_encode(['success' => false, 'error' => 'Faltan parámetros requeridos']);
   exit;
 }
@@ -22,7 +23,6 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-// 🟢 1. Verificar si ya fue confirmado o cerrado (estatus 1 o 2)
 $sqlConfirmado = "
   SELECT TOP 1 usuario, estatus
   FROM CAP_INVENTARIO
@@ -46,10 +46,9 @@ if ($resConf && $rowConf = mssql_fetch_assoc($resConf)) {
   exit;
 }
 
-// 🟢 2. Ejecutar SP (el SP ya inserta si es necesario y retorna el modo)
 $sql = "
   DECLARE @modo NVARCHAR(20);
-  EXEC USP_CONTROL_CARGA_INVENTARIO '$almacen', '$fecha', $empleado, @modo OUTPUT;
+  EXEC USP_CONTROL_CARGA_INVENTARIO '$almacen', '$fecha', $empleado, '$cia', @modo OUTPUT;
   SELECT @modo as modo_resultado;
 ";
 $resSP = mssql_query($sql, $conn);
@@ -68,7 +67,6 @@ $modo = $rowSP['modo_resultado'];
 $capturista = null;
 $mensaje = "";
 
-// 🟢 3. Verificar capturista activo solo si modo = solo lectura
 if ($modo === 'solo lectura') {
   $sqlUsuario = "
     SELECT TOP 1 usuario
@@ -88,7 +86,6 @@ if ($modo === 'solo lectura') {
   $capturista = $empleado;
 }
 
-// 🟢 4. Devolver al frontend
 echo json_encode([
   'success' => true,
   'modo' => $modo,
