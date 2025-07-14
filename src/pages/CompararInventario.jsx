@@ -46,7 +46,9 @@ export default function CompararInventario() {
       return;
     }
 
-    const obtenerComparacion = async () => {
+    // Solo hacer la llamada si los datos aún no han sido cargados
+    if (datos.length === 0) {
+      const obtenerComparacion = async () => {
         try {
           const res = await axios.get(
             "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/comparar_inventarios.php",
@@ -56,11 +58,9 @@ export default function CompararInventario() {
           if (!res.data.success) throw new Error(res.data.error);
           setDatos(res.data.data);
 
-
           if (res.data.estatus === 2) {
             setDiferenciaConfirmada(true);
           }
-
         } catch (error) {
           console.error("Error al obtener diferencias", error.message);
         } finally {
@@ -69,44 +69,47 @@ export default function CompararInventario() {
       };
 
       obtenerComparacion();
-    }, [almacen, fecha, empleado, navigate]);
+    }
+  }, [almacen, fecha, empleado, navigate, datos.length]);
 
-    if (loading) return <p className="text-center mt-10 text-gray-600">Cargando diferencias...</p>;
+  // Mostrar loading si aún no termina
+  if (loading) return <p className="text-center mt-10 text-gray-600">Cargando diferencias...</p>;
 
-    const confirmarDiferencia = async () => {
-  const resultado = await Swal.fire({
-    title: "¿Confirmar diferencias?",
-    text: "¿Deseas confirmar las diferencias proporcionadas?",
-    icon: "warning",
-    showCancelButton: true,
-    confirmButtonText: "Sí, confirmar",
-    cancelButtonText: "No estoy de acuerdo",
-  });
+  // Función para confirmar diferencias
+  const confirmarDiferencia = async () => {
+    const resultado = await Swal.fire({
+      title: "¿Confirmar diferencias?",
+      text: "¿Deseas confirmar las diferencias proporcionadas?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, confirmar",
+      cancelButtonText: "No estoy de acuerdo",
+    });
 
-  if (!resultado.isConfirmed) {
-    Swal.fire("Cancelado", "Debe completar el proceso para continuar.", "info");
-    return;
-  }
+    if (!resultado.isConfirmed) {
+      Swal.fire("Cancelado", "Debe completar el proceso para continuar.", "info");
+      return;
+    }
 
-  try {
-    const formData = new FormData();
-    formData.append("almacen", almacen);
-    formData.append("fecha", fecha);
-    formData.append("empleado", empleado);
+    try {
+      const formData = new FormData();
+      formData.append("almacen", almacen);
+      formData.append("fecha", fecha);
+      formData.append("empleado", empleado);
 
-    const res = await axios.post(
-      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/confirmar_diferencia.php",
-      formData
-    );
+      const res = await axios.post(
+        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/confirmar_diferencia.php",
+        formData
+      );
 
-    if (!res.data.success) throw new Error(res.data.error);
+      if (!res.data.success) throw new Error(res.data.error);
 
-    Swal.fire("¡Hecho!", "Las diferencias han sido confirmadas.", "success");
-    setDiferenciaConfirmada(true);
-  } catch (error) {
-    Swal.fire("Error", error.message, "error");
-  }
-};
+      Swal.fire("¡Hecho!", "Las diferencias han sido confirmadas.", "success");
+      setDiferenciaConfirmada(true);
+    } catch (error) {
+      Swal.fire("Error", error.message, "error");
+    }
+  };
 
 
 

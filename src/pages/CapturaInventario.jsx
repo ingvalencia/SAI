@@ -1,13 +1,13 @@
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 import * as XLSX from "xlsx";
 import Select from "react-select";
-
-
+import LectorCodigo from "../components/LectorCodigo"; // ajusta la ruta según tu estructura
 const MySwal = withReactContent(Swal);
+
 
 export default function CapturaInventario() {
   const [almacen, setAlmacen] = useState("");
@@ -26,6 +26,8 @@ export default function CapturaInventario() {
   const [catalogoAlmacenes, setCatalogoAlmacenes] = useState([]);
   const [ciaSeleccionada, setCiaSeleccionada] = useState("");
   const [mostrarCatalogo, setMostrarCatalogo] = useState(false);
+  const [lectorActivo, setLectorActivo] = useState(true);
+
 
   useEffect(() => {
 
@@ -178,6 +180,72 @@ export default function CapturaInventario() {
     label: `${alm.codigo} - ${alm.nombre}`,
   }));
 
+  //
+  const inputRefs = useRef([]);
+
+  const handleCodigoDetectado = async (codigo) => {
+    const index = datos.findIndex((item) => item.codebars?.toLowerCase() === codigo.toLowerCase());
+
+    if (index !== -1) {
+      const producto = datos[index];
+
+      // ✅ Aplicar filtro visual para mostrar solo el producto
+      setBusqueda(producto.ItemCode);
+
+      const { value: cantidad } = await MySwal.fire({
+        title: `<div class="text-xl font-bold text-gray-800 text-center">
+                  Producto encontrado: ${producto.Itemname}
+              </div>`,
+        html: `
+          <div class="text-left text-sm text-gray-700 leading-relaxed mb-2">
+            <p>🧾 <strong>Código:</strong> ${producto.ItemCode}</p>
+            <p>🏬 <strong>Almacén:</strong> ${producto.almacen}</p>
+            <p>📁 <strong>Familia:</strong> ${producto.nom_fam}</p>
+          </div>
+          <input
+            type="number"
+            id="cantidad"
+            class="swal2-input text-center text-lg font-bold"
+            placeholder="Cantidad"
+            min="0"
+            step="any"
+            maxlength="6"
+            oninput="if(this.value.length > 6) this.value = this.value.slice(0, 6)"
+          />
+        `,
+        focusConfirm: false,
+        confirmButtonText: "Guardar",
+        showCancelButton: true,
+        cancelButtonText: "Cancelar",
+        preConfirm: () => {
+          const valor = document.getElementById("cantidad").value;
+          if (!valor || isNaN(valor) || parseFloat(valor) < 0) {
+            Swal.showValidationMessage("Ingrese una cantidad válida.");
+            return false;
+          }
+          return parseFloat(valor);
+        },
+      });
+
+      if (cantidad !== undefined) {
+        const nuevo = [...datos];
+        nuevo[index].cant_invfis = cantidad;
+        setDatos(nuevo);
+
+        // ✅ Scroll al producto y resaltar visualmente
+        const elemento = document.getElementById(`fila-${index}`);
+        if (elemento) {
+          elemento.scrollIntoView({ behavior: "smooth", block: "center" });
+          elemento.classList.add("ring-2", "ring-green-400");
+          setTimeout(() => elemento.classList.remove("ring-2", "ring-green-400"), 1500);
+        }
+      }
+    } else {
+      MySwal.fire("No encontrado", `El código ${codigo} no está en la tabla actual`, "warning");
+    }
+  };
+
+
 
   return (
 
@@ -187,6 +255,16 @@ export default function CapturaInventario() {
       <h1 className="text-3xl font-bold mb-6 text-gray-800 flex items-center gap-2">
          Captura de Inventario Físico
       </h1>
+
+     {datos.length > 0 && lectorActivo && (
+        <LectorCodigo
+          onCodigoDetectado={(codigo) => {
+            console.log("Código detectado:", codigo);
+            handleCodigoDetectado(codigo);
+          }}
+        />
+      )}
+
 
       {/* BLOQUE DE SELECCIÓN PRINCIPAL EN ESTILO TARJETA */}
       <div className="bg-white border border-gray-300 rounded-lg shadow-sm p-4 mb-6">
@@ -344,6 +422,8 @@ export default function CapturaInventario() {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Familia</label>
                 <select
                   value={familiaSeleccionada}
+                  onFocus={() => setLectorActivo(false)}
+                  onBlur={() => setTimeout(() => setLectorActivo(true), 300)}
                   onChange={(e) => {
                     setFamiliaSeleccionada(e.target.value);
                     setSubfamiliaSeleccionada("");
@@ -362,6 +442,8 @@ export default function CapturaInventario() {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Subfamilia</label>
                 <select
                   value={subfamiliaSeleccionada}
+                  onFocus={() => setLectorActivo(false)}
+                  onBlur={() => setTimeout(() => setLectorActivo(true), 300)}
                   onChange={(e) => {
                     setSubfamiliaSeleccionada(e.target.value);
                     setBusqueda(""); // limpiar búsqueda al cambiar
@@ -382,6 +464,8 @@ export default function CapturaInventario() {
                   type="text"
                   placeholder="Buscar..."
                   value={busqueda}
+                  onFocus={() => setLectorActivo(false)}
+                  onBlur={() => setTimeout(() => setLectorActivo(true), 300)}
                   onChange={(e) => setBusqueda(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
@@ -450,7 +534,7 @@ export default function CapturaInventario() {
                       valor === "" || valor === null || isNaN(Number(valor)) || parseFloat(valor) <= 0;
 
                     return (
-                      <tr key={i} className="hover:bg-blue-50 transition duration-150 ease-in-out">
+                      <tr key={i} id={`fila-${i}`} className="hover:bg-blue-50 transition duration-150 ease-in-out">
                         <td className="p-3 text-sm text-gray-500 font-semibold whitespace-nowrap">{i + 1}</td>
                         <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.cias}</td>
                         <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.almacen}</td>
@@ -464,6 +548,7 @@ export default function CapturaInventario() {
                             <span className="text-gray-600 text-sm font-medium">{valor}</span>
                           ) : (
                             <input
+                              ref={(el) => (inputRefs.current[i] = el)}
                               type="number"
                               className={`border rounded px-3 py-1 w-24 text-center text-sm font-semibold transition-all duration-200 ease-in-out ${
                                 editado ? "bg-green-100 border-green-500 ring-1 ring-green-200" : ""
@@ -498,5 +583,7 @@ export default function CapturaInventario() {
         </div>
       )}
     </div>
+
+
   );
 }
