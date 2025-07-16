@@ -1,11 +1,14 @@
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 import * as XLSX from "xlsx";
 import Select from "react-select";
-import LectorCodigo from "../components/LectorCodigo"; // ajusta la ruta según tu estructura
+import LectorCodigo from "../components/LectorCodigo";
+import EscanerCamaraQuagga from "../components/EscanerCamaraQuagga";
+
+
 const MySwal = withReactContent(Swal);
 
 
@@ -16,6 +19,7 @@ export default function CapturaInventario() {
   const [modo, setModo] = useState(null);
   const [datos, setDatos] = useState([]);
   const [bloqueado, setBloqueado] = useState(false);
+  const [loadingInventario, setLoadingInventario] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const navigate = useNavigate();
   const [mensajeModo, setMensajeModo] = useState("");
@@ -27,6 +31,9 @@ export default function CapturaInventario() {
   const [ciaSeleccionada, setCiaSeleccionada] = useState("");
   const [mostrarCatalogo, setMostrarCatalogo] = useState(false);
   const [lectorActivo, setLectorActivo] = useState(true);
+  const [mostrarEscanerCamara, setMostrarEscanerCamara] = useState(false);
+  const [paginaActual, setPaginaActual] = useState(1);
+  const registrosPorPagina = 100;
 
 
   useEffect(() => {
@@ -39,6 +46,9 @@ export default function CapturaInventario() {
     setDatos([]);
     setBloqueado(false);
   }, [almacen, fecha, empleado]);
+
+  const esMovil = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
 
   const iniciarCaptura = async () => {
     if (!almacen || !fecha || !empleado) {
@@ -65,6 +75,7 @@ export default function CapturaInventario() {
       const esCapturista = capturista === null || parseInt(capturista) === parseInt(empleado);
       setMostrarComparar(modo === "solo lectura" && esCapturista);
 
+      setLoadingInventario(true);
 
 
       const r2 = await axios.get("https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/obtener_inventario.php", {
@@ -73,8 +84,12 @@ export default function CapturaInventario() {
 
       if (!r2.data.success) throw new Error(r2.data.error);
       setDatos(r2.data.data);
+      setLoadingInventario(false);
+
     } catch (error) {
       MySwal.fire("Error", error.message, "error");
+      setLoadingInventario(false);
+
     }
   };
 
@@ -183,6 +198,9 @@ export default function CapturaInventario() {
   //
   const inputRefs = useRef([]);
 
+  //
+
+
   const handleCodigoDetectado = async (codigo) => {
     const index = datos.findIndex((item) => item.codebars?.toLowerCase() === codigo.toLowerCase());
 
@@ -245,6 +263,31 @@ export default function CapturaInventario() {
     }
   };
 
+  const datosFiltrados = useMemo(() => {
+    return datos.filter((item) => {
+      const matchBusqueda =
+        item.ItemCode.toLowerCase().includes(busqueda.toLowerCase()) ||
+        item.Itemname.toLowerCase().includes(busqueda.toLowerCase()) ||
+        item.codebars.toLowerCase().includes(busqueda.toLowerCase()) ||
+        item.almacen.toLowerCase().includes(busqueda.toLowerCase()) ||
+        item.cias.toLowerCase().includes(busqueda.toLowerCase());
+
+      const matchFamilia = !familiaSeleccionada || item.nom_fam === familiaSeleccionada;
+      const matchSubfamilia = !subfamiliaSeleccionada || item.nom_subfam === subfamiliaSeleccionada;
+
+      return matchBusqueda && matchFamilia && matchSubfamilia;
+    });
+  }, [datos, busqueda, familiaSeleccionada, subfamiliaSeleccionada]);
+
+  const indiceInicial = (paginaActual - 1) * registrosPorPagina;
+  const indiceFinal = indiceInicial + registrosPorPagina;
+  const datosPaginados = datosFiltrados.slice(indiceInicial, indiceFinal);
+
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [busqueda, familiaSeleccionada, subfamiliaSeleccionada]);
+
+
 
 
   return (
@@ -252,17 +295,35 @@ export default function CapturaInventario() {
     <div className="max-w-7xl mx-auto p-6">
 
 
-      <h1 className="text-3xl font-bold mb-6 text-gray-800 flex items-center gap-2">
-         Captura de Inventario Físico
+      <h1 className="text-3xl md:text-4xl font-extrabold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-700 via-indigo-600 to-green-600 tracking-tight drop-shadow-sm text-center">
+        📦 Captura de Inventario Físico
       </h1>
 
-     {datos.length > 0 && lectorActivo && (
+
+
+      {/* Lector invisible solo si NO es móvil */}
+      {datos.length > 0 && !esMovil && (
         <LectorCodigo
+          lectorActivo={lectorActivo}
           onCodigoDetectado={(codigo) => {
             console.log("Código detectado:", codigo);
             handleCodigoDetectado(codigo);
           }}
         />
+      )}
+
+
+      {/* Botón escaneo en vivo solo en móviles */}
+      {datos.length > 0 && esMovil && (
+        <button
+          onClick={() => {
+            setLectorActivo(false); // Desactiva escáner invisible
+            setMostrarEscanerCamara(true); // Activa Quagga
+          }}
+          className="mt-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded shadow-sm text-sm"
+        >
+          🎥 Escanear en vivo
+        </button>
       )}
 
 
@@ -404,6 +465,9 @@ export default function CapturaInventario() {
           >
             Iniciar captura
           </button>
+
+
+
         </div>
       </div>
 
@@ -465,10 +529,20 @@ export default function CapturaInventario() {
                   placeholder="Buscar..."
                   value={busqueda}
                   onFocus={() => setLectorActivo(false)}
-                  onBlur={() => setTimeout(() => setLectorActivo(true), 300)}
+                  onBlur={() => {
+                    setTimeout(() => {
+                      if (
+                        document.activeElement.tagName !== "INPUT" &&
+                        document.activeElement.tagName !== "SELECT"
+                      ) {
+                        setLectorActivo(true);
+                      }
+                    }, 500);
+                  }}
                   onChange={(e) => setBusqueda(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
+
               </div>
 
               {mostrarComparar && (
@@ -487,101 +561,152 @@ export default function CapturaInventario() {
             </div>
           </div>
 
-          <div className="mt-4 flex justify-end">
-            <button
-              onClick={exportarExcel}
-              className="px-4 py-2 bg-green-300 hover:bg-green-400 text-green-900 font-semibold rounded flex items-center gap-2 shadow"
-            >
-             <img src="https://img.icons8.com/color/24/microsoft-excel-2019.png" alt="excel" /> Exportar Excel
-            </button>
-          </div>
-          <br></br>
+         {loadingInventario ? (
+            <div className="flex items-center justify-center h-40 border rounded-lg bg-white shadow-inner text-blue-600 text-base font-medium animate-pulse gap-2">
+              <svg className="animate-spin h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+              </svg>
+              Cargando inventario, por favor espera...
+            </div>
+          ) : (
 
-          <div className="overflow-auto max-h-[70vh] border rounded-lg shadow-md">
-            <table className="min-w-full text-sm table-auto">
-              <thead className="sticky top-0 bg-gradient-to-r from-blue-100 via-white to-blue-100 text-gray-800 text-xs uppercase tracking-wider shadow-md z-10">
-                <tr>
-                  <th className="p-3 text-left w-10">#</th>
-                  <th className="p-3 text-left">CIA</th>
-                  <th className="p-3 text-left">Almacen</th>
-                  <th className="p-3 text-left">Familia</th>
-                  <th className="p-3 text-left">Subfamilia</th>
-                  <th className="p-3 text-left">Código</th>
-                  <th className="p-3 text-left w-64 max-w-[16rem]">NOMBRE</th>
-                  <th className="p-3 text-left">Código de Barras</th>
-                  <th className="p-3 text-left">Inventario Físico</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
-                {datos
-                  .filter((item) => {
-                    const matchBusqueda =
-                      item.ItemCode.toLowerCase().includes(busqueda.toLowerCase()) ||
-                      item.Itemname.toLowerCase().includes(busqueda.toLowerCase()) ||
-                      item.codebars.toLowerCase().includes(busqueda.toLowerCase()) ||
-                      item.almacen.toLowerCase().includes(busqueda.toLowerCase()) ||
-                      item.cias.toLowerCase().includes(busqueda.toLowerCase());
 
-                    const matchFamilia = !familiaSeleccionada || item.nom_fam === familiaSeleccionada;
-                    const matchSubfamilia = !subfamiliaSeleccionada || item.nom_subfam === subfamiliaSeleccionada;
+            <div className="overflow-auto max-h-[70vh] border rounded-lg shadow-md">
+              <table className="min-w-full text-sm table-auto">
+                <thead className="sticky top-0 bg-gradient-to-r from-blue-100 via-white to-blue-100 text-gray-800 text-xs uppercase tracking-wider shadow-md z-10">
+                  <tr>
+                    <th className="p-3 text-left w-10">#</th>
+                    <th className="p-3 text-left">CIA</th>
+                    <th className="p-3 text-left">Almacen</th>
+                    <th className="p-3 text-left">Familia</th>
+                    <th className="p-3 text-left">Subfamilia</th>
+                    <th className="p-3 text-left">Código</th>
+                    <th className="p-3 text-left w-64 max-w-[16rem]">NOMBRE</th>
+                    <th className="p-3 text-left">Código de Barras</th>
+                    <th className="p-3 text-left">Inventario Físico</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {datosPaginados.map((item, i) => {
 
-                    return matchBusqueda && matchFamilia && matchSubfamilia;
-                  })
-                  .map((item, i) => {
-                    const valor = item.cant_invfis;
-                    const editado = parseFloat(valor) > 0;
-                    const invalido =
-                      valor === "" || valor === null || isNaN(Number(valor)) || parseFloat(valor) <= 0;
 
-                    return (
-                      <tr key={i} id={`fila-${i}`} className="hover:bg-blue-50 transition duration-150 ease-in-out">
-                        <td className="p-3 text-sm text-gray-500 font-semibold whitespace-nowrap">{i + 1}</td>
-                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.cias}</td>
-                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.almacen}</td>
-                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.nom_fam}</td>
-                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.nom_subfam}</td>
-                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.ItemCode}</td>
-                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap truncate max-w-[16rem]">{item.Itemname}</td>
-                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.codebars}</td>
-                        <td className="p-3">
-                          {bloqueado ? (
-                            <span className="text-gray-600 text-sm font-medium">{valor}</span>
-                          ) : (
-                            <input
-                              ref={(el) => (inputRefs.current[i] = el)}
-                              type="number"
-                              className={`border rounded px-3 py-1 w-24 text-center text-sm font-semibold transition-all duration-200 ease-in-out ${
-                                editado ? "bg-green-100 border-green-500 ring-1 ring-green-200" : ""
-                              } ${
-                                invalido
-                                  ? "bg-red-100 border-red-500 ring-1 ring-red-200 animate-pulse"
-                                  : ""
-                              }`}
-                              value={valor}
-                              onChange={(e) => cambiarCantidad(i, e.target.value)}
-                            />
-                          )}
-                        </td>
-                      </tr>
-                    );
+                      const valor = item.cant_invfis;
+                      const editado = parseFloat(valor) > 0;
+                      const invalido =
+                        valor === "" || valor === null || isNaN(Number(valor)) || parseFloat(valor) <= 0;
+
+                      return (
+                        <tr key={i} id={`fila-${i}`} className="hover:bg-blue-50 transition duration-150 ease-in-out">
+                          <td className="p-3 text-sm text-gray-500 font-semibold whitespace-nowrap">{indiceInicial + i + 1}</td>
+                          <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.cias}</td>
+                          <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.almacen}</td>
+                          <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.nom_fam}</td>
+                          <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.nom_subfam}</td>
+                          <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.ItemCode}</td>
+                          <td className="p-3 text-sm text-gray-700 whitespace-nowrap truncate max-w-[16rem]">
+                            {item.Itemname}
+                          </td>
+                          <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.codebars}</td>
+                          <td className="p-3">
+                            {bloqueado ? (
+                              <span className="text-gray-600 text-sm font-medium">{valor}</span>
+                            ) : (
+                              <input
+                                ref={(el) => (inputRefs.current[i] = el)}
+                                type="number"
+                                className={`border rounded px-3 py-1 w-24 text-center text-sm font-semibold transition-all duration-200 ease-in-out ${
+                                  editado ? "bg-green-100 border-green-500 ring-1 ring-green-200" : ""
+                                } ${
+                                  invalido
+                                    ? "bg-red-100 border-red-500 ring-1 ring-red-200 animate-pulse"
+                                    : ""
+                                }`}
+                                value={valor}
+                                onChange={(e) => cambiarCantidad(i, e.target.value)}
+                              />
+                            )}
+                          </td>
+                        </tr>
+                      );
                   })}
-
-              </tbody>
-            </table>
-          </div>
-
-          {!bloqueado && (
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={confirmarInventario}
-                className="bg-gradient-to-r from-green-500 to-green-700 hover:from-green-600 hover:to-green-800 text-white font-bold px-6 py-2 rounded-lg shadow-lg hover:shadow-xl transition duration-200 ease-in-out transform hover:-translate-y-0.5 flex items-center gap-2"
-              >
-                ✅ Confirmar inventario
-              </button>
+                </tbody>
+              </table>
             </div>
           )}
+
+          <div className="mt-4 flex justify-center items-center gap-4 text-sm text-gray-700 font-medium">
+            <button
+              onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
+              disabled={paginaActual === 1}
+              className={`px-3 py-1 rounded border ${
+                paginaActual === 1
+                  ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                  : "bg-white hover:bg-blue-100 text-blue-700"
+              }`}
+            >
+              ⬅️ Anterior
+            </button>
+
+            <span>
+              Página {paginaActual} de {Math.ceil(datosFiltrados.length / registrosPorPagina)}
+            </span>
+
+            <button
+              onClick={() =>
+                setPaginaActual((prev) =>
+                  prev < Math.ceil(datosFiltrados.length / registrosPorPagina)
+                    ? prev + 1
+                    : prev
+                )
+              }
+              disabled={paginaActual >= Math.ceil(datosFiltrados.length / registrosPorPagina)}
+              className={`px-3 py-1 rounded border ${
+                paginaActual >= Math.ceil(datosFiltrados.length / registrosPorPagina)
+                  ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                  : "bg-white hover:bg-blue-100 text-blue-700"
+              }`}
+            >
+              Siguiente ➡️
+            </button>
+          </div>
+
+
+
+         {!loadingInventario && !bloqueado && (
+          <div className="mt-4 flex justify-between items-center">
+            {/* Botón Exportar Excel */}
+            <button
+              onClick={exportarExcel}
+              className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition duration-200 ease-in-out flex items-center gap-2"
+            >
+              <img src="https://img.icons8.com/color/24/microsoft-excel-2019.png" alt="excel" />
+              Exportar Excel
+            </button>
+
+            {/* Botón Confirmar Inventario */}
+            <button
+              onClick={confirmarInventario}
+              className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition duration-200 ease-in-out flex items-center gap-2"
+            >
+              ✅ Confirmar inventario
+            </button>
+          </div>
+        )}
+
         </div>
       )}
+
+      {mostrarEscanerCamara && (
+        <EscanerCamaraQuagga
+          onScanSuccess={(codigo) => handleCodigoDetectado(codigo)}
+          onClose={() => {
+            setMostrarEscanerCamara(false);
+            setTimeout(() => setLectorActivo(true), 300);
+          }}
+        />
+      )}
+
     </div>
 
 
