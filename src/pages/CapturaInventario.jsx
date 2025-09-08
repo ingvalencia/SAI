@@ -99,17 +99,17 @@ export default function CapturaInventario() {
     setDatos(nuevo);
   };
 
+
   const confirmarInventario = async () => {
-    const hayCaptura = datos.some(
+  const hayCaptura = datos.some(
       (item) =>
         item.cant_invfis !== "" &&
         item.cant_invfis !== null &&
         !isNaN(parseFloat(item.cant_invfis)) &&
         parseFloat(item.cant_invfis) > 0
     );
-
     if (!hayCaptura) {
-      MySwal.fire("Sin captura", "Debes ingresar al menos un inventario físico antes de confirmar.", "warning");
+      await MySwal.fire("Sin captura", "Debes ingresar al menos un inventario físico antes de confirmar.", "warning");
       return;
     }
 
@@ -121,10 +121,17 @@ export default function CapturaInventario() {
       confirmButtonText: "Sí, confirmar",
       cancelButtonText: "Cancelar",
     });
-
     if (!confirmacion.isConfirmed) return;
 
     try {
+      // NO AWAIT aquí
+      MySwal.fire({
+        title: "Procesando...",
+        text: "Por favor espera",
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+      });
+
       const payload = new FormData();
       payload.append("almacen", almacen);
       payload.append("fecha", fecha);
@@ -132,30 +139,36 @@ export default function CapturaInventario() {
       payload.append("cia", ciaSeleccionada);
       payload.append("datos", JSON.stringify(datos));
 
-
       const res = await axios.post(
         "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/confirmar_inventario.php",
         payload
       );
 
+      Swal.close(); // cierra el loading
+
       if (!res.data.success) throw new Error(res.data.error);
 
-      MySwal.fire("Confirmado", res.data.mensaje, "success");
       setBloqueado(true);
 
-      // Redirigir a vista de comparación
+      // Espera a que cierren el modal de éxito antes de navegar
+      await MySwal.fire({
+        title: "Confirmado",
+        text: res.data.mensaje,
+        icon: "success",
+        confirmButtonText: "OK",
+        allowOutsideClick: false,
+      });
+
       navigate("/comparar", {
-        state: {
-          almacen,
-          fecha,
-          empleado,
-          cia: ciaSeleccionada,
-        },
+        state: { almacen, fecha, empleado, cia: ciaSeleccionada },
       });
     } catch (error) {
-      MySwal.fire("Error", error.message, "error");
+      Swal.close();
+      await MySwal.fire("Error", error.message, "error");
     }
   };
+
+
 
   const exportarExcel = () => {
     const datosFiltrados = datos.filter((item) =>
@@ -207,7 +220,7 @@ export default function CapturaInventario() {
     if (index !== -1) {
       const producto = datos[index];
 
-      // ✅ Aplicar filtro visual para mostrar solo el producto
+      // Aplicar filtro visual para mostrar solo el producto
       setBusqueda(producto.ItemCode);
 
       const { value: cantidad } = await MySwal.fire({
@@ -250,7 +263,7 @@ export default function CapturaInventario() {
         nuevo[index].cant_invfis = cantidad;
         setDatos(nuevo);
 
-        // ✅ Scroll al producto y resaltar visualmente
+        // Scroll al producto y resaltar visualmente
         const elemento = document.getElementById(`fila-${index}`);
         if (elemento) {
           elemento.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -288,18 +301,13 @@ export default function CapturaInventario() {
   }, [busqueda, familiaSeleccionada, subfamiliaSeleccionada]);
 
 
-
-
   return (
 
     <div className="max-w-7xl mx-auto p-6">
 
-
       <h1 className="text-3xl md:text-4xl font-extrabold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-700 via-indigo-600 to-green-600 tracking-tight drop-shadow-sm text-center">
         📦 Captura de Inventario Físico
       </h1>
-
-
 
       {/* Lector invisible solo si NO es móvil */}
       {datos.length > 0 && !esMovil && (
@@ -588,49 +596,68 @@ export default function CapturaInventario() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {datosPaginados.map((item, i) => {
+  {datosPaginados.map((item, i) => {
+    const k = `${item.ItemCode}-${item.almacen}`;
+    const valor = item.cant_invfis ?? ""; // siempre string
+    const editado = parseFloat(valor) > 0;
+    const invalido =
+      valor === "" || isNaN(Number(valor)) || parseFloat(valor) <= 0;
 
+    return (
+      <tr
+        key={k}
+        id={`fila-${k}`}
+        className="hover:bg-blue-50 transition duration-150 ease-in-out"
+      >
+        <td className="p-3 text-sm text-gray-500 font-semibold whitespace-nowrap">
+          {indiceInicial + i + 1}
+        </td>
+        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+          {item.cias}
+        </td>
+        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+          {item.almacen}
+        </td>
+        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+          {item.nom_fam}
+        </td>
+        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+          {item.nom_subfam}
+        </td>
+        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+          {item.ItemCode}
+        </td>
+        <td className="p-3 text-sm text-gray-700 whitespace-nowrap truncate max-w-[16rem]">
+          {item.Itemname}
+        </td>
+        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+          {item.codebars}
+        </td>
+        <td className="p-3">
+          {bloqueado ? (
+            <span className="text-gray-600 text-sm font-medium">{valor}</span>
+          ) : (
+            <input
+  ref={(el) => (inputRefs.current[k] = el)}
+  type="text"
+  inputMode="numeric"
+  pattern="[0-9]*"
+  value={valor ?? ""}
+  onFocus={() => setLectorActivo(false)}
+  onBlur={() => setTimeout(() => setLectorActivo(true), 200)}
+  onChange={(e) => cambiarCantidad(i, e.target.value.replace(/\D/g, ""))}
+  className={`border rounded px-3 py-1 w-24 text-center text-sm font-semibold transition-all duration-200 ease-in-out ${
+    editado ? "bg-green-100 border-green-500 ring-1 ring-green-200" : ""
+  } ${invalido ? "bg-red-100 border-red-500 ring-1 ring-red-200" : ""}`}
+/>
 
-                      const valor = item.cant_invfis;
-                      const editado = parseFloat(valor) > 0;
-                      const invalido =
-                        valor === "" || valor === null || isNaN(Number(valor)) || parseFloat(valor) <= 0;
+          )}
+        </td>
+      </tr>
+    );
+  })}
+</tbody>
 
-                      return (
-                        <tr key={i} id={`fila-${i}`} className="hover:bg-blue-50 transition duration-150 ease-in-out">
-                          <td className="p-3 text-sm text-gray-500 font-semibold whitespace-nowrap">{indiceInicial + i + 1}</td>
-                          <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.cias}</td>
-                          <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.almacen}</td>
-                          <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.nom_fam}</td>
-                          <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.nom_subfam}</td>
-                          <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.ItemCode}</td>
-                          <td className="p-3 text-sm text-gray-700 whitespace-nowrap truncate max-w-[16rem]">
-                            {item.Itemname}
-                          </td>
-                          <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.codebars}</td>
-                          <td className="p-3">
-                            {bloqueado ? (
-                              <span className="text-gray-600 text-sm font-medium">{valor}</span>
-                            ) : (
-                              <input
-                                ref={(el) => (inputRefs.current[i] = el)}
-                                type="number"
-                                className={`border rounded px-3 py-1 w-24 text-center text-sm font-semibold transition-all duration-200 ease-in-out ${
-                                  editado ? "bg-green-100 border-green-500 ring-1 ring-green-200" : ""
-                                } ${
-                                  invalido
-                                    ? "bg-red-100 border-red-500 ring-1 ring-red-200 animate-pulse"
-                                    : ""
-                                }`}
-                                value={valor}
-                                onChange={(e) => cambiarCantidad(i, e.target.value)}
-                              />
-                            )}
-                          </td>
-                        </tr>
-                      );
-                  })}
-                </tbody>
               </table>
             </div>
           )}
@@ -710,5 +737,8 @@ export default function CapturaInventario() {
     </div>
 
 
-  );
+
+
+
+);
 }
