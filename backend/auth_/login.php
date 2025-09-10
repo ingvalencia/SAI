@@ -6,7 +6,6 @@ header("Access-Control-Allow-Credentials: true");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 
-
 // Opcional: responder rápido a preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   http_response_code(200);
@@ -76,13 +75,18 @@ if (!$ok) {
 // ====== ROLES ======
 $roles = array();
 $qr = @mssql_query("
-  SELECT r.nombre
+  SELECT r.id, r.nombre
   FROM dbo.usuario_rol ur
   JOIN dbo.roles r ON r.id = ur.rol_id
   WHERE ur.usuario_id = ".intval($u['id'])."
 ", $conn);
 if ($qr) {
-  while ($r = mssql_fetch_assoc($qr)) $roles[] = $r['nombre'];
+  while ($r = mssql_fetch_assoc($qr)) {
+    $roles[] = array(
+      'id' => intval($r['id']),
+      'nombre' => $r['nombre']
+    );
+  }
 }
 
 // ====== SESIÓN ======
@@ -100,3 +104,4 @@ echo json_encode(array(
   'roles'    => $roles
 ));
 exit;
+?>

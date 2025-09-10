@@ -35,12 +35,18 @@ export default function CapturaInventario() {
   const [paginaActual, setPaginaActual] = useState(1);
   const registrosPorPagina = 100;
 
+  const nombre = sessionStorage.getItem("nombre") || "";
+  const empleadoSesion = sessionStorage.getItem("empleado") || "";
 
+  const handleLogout = () => {
+    sessionStorage.clear();
+    navigate("/login");
+  };
 
- useEffect(() => {
-    setModo(null);
-    setDatos([]);
-    setBloqueado(false);
+  useEffect(() => {
+      setModo(null);
+      setDatos([]);
+      setBloqueado(false);
   }, [almacen, fecha]);
 
   const esMovil = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
