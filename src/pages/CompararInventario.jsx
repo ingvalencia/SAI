@@ -8,14 +8,14 @@ import withReactContent from "sweetalert2-react-content";
 export default function CompararInventario() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { almacen, fecha, empleado, cia } = location.state || {};
+  const { almacen, fecha, cia } = location.state || {};
 
 
   const [datos, setDatos] = useState([]);
   const [busqueda, setBusqueda] = useState("");
   const [loading, setLoading] = useState(true);
   const [diferenciaConfirmada, setDiferenciaConfirmada] = useState(false);
-
+  const empleado = sessionStorage.getItem("empleado");
 
 
   const exportarExcel = () => {

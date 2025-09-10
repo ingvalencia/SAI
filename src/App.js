@@ -1,25 +1,29 @@
 import { useEffect, useState } from "react";
-import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
+import { Route, BrowserRouter as Router, Routes, useNavigate } from "react-router-dom";
 import CapturaInventario from "./pages/CapturaInventario";
 import CompararInventario from "./pages/CompararInventario";
 import EnMantenimiento from "./pages/EnMantenimiento";
+import Login from "./pages/auth/Login";
 
-export default function App() {
+const AppRoutes = () => {
   const [estadoSistema, setEstadoSistema] = useState(null);
-
-  // Asignar empleado directamente (modo desarrollo)
-  const EMPLEADO_FORZADO = "42371";
-  localStorage.setItem("empleado", EMPLEADO_FORZADO);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const empleado = localStorage.getItem("empleado");
+    const verificarSesion = async () => {
+      const empleado = sessionStorage.getItem("empleado");
+      const nombre = sessionStorage.getItem("nombre");
+      const roles = sessionStorage.getItem("roles");
 
-    if (!empleado) {
-      setEstadoSistema({ habilitado: 0, modo_forzado: false });
-      return;
-    }
+      if (!empleado || !nombre || !roles) {
+        navigate("/login");
+        return;
+      }
 
-    const verificarSistema = async () => {
+      verificarSistema(empleado);
+    };
+
+    const verificarSistema = async (empleado) => {
       try {
         const res = await fetch(
           `https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/verifica_estado_sistema.php?empleado=${empleado}`
@@ -33,8 +37,8 @@ export default function App() {
       }
     };
 
-    verificarSistema();
-  }, []);
+    verificarSesion();
+  }, [navigate]);
 
   if (estadoSistema === null) {
     return (
@@ -48,7 +52,7 @@ export default function App() {
   const bloqueado = habilitado === 0 && !modo_forzado;
 
   return (
-    <Router>
+    <>
       {modo_forzado && (
         <div className="bg-yellow-900 text-yellow-300 px-4 py-2 font-mono text-xs text-center border-b border-yellow-700">
           ⚠ Estás accediendo como desarrollador. El sistema está en mantenimiento para otros usuarios.
@@ -58,7 +62,16 @@ export default function App() {
       <Routes>
         <Route path="/" element={bloqueado ? <EnMantenimiento /> : <CapturaInventario />} />
         <Route path="/comparar" element={bloqueado ? <EnMantenimiento /> : <CompararInventario />} />
+        <Route path="/login" element={<Login />} />
       </Routes>
+    </>
+  );
+};
+
+export default function App() {
+  return (
+    <Router>
+      <AppRoutes />
     </Router>
   );
 }

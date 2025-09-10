@@ -15,7 +15,7 @@ const MySwal = withReactContent(Swal);
 export default function CapturaInventario() {
   const [almacen, setAlmacen] = useState("");
   const [fecha, setFecha] = useState("");
-  const [empleado, setEmpleado] = useState("");
+  const empleado = sessionStorage.getItem("empleado");
   const [modo, setModo] = useState(null);
   const [datos, setDatos] = useState([]);
   const [bloqueado, setBloqueado] = useState(false);
@@ -36,16 +36,12 @@ export default function CapturaInventario() {
   const registrosPorPagina = 100;
 
 
-  useEffect(() => {
 
-    const emp = localStorage.getItem("empleado");
-    if (emp) {
-      setEmpleado(emp);
-    }
+ useEffect(() => {
     setModo(null);
     setDatos([]);
     setBloqueado(false);
-  }, [almacen, fecha, empleado]);
+  }, [almacen, fecha]);
 
   const esMovil = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
