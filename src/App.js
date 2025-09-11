@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Route,
-  BrowserRouter as Router,
+  BrowserRouter ,
   Routes,
   Navigate,
   useLocation,
@@ -53,8 +53,9 @@ function AppRoutes() {
 
   const handleLogout = () => {
     sessionStorage.clear();
-    window.location.href = "/login";
+    window.location.href = "/diniz/inventarios/";
   };
+
 
   // Guard para rutas privadas
   const RequireAuth = ({ children }) => {
@@ -134,8 +135,9 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <Router>
+    <BrowserRouter basename="/diniz/inventarios">
       <AppRoutes />
-    </Router>
+    </BrowserRouter>
+
   );
 }

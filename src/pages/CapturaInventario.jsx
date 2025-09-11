@@ -97,9 +97,40 @@ export default function CapturaInventario() {
 
   const cambiarCantidad = (index, valor) => {
     const nuevo = [...datos];
-    nuevo[index].cant_invfis = valor;
+
+    nuevo[index].cant_invfis = valor === "" ? "" : String(parseInt(valor, 10));
     setDatos(nuevo);
   };
+
+
+ const autoGuardar = async (item, cantidad) => {
+  try {
+    const form = new FormData();
+    form.append("almacen", almacen);
+    form.append("fecha", fecha);
+    form.append("empleado", empleado);
+    form.append("cia", ciaSeleccionada);
+    form.append("ItemCode", item.ItemCode);
+    form.append("cant_invfis", cantidad);
+
+    const res = await axios.post(
+      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/guardar_cantidad_inventario.php",
+      form
+    );
+
+    if (!res.data.success) {
+      console.error("Error auto-guardando:", res.data.error);
+      // aquí podrías poner un toast de error si quieres
+    } else {
+      console.log("Auto-guardado OK:", item.ItemCode, cantidad);
+      // aquí podrías poner un toast de éxito
+    }
+  } catch (err) {
+    console.error("Error auto-guardando:", err.message);
+  }
+};
+
+
 
 
   const confirmarInventario = async () => {
@@ -559,14 +590,14 @@ export default function CapturaInventario() {
                 <button
                   onClick={() =>
                     navigate("/comparar", {
-                      state: { almacen, fecha, empleado },
+                      state: { almacen, fecha, empleado, cia: ciaSeleccionada },
                     })
                   }
                   className="px-4 py-2 bg-blue-200 hover:bg-blue-300 text-blue-900 font-semibold rounded-lg shadow-md text-sm transition-all duration-200 whitespace-nowrap"
-
                 >
                   📊 Comparar inventario
                 </button>
+
               )}
             </div>
           </div>
@@ -640,25 +671,32 @@ export default function CapturaInventario() {
             <span className="text-gray-600 text-sm font-medium">{valor}</span>
           ) : (
             <input
-  ref={(el) => (inputRefs.current[k] = el)}
-  type="text"
-  inputMode="numeric"
-  pattern="[0-9]*"
-  value={valor ?? ""}
-  onFocus={() => setLectorActivo(false)}
-  onBlur={() => setTimeout(() => setLectorActivo(true), 200)}
-  onChange={(e) => cambiarCantidad(i, e.target.value.replace(/\D/g, ""))}
-  className={`border rounded px-3 py-1 w-24 text-center text-sm font-semibold transition-all duration-200 ease-in-out ${
-    editado ? "bg-green-100 border-green-500 ring-1 ring-green-200" : ""
-  } ${invalido ? "bg-red-100 border-red-500 ring-1 ring-red-200" : ""}`}
-/>
+              ref={(el) => (inputRefs.current[k] = el)}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={valor}
+              onFocus={() => setLectorActivo(false)}
+              onBlur={(e) => {
+                setTimeout(() => setLectorActivo(true), 200);
+                autoGuardar(item, e.target.value);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  autoGuardar(item, e.target.value);
+                }
+              }}
+              onChange={(e) => cambiarCantidad(i, e.target.value.replace(/\D/g, ""))}
+            />
 
-          )}
-        </td>
-      </tr>
-    );
-  })}
-</tbody>
+
+
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
 
               </table>
             </div>
