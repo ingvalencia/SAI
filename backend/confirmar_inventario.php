@@ -1,44 +1,53 @@
 <?php
+
+header('Access-Control-Allow-Origin: *'); // Puedes restringir a tu dominio en producción
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
 header('Content-Type: application/json');
-
-// Validar datos
-$almacen = isset($_POST['almacen']) ? $_POST['almacen'] : null;
-$fecha = isset($_POST['fecha']) ? $_POST['fecha'] : null;
+// --- Validar datos ---
+$almacen  = isset($_POST['almacen']) ? $_POST['almacen'] : null;
+$fecha    = isset($_POST['fecha']) ? $_POST['fecha'] : null;
 $empleado = isset($_POST['empleado']) ? intval($_POST['empleado']) : null;
-$datos = isset($_POST['datos']) ? json_decode($_POST['datos'], true) : null;
+$datos    = isset($_POST['datos']) ? json_decode($_POST['datos'], true) : null;
+$estatus  = isset($_POST['estatus']) ? intval($_POST['estatus']) : null;
 
-if (!$almacen || !$fecha || !$empleado || !$datos || !is_array($datos)) {
+if (!$almacen || !$fecha || !$empleado || !$datos || !is_array($datos) || !$estatus) {
   echo json_encode(['success' => false, 'error' => 'Datos incompletos o inválidos']);
   exit;
 }
 
-// Conexión
+if (!in_array($estatus, [1, 2, 3])) {
+  echo json_encode(['success' => false, 'error' => 'Estatus inválido']);
+  exit;
+}
+
+// --- Conexión ---
 $server = "192.168.0.174";
-$user = "sa";
-$pass = "P@ssw0rd";
-$db   = "SAP_PROCESOS";
+$user   = "sa";
+$pass   = "P@ssw0rd";
+$db     = "SAP_PROCESOS";
 
 $conn = mssql_connect($server, $user, $pass);
 if (!$conn) {
   echo json_encode(['success' => false, 'error' => 'No se pudo conectar a la base de datos']);
   exit;
 }
-
 mssql_select_db($db, $conn);
 
-// Verificar estatus actual
-$check = mssql_query("
-  SELECT COUNT(*) AS total FROM CAP_INVENTARIO
-  WHERE almacen = '$almacen' AND fecha_inv = '$fecha' AND usuario = $empleado AND estatus = 0
-", $conn);
+// --- Validar estatus previo (si aplica) ---
+if ($estatus > 1) {
+  $check = mssql_query("
+    SELECT COUNT(*) AS total FROM CAP_INVENTARIO
+    WHERE almacen = '$almacen' AND fecha_inv = '$fecha' AND usuario = $empleado AND estatus = " . ($estatus - 1), $conn);
 
-$row = mssql_fetch_assoc($check);
-if (!$row || $row['total'] == 0) {
-  echo json_encode(['success' => false, 'error' => 'Ya ha sido confirmado o no tiene permiso']);
-  exit;
+  $row = mssql_fetch_assoc($check);
+  if (!$row || $row['total'] == 0) {
+    echo json_encode(['success' => false, 'error' => 'No puedes confirmar este conteo. El conteo previo no ha sido completado.']);
+    exit;
+  }
 }
 
-// 1. Actualizar cantidades
+// --- 1. Actualizar cantidades ---
 foreach ($datos as $item) {
   $itemcode = $item['ItemCode'];
   $cantidad = floatval($item['cant_invfis']);
@@ -55,10 +64,10 @@ foreach ($datos as $item) {
   }
 }
 
-// 2. Confirmar inventario
+// --- 2. Confirmar inventario con estatus dinámico ---
 $confirm = mssql_query("
   UPDATE CAP_INVENTARIO
-  SET estatus = 1
+  SET estatus = $estatus
   WHERE almacen = '$almacen' AND fecha_inv = '$fecha' AND usuario = $empleado
 ", $conn);
 

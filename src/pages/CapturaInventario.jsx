@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate,useLocation } from "react-router-dom";
 import axios from "axios";
 import { useEffect, useState, useRef, useMemo } from "react";
 import Swal from "sweetalert2";
@@ -37,6 +37,12 @@ export default function CapturaInventario() {
 
   const nombre = sessionStorage.getItem("nombre") || "";
   const empleadoSesion = sessionStorage.getItem("empleado") || "";
+
+  const location = useLocation();
+  const { estatus: estatusDesdeRuta } = location.state || {};
+  const [estatus, setEstatus] = useState(estatusDesdeRuta || 1);
+
+
 
   const handleLogout = () => {
     sessionStorage.clear();
@@ -81,8 +87,9 @@ export default function CapturaInventario() {
 
 
       const r2 = await axios.get("https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/obtener_inventario.php", {
-        params: { almacen, fecha, empleado },
+        params: { almacen, fecha, empleado, estatus },
       });
+
 
       if (!r2.data.success) throw new Error(r2.data.error);
       setDatos(r2.data.data);
@@ -106,34 +113,32 @@ export default function CapturaInventario() {
  const autoGuardar = async (item, cantidad) => {
   try {
     const form = new FormData();
-    form.append("almacen", almacen);
-    form.append("fecha", fecha);
-    form.append("empleado", empleado);
-    form.append("cia", ciaSeleccionada);
-    form.append("ItemCode", item.ItemCode);
-    form.append("cant_invfis", cantidad);
+    form.append("id_inventario", item.id);
+    form.append("nro_conteo", estatus);
+    form.append("cantidad", cantidad);
+    form.append("usuario", empleado);
 
     const res = await axios.post(
-      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/guardar_cantidad_inventario.php",
+      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/guardar_conteo.php",
       form
     );
 
     if (!res.data.success) {
-      console.error("Error auto-guardando:", res.data.error);
-      // aquí podrías poner un toast de error si quieres
+      console.error("Error guardando conteo:", res.data.error);
     } else {
-      console.log("Auto-guardado OK:", item.ItemCode, cantidad);
-      // aquí podrías poner un toast de éxito
+      console.log("Conteo guardado:", item.ItemCode, cantidad);
     }
   } catch (err) {
-    console.error("Error auto-guardando:", err.message);
+    console.error("Error guardando conteo:", err.message);
   }
 };
 
 
 
 
+
   const confirmarInventario = async () => {
+
   const hayCaptura = datos.some(
       (item) =>
         item.cant_invfis !== "" &&
@@ -170,6 +175,7 @@ export default function CapturaInventario() {
       payload.append("fecha", fecha);
       payload.append("empleado", empleado);
       payload.append("cia", ciaSeleccionada);
+      payload.append("estatus", estatus);
       payload.append("datos", JSON.stringify(datos));
 
       const res = await axios.post(

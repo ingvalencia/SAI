@@ -17,9 +17,15 @@ export default function CompararInventario() {
   const [diferenciaConfirmada, setDiferenciaConfirmada] = useState(false);
   const empleado = sessionStorage.getItem("empleado");
 
+ const { estatus: estatusRuta } = location.state || {};
+ const [estatus, setEstatus] = useState(estatusRuta || 1);
+
+
+
 
   const exportarExcel = () => {
-    const datosExportar = datos.map((item, i) => ({
+  const datosExportar = datos.map((item, i) => {
+    const fila = {
       "#": i + 1,
       "No Empleado": item.usuario,
       "Almacén": item.almacen,
@@ -28,16 +34,22 @@ export default function CompararInventario() {
       "Nombre": item.nombre,
       "Código de Barras": item.codebars,
       "Captura SAP": item.inventario_sap,
-      "Captura Físico": item.cant_invfis,
       "Diferencia": item.diferencia,
-    }));
+    };
 
-    const worksheet = XLSX.utils.json_to_sheet(datosExportar);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Diferencias");
+    if (estatus >= 1) fila["Conteo 1"] = item.conteo1 ?? 0;
+    if (estatus >= 2) fila["Conteo 2"] = item.conteo2 ?? 0;
+    if (estatus >= 3) fila["Conteo 3"] = item.conteo3 ?? 0;
 
-    XLSX.writeFile(workbook, `comparacion_${almacen}_${fecha}.xlsx`);
-  };
+    return fila;
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(datosExportar);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Diferencias");
+
+  XLSX.writeFile(workbook, `comparacion_${almacen}_${fecha}.xlsx`);
+};
 
 
   useEffect(() => {
@@ -57,10 +69,13 @@ export default function CompararInventario() {
 
           if (!res.data.success) throw new Error(res.data.error);
           setDatos(res.data.data);
+          setEstatus(res.data.estatus || 1);
 
-          if (res.data.estatus === 2) {
+
+         if (res.data.estatus === 4) {
             setDiferenciaConfirmada(true);
           }
+
         } catch (error) {
           console.error("Error al obtener diferencias", error.message);
         } finally {
@@ -116,8 +131,90 @@ export default function CompararInventario() {
   return (
     <div className="max-w-7xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6 text-gray-800 flex items-center gap-2">
-        Comparación de Inventarios
+        {`Comparación de Inventarios - ${
+          estatus === 1
+            ? "Primer Conteo"
+            : estatus === 2
+            ? "Segundo Conteo"
+            : estatus === 3
+            ? "Tercer Conteo"
+            : estatus === 4
+            ? "Diferencia Confirmada"
+            : "Sin Estatus"
+        }`}
       </h1>
+
+      <div className="flex items-center gap-2 mb-4">
+        {["Primer Conteo", "Segundo Conteo", "Tercer Conteo"].map((label, index) => {
+          const conteoNumero = index + 1;
+          const activo = estatus === conteoNumero;
+
+          return (
+            <button
+              key={label}
+              onClick={async () => {
+                if (conteoNumero === 1) {
+                  // No redirijas si ya estás en estatus 1
+                  if (estatus !== 1) {
+                    navigate("/captura", {
+                      state: { almacen, fecha, cia, estatus: 1 },
+                    });
+                  }
+                }
+
+                else if (conteoNumero === 2) {
+                  if (estatus === 1) {
+                    const confirm = await Swal.fire({
+                      title: "¿Iniciar segundo conteo?",
+                      text: "¿Estás seguro de avanzar al segundo conteo?",
+                      icon: "question",
+                      showCancelButton: true,
+                      confirmButtonText: "Sí",
+                      cancelButtonText: "Cancelar",
+                    });
+                    if (!confirm.isConfirmed) return;
+
+                    navigate("/captura", {
+                      state: { almacen, fecha, cia, estatus: 2 },
+                    });
+                  }
+                }
+
+                else if (conteoNumero === 3) {
+                  if (estatus !== 2) {
+                    Swal.fire("No permitido", "Debes completar el segundo conteo primero.", "warning");
+                    return;
+                  }
+
+                  const confirm = await Swal.fire({
+                    title: "¿Iniciar tercer conteo?",
+                    text: "¿Estás seguro de avanzar al tercer conteo?",
+                    icon: "question",
+                    showCancelButton: true,
+                    confirmButtonText: "Sí",
+                    cancelButtonText: "Cancelar",
+                  });
+                  if (!confirm.isConfirmed) return;
+
+                  navigate("/captura", {
+                    state: { almacen, fecha, cia, estatus: 3 },
+                  });
+                }
+              }}
+              className={`px-3 py-1 rounded-full text-sm font-semibold transition ${
+                activo
+                  ? "bg-blue-600 text-white"
+                  : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+
+
 
       <div className="w-full bg-white p-4 mb-4 rounded-lg shadow border border-gray-200">
         <h2 className="text-sm font-semibold text-gray-700 mb-2">🔎 Buscar artículo</h2>
@@ -172,46 +269,86 @@ export default function CompararInventario() {
               <th className="p-3 text-left w-64 max-w-[16rem]">NOMBRE</th>
               <th className="p-3 text-left">Código de Barras</th>
               <th className="p-3 text-right">Captura SAP</th>
-              <th className="p-3 text-right">Captura Físico</th>
+              {estatus >= 1 && <th className="p-3 text-right">Conteo 1</th>}
+              {estatus >= 2 && <th className="p-3 text-right">Conteo 2</th>}
+              {estatus >= 3 && <th className="p-3 text-right">Conteo 3</th>}
               <th className="p-3 text-right">Diferencia</th>
+
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-100">
-            {datos
-            .filter((item) => {
-              const texto = busqueda.toLowerCase();
-              return (
-                item.codigo?.toLowerCase().includes(texto) ||
-                 item.codebars?.toLowerCase().includes(texto) ||
-                item.nombre?.toLowerCase().includes(texto)
-              );
-            })
-            .map((item, i) => (
-              <tr key={i} className="hover:bg-blue-50 transition duration-150 ease-in-out">
-                <td className="p-3 text-sm text-gray-500 font-semibold whitespace-nowrap">{i + 1}</td>
-                <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.usuario ?? "-"}</td>
-                <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.almacen ?? "-"}</td>
-                <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.cias ?? "-"}</td>
-                <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.codigo ?? "-"}</td>
-                <td className="p-3 text-sm text-gray-700 whitespace-nowrap truncate max-w-[16rem]">{item.nombre ?? "-"}</td>
-                <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.codebars ?? "-"}</td>
-                <td className="p-3 text-sm text-right text-gray-700">{item.inventario_sap?.toFixed(2) ?? "0.00"}</td>
-                <td className="p-3 text-sm text-right text-gray-700">{item.cant_invfis?.toFixed(2) ?? "0.00"}</td>
-                <td
-                  className={`p-3 text-sm text-right font-semibold ${
-                    item.diferencia === 0
-                      ? "text-green-600"
-                      : item.diferencia > 0
-                      ? "text-yellow-600"
-                      : "text-red-600"
-                  }`}
-                >
-                  {item.diferencia?.toFixed(2) ?? "0.00"}
-                </td>
-              </tr>
-            ))}
+  {datos
+    .filter((item) => {
+      const texto = busqueda.toLowerCase();
+      return (
+        item.codigo?.toLowerCase().includes(texto) ||
+        item.codebars?.toLowerCase().includes(texto) ||
+        item.nombre?.toLowerCase().includes(texto)
+      );
+    })
+    .map((item, i) => (
+      <tr
+        key={i}
+        className="hover:bg-blue-50 transition duration-150 ease-in-out"
+      >
+        <td className="p-3 text-sm text-gray-500 font-semibold whitespace-nowrap">
+          {i + 1}
+        </td>
+        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+          {item.usuario ?? "-"}
+        </td>
+        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+          {item.almacen ?? "-"}
+        </td>
+        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+          {item.cias ?? "-"}
+        </td>
+        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+          {item.codigo ?? "-"}
+        </td>
+        <td className="p-3 text-sm text-gray-700 whitespace-nowrap truncate max-w-[16rem]">
+          {item.nombre ?? "-"}
+        </td>
+        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+          {item.codebars ?? "-"}
+        </td>
+        {/* Columna SAP */}
+        <td className="p-3 text-sm text-right text-gray-700">
+          {item.inventario_sap?.toFixed(2) ?? "0.00"}
+        </td>
+        {/* Conteos dinámicos */}
+        {estatus >= 1 && (
+          <td className="p-3 text-sm text-right text-gray-700">
+            {(item.conteo1 ?? 0).toFixed(2)}
+          </td>
+        )}
+        {estatus >= 2 && (
+          <td className="p-3 text-sm text-right text-gray-700">
+            {(item.conteo2 ?? 0).toFixed(2)}
+          </td>
+        )}
+        {estatus >= 3 && (
+          <td className="p-3 text-sm text-right text-gray-700">
+            {(item.conteo3 ?? 0).toFixed(2)}
+          </td>
+        )}
+        {/* Diferencia */}
+        <td
+          className={`p-3 text-sm text-right font-semibold ${
+            item.diferencia === 0
+              ? "text-green-600"
+              : item.diferencia > 0
+              ? "text-yellow-600"
+              : "text-red-600"
+          }`}
+        >
+          {item.diferencia?.toFixed(2) ?? "0.00"}
+        </td>
+      </tr>
+    ))}
+      </tbody>
 
-          </tbody>
+
         </table>
         {diferenciaConfirmada && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0">
