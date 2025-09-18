@@ -2,7 +2,7 @@
 header('Content-Type: application/json');
 
 // CORS
-$origenPermitido = 'http://localhost:3000';
+$origenPermitido = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
 header("Access-Control-Allow-Origin: $origenPermitido");
 header("Access-Control-Allow-Credentials: true");
 header("Access-Control-Allow-Headers: Content-Type");
@@ -54,13 +54,11 @@ $sqlPermiso = "
     AND ul.activo = 1
 ";
 $resPermiso = mssql_query($sqlPermiso, $conn);
-
 if (!$resPermiso) {
   error_log("Error SQL Permiso: " . mssql_get_last_message());
   echo json_encode(['success' => false, 'error' => 'Error al validar permisos']);
   exit;
 }
-
 if (mssql_num_rows($resPermiso) === 0) {
   echo json_encode([
     'success' => false,
@@ -70,29 +68,27 @@ if (mssql_num_rows($resPermiso) === 0) {
 }
 
 /* ============================
-   VALIDACIÓN DE CONFIRMADOS
+   VALIDACIÓN DE BLOQUEO FINAL
    ============================ */
-$sqlConfirmado = "
+$sqlEstatus = "
   SELECT TOP 1 usuario, estatus
   FROM CAP_INVENTARIO
-  WHERE almacen = '$almacen_safe' AND fecha_inv = '$fecha' AND estatus IN (1, 2)
+  WHERE almacen = '$almacen_safe' AND fecha_inv = '$fecha' AND usuario = $empleado
 ";
-$resConf = mssql_query($sqlConfirmado, $conn);
-if ($resConf && $rowConf = mssql_fetch_assoc($resConf)) {
-  $usuario_confirmo   = intval($rowConf['usuario']);
-  $estatus_confirmado = intval($rowConf['estatus']);
+$resEstatus = mssql_query($sqlEstatus, $conn);
+if ($resEstatus && $row = mssql_fetch_assoc($resEstatus)) {
+  $estatus = intval($row['estatus']);
+  $usuario = intval($row['usuario']);
 
-  $mensajeFinal = $estatus_confirmado === 1
-    ? "🔒 Modo: Solo lectura (por confirmación previa)"
-    : "✅ Modo: Solo lectura (diferencias confirmadas)";
-
-  echo json_encode([
-    'success'    => true,
-    'modo'       => 'solo lectura',
-    'mensaje'    => $mensajeFinal,
-    'capturista' => $usuario_confirmo
-  ]);
-  exit;
+  if ($estatus >= 4) {
+    echo json_encode([
+      'success' => true,
+      'modo' => 'solo lectura',
+      'mensaje' => '🔒 Modo: Solo lectura (proceso finalizado)',
+      'capturista' => $usuario
+    ]);
+    exit;
+  }
 }
 
 /* ============================

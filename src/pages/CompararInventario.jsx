@@ -172,11 +172,30 @@ export default function CompararInventario() {
                       confirmButtonText: "Sí",
                       cancelButtonText: "Cancelar",
                     });
+
                     if (!confirm.isConfirmed) return;
 
-                    navigate("/captura", {
-                      state: { almacen, fecha, cia, estatus: 2 },
-                    });
+                    // 🔁 ACTUALIZAR ESTATUS EN BACKEND
+                    try {
+                      const formData = new FormData();
+                      formData.append("almacen", almacen);
+                      formData.append("fecha", fecha);
+                      formData.append("empleado", empleado);
+                      formData.append("estatus", 2);
+
+                      await axios.post("/actualizar_estatus.php", formData);
+
+
+
+                      // Redirigir a Captura con estatus 2
+                      navigate("/captura", {
+                        state: { almacen, fecha, cia, estatus: 2 },
+                      });
+                    } catch (error) {
+                      console.error("Error al actualizar estatus", error);
+                      Swal.fire("Error", "No se pudo actualizar el estatus. Revisa la consola.", "error");
+                    }
+
                   }
                 }
 
@@ -196,9 +215,19 @@ export default function CompararInventario() {
                   });
                   if (!confirm.isConfirmed) return;
 
+                  const formData3 = new FormData();
+                  formData3.append("almacen", almacen);
+                  formData3.append("fecha", fecha);
+                  formData3.append("empleado", empleado);
+                  formData3.append("estatus", 3);
+
+                  await axios.post("/actualizar_estatus.php", formData3);
+
+
                   navigate("/captura", {
                     state: { almacen, fecha, cia, estatus: 3 },
                   });
+
                 }
               }}
               className={`px-3 py-1 rounded-full text-sm font-semibold transition ${

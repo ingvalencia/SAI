@@ -39,6 +39,8 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
+  "proxy": "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap",
+  
   "eslintConfig": {
     "extends": [
       "react-app",

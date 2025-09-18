@@ -77,8 +77,21 @@ export default function CapturaInventario() {
       const capturista = r1.data.capturista || null;
 
       setModo(modo);
-      setBloqueado(modo === "solo lectura");
-      setMensajeModo(mensaje);
+
+      // Bloquea solo en Primer Conteo si ya fue confirmado
+      const debeBloquear = modo === "solo lectura" && estatus === 1;
+      setBloqueado(debeBloquear);
+
+
+      let mensajeFinal = mensaje;
+
+      if (modo === "solo lectura") {
+        if (estatus === 2) mensajeFinal = "📝 Modo: Segundo conteo";
+        else if (estatus === 3) mensajeFinal = "📝 Modo: Tercer conteo";
+      }
+
+      setMensajeModo(mensajeFinal);
+
 
       const esCapturista = capturista === null || parseInt(capturista) === parseInt(empleado);
       setMostrarComparar(modo === "solo lectura" && esCapturista);
@@ -132,10 +145,6 @@ export default function CapturaInventario() {
     console.error("Error guardando conteo:", err.message);
   }
 };
-
-
-
-
 
   const confirmarInventario = async () => {
 
