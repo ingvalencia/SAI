@@ -1,6 +1,6 @@
 <?php
 // --- Encabezados para CORS y JSON ---
-header('Access-Control-Allow-Origin: *'); // Puedes restringir a tu dominio en producción
+header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 header('Content-Type: application/json');
@@ -17,7 +17,7 @@ if ($id_inventario === null || $nro_conteo === null || $cantidad === null || $us
   exit;
 }
 
-if (!in_array($nro_conteo, [1, 2, 3])) {
+if (!in_array($nro_conteo, [0, 1, 2])) {
   echo json_encode(["success" => false, "error" => "Número de conteo inválido"]);
   exit;
 }

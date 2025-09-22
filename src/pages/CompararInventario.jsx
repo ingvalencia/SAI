@@ -91,6 +91,7 @@ export default function CompararInventario() {
   if (loading) return <p className="text-center mt-10 text-gray-600">Cargando diferencias...</p>;
 
   // Función para confirmar diferencias
+  // Función para confirmar diferencias
   const confirmarDiferencia = async () => {
     const resultado = await Swal.fire({
       title: "¿Confirmar diferencias?",
@@ -121,10 +122,12 @@ export default function CompararInventario() {
 
       Swal.fire("¡Hecho!", "Las diferencias han sido confirmadas.", "success");
       setDiferenciaConfirmada(true);
+      setEstatus(4); // 🔧 Ajuste agregado para reflejar estatus final
     } catch (error) {
       Swal.fire("Error", error.message, "error");
     }
   };
+
 
 
 
@@ -150,99 +153,103 @@ export default function CompararInventario() {
           const activo = estatus === conteoNumero;
 
           return (
-            <button
-              key={label}
-              onClick={async () => {
-                if (conteoNumero === 1) {
-                  // No redirijas si ya estás en estatus 1
-                  if (estatus !== 1) {
-                    navigate("/captura", {
-                      state: { almacen, fecha, cia, estatus: 1 },
-                    });
-                  }
+           <button
+            key={label}
+            onClick={async () => {
+              if (conteoNumero === 1) {
+                // Solo redirige si no estás ya en estatus 1
+                if (estatus !== 1) {
+                  navigate("/captura", {
+                    state: { almacen, fecha, cia, empleado, estatus: 1 },
+                  });
                 }
+              }
 
-                else if (conteoNumero === 2) {
-                  if (estatus === 1) {
-                    const confirm = await Swal.fire({
-                      title: "¿Iniciar segundo conteo?",
-                      text: "¿Estás seguro de avanzar al segundo conteo?",
-                      icon: "question",
-                      showCancelButton: true,
-                      confirmButtonText: "Sí",
-                      cancelButtonText: "Cancelar",
-                    });
-
-                    if (!confirm.isConfirmed) return;
-
-                    // 🔁 ACTUALIZAR ESTATUS EN BACKEND
-                    try {
-                      const formData = new FormData();
-                      formData.append("almacen", almacen);
-                      formData.append("fecha", fecha);
-                      formData.append("empleado", empleado);
-                      formData.append("estatus", 2);
-
-                      await axios.post("/actualizar_estatus.php", formData);
-
-
-
-                      // Redirigir a Captura con estatus 2
-                      navigate("/captura", {
-                        state: { almacen, fecha, cia, estatus: 2 },
-                      });
-                    } catch (error) {
-                      console.error("Error al actualizar estatus", error);
-                      Swal.fire("Error", "No se pudo actualizar el estatus. Revisa la consola.", "error");
-                    }
-
-                  }
-                }
-
-                else if (conteoNumero === 3) {
-                  if (estatus !== 2) {
-                    Swal.fire("No permitido", "Debes completar el segundo conteo primero.", "warning");
-                    return;
-                  }
-
+              else if (conteoNumero === 2) {
+                if (estatus === 1) {
                   const confirm = await Swal.fire({
-                    title: "¿Iniciar tercer conteo?",
-                    text: "¿Estás seguro de avanzar al tercer conteo?",
+                    title: "¿Iniciar segundo conteo?",
+                    text: "¿Estás seguro de avanzar al segundo conteo?",
                     icon: "question",
                     showCancelButton: true,
                     confirmButtonText: "Sí",
                     cancelButtonText: "Cancelar",
                   });
+
                   if (!confirm.isConfirmed) return;
 
+                  try {
+                    const formData = new FormData();
+                    formData.append("almacen", almacen);
+                    formData.append("fecha", fecha);
+                    formData.append("empleado", empleado);
+                    formData.append("estatus", 2);
+
+                    await axios.post(
+                      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/actualizar_estatus.php",
+                      formData
+                    );
+
+                    navigate("/captura", {
+                      state: { almacen, fecha, cia, empleado, estatus: 2 },
+                    });
+                  } catch (error) {
+                    console.error("Error al actualizar estatus", error);
+                    Swal.fire("Error", "No se pudo actualizar el estatus. Revisa la consola.", "error");
+                  }
+                }
+              }
+
+              else if (conteoNumero === 3) {
+                if (estatus !== 2) {
+                  Swal.fire("No permitido", "Debes completar el segundo conteo primero.", "warning");
+                  return;
+                }
+
+                const confirm = await Swal.fire({
+                  title: "¿Iniciar tercer conteo?",
+                  text: "¿Estás seguro de avanzar al tercer conteo?",
+                  icon: "question",
+                  showCancelButton: true,
+                  confirmButtonText: "Sí",
+                  cancelButtonText: "Cancelar",
+                });
+
+                if (!confirm.isConfirmed) return;
+
+                try {
                   const formData3 = new FormData();
                   formData3.append("almacen", almacen);
                   formData3.append("fecha", fecha);
                   formData3.append("empleado", empleado);
                   formData3.append("estatus", 3);
 
-                  await axios.post("/actualizar_estatus.php", formData3);
-
+                  await axios.post(
+                    "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/actualizar_estatus.php",
+                    formData3
+                  );
 
                   navigate("/captura", {
-                    state: { almacen, fecha, cia, estatus: 3 },
+                    state: { almacen, fecha, cia, empleado, estatus: 3 },
                   });
-
+                } catch (error) {
+                  console.error("Error al actualizar estatus", error);
+                  Swal.fire("Error", "No se pudo actualizar el estatus. Revisa la consola.", "error");
                 }
-              }}
-              className={`px-3 py-1 rounded-full text-sm font-semibold transition ${
-                activo
-                  ? "bg-blue-600 text-white"
-                  : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-              }`}
-            >
-              {label}
-            </button>
+              }
+            }}
+            className={`px-3 py-1 rounded-full text-sm font-semibold transition ${
+              activo
+                ? "bg-blue-600 text-white"
+                : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+            }`}
+          >
+            {label}
+          </button>
+
           );
         })}
       </div>
-
-
 
 
       <div className="w-full bg-white p-4 mb-4 rounded-lg shadow border border-gray-200">

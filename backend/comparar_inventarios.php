@@ -98,9 +98,9 @@ while ($row = mssql_fetch_assoc($q)) {
 
   $inventarioSAP[$codigo]['id_inventario'] = $row['id'];
 
-  if ($nro === 1) $inventarioSAP[$codigo]['conteo1'] = $cant;
-  if ($nro === 2) $inventarioSAP[$codigo]['conteo2'] = $cant;
-  if ($nro === 3) $inventarioSAP[$codigo]['conteo3'] = $cant;
+  if ($nro === 0) $inventarioSAP[$codigo]['conteo1'] = $cant;
+  if ($nro === 1) $inventarioSAP[$codigo]['conteo2'] = $cant;
+  if ($nro === 2) $inventarioSAP[$codigo]['conteo3'] = $cant;
 }
 
 /* Traer estatus */
@@ -124,9 +124,9 @@ if ($estatus < 1) {
 $resultado = [];
 foreach ($inventarioSAP as $item) {
   $conteoBase = 0;
-  if ($estatus === 1) $conteoBase = $item['conteo1'];
-  if ($estatus === 2) $conteoBase = $item['conteo2'];
-  if ($estatus === 3) $conteoBase = $item['conteo3'];
+  if ($estatus === 0) $conteoBase = $item['conteo1'];
+  if ($estatus === 1) $conteoBase = $item['conteo2'];
+  if ($estatus === 2) $conteoBase = $item['conteo3'];
 
   $item['diferencia'] = $item['inventario_sap'] - $conteoBase;
   $resultado[] = $item;

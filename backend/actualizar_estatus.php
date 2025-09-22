@@ -1,8 +1,8 @@
 <?php
 header('Content-Type: application/json');
 
-// Permitir CORS igual que en el otro script
-$origenPermitido = 'http://localhost:3000';
+// CORS
+$origenPermitido = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
 header("Access-Control-Allow-Origin: $origenPermitido");
 header("Access-Control-Allow-Credentials: true");
 header("Access-Control-Allow-Headers: Content-Type");
@@ -13,22 +13,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit;
 }
 
-// ==============================
-// 1. Parámetros
-// ==============================
-$almacen  = isset($_POST['almacen'])  ? addslashes($_POST['almacen'])  : null;
-$fecha    = isset($_POST['fecha'])    ? addslashes($_POST['fecha'])    : null;
-$empleado = isset($_POST['empleado']) ? addslashes($_POST['empleado']) : null;
-$estatus  = isset($_POST['estatus'])  ? addslashes($_POST['estatus'])  : null;
+// ============================
+// Parámetros
+// ============================
+$almacen  = isset($_POST['almacen'])  ? $_POST['almacen']  : null;
+$fecha    = isset($_POST['fecha'])    ? $_POST['fecha']    : null;
+$empleado = isset($_POST['empleado']) ? intval($_POST['empleado']) : null;
+$estatus  = isset($_POST['estatus'])  ? intval($_POST['estatus'])  : null;
 
-if (!$almacen || !$fecha || !$empleado || $estatus === null) {
+if (!$almacen || !$fecha || !$empleado || !$estatus) {
   echo json_encode(['success' => false, 'error' => 'Faltan parámetros requeridos']);
   exit;
 }
 
-// ==============================
-// 2. Conexión
-// ==============================
+// ============================
+// Conexión
+// ============================
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -41,30 +41,30 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-// ==============================
-// 3. Update en CAP_INVENTARIO
-// ==============================
+// ============================
+// Actualizar estatus en CAP_INVENTARIO
+// ============================
 $sql = "
   UPDATE CAP_INVENTARIO
-  SET estatus = '$estatus'
-  WHERE almacen   = '$almacen'
-    AND fecha_inv = '$fecha'
-    AND usuario   = '$empleado'
+  SET estatus = $estatus
+  WHERE almacen = '" . addslashes($almacen) . "'
+    AND fecha_inv = '" . addslashes($fecha) . "'
+    AND usuario = $empleado
 ";
-
 $res = mssql_query($sql, $conn);
 
 if (!$res) {
-  $err = mssql_get_last_message();
-  echo json_encode(['success' => false, 'error' => "Error al actualizar estatus: $err"]);
+  error_log("Error SQL actualizar_estatus: " . mssql_get_last_message());
+  echo json_encode(['success' => false, 'error' => mssql_get_last_message()]);
   exit;
 }
 
-// ==============================
-// 4. Respuesta
-// ==============================
+// ============================
+// Respuesta
+// ============================
 echo json_encode([
   'success' => true,
-  'mensaje' => "Estatus actualizado a $estatus para $almacen ($empleado)"
+  'mensaje' => "Estatus actualizado a $estatus",
+  'estatus' => $estatus
 ]);
 exit;

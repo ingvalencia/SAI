@@ -1,4 +1,4 @@
-import { useNavigate,useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import { useEffect, useState, useRef, useMemo } from "react";
 import Swal from "sweetalert2";
@@ -15,7 +15,6 @@ const MySwal = withReactContent(Swal);
 export default function CapturaInventario() {
   const [almacen, setAlmacen] = useState("");
   const [fecha, setFecha] = useState("");
-  const empleado = sessionStorage.getItem("empleado");
   const [modo, setModo] = useState(null);
   const [datos, setDatos] = useState([]);
   const [bloqueado, setBloqueado] = useState(false);
@@ -38,11 +37,10 @@ export default function CapturaInventario() {
   const nombre = sessionStorage.getItem("nombre") || "";
   const empleadoSesion = sessionStorage.getItem("empleado") || "";
 
+  const empleado = sessionStorage.getItem("empleado");
   const location = useLocation();
   const { estatus: estatusDesdeRuta } = location.state || {};
-  const [estatus, setEstatus] = useState(estatusDesdeRuta || 1);
-
-
+  const [estatus, setEstatus] = useState(0);
 
   const handleLogout = () => {
     sessionStorage.clear();
@@ -59,61 +57,71 @@ export default function CapturaInventario() {
 
 
   const iniciarCaptura = async () => {
-    if (!almacen || !fecha || !empleado) {
-      MySwal.fire("Faltan datos", "Completa todos los campos", "warning");
-      return;
+  if (!almacen || !fecha || !empleado) {
+    MySwal.fire("Faltan datos", "Completa todos los campos", "warning");
+    return;
+  }
+
+  try {
+    // ✅ 1. Obtener el estatus real desde la BD
+    const estatusRes = await axios.get(
+      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/verifica_estatus.php",
+      { params: { almacen, fecha, empleado, cia: ciaSeleccionada } }
+    );
+
+    if (!estatusRes.data.success) throw new Error(estatusRes.data.error);
+
+    const estatusReal = estatusRes.data.estatus || 0;
+    setEstatus(estatusReal);
+    console.log("📌 Estatus detectado desde BD:", estatusReal);
+
+    // ✅ 2. Consultar el modo de captura
+    const r1 = await axios.get("https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/control_carga_inventario.php", {
+      params: { almacen, fecha, empleado, cia: ciaSeleccionada },
+    });
+
+    if (!r1.data.success) throw new Error(r1.data.error);
+
+    const modo = r1.data.modo;
+    const mensaje = r1.data.mensaje || "";
+    const capturista = r1.data.capturista || null;
+
+    setModo(modo);
+
+    // ✅ 3. Reglas de bloqueo dinámico
+    const debeBloquear = modo === "solo lectura" && estatusReal === 1;
+    setBloqueado(debeBloquear);
+
+    let mensajeFinal = mensaje;
+
+    if (modo === "solo lectura") {
+      if (estatusReal === 2) mensajeFinal = "📝 Modo: Segundo conteo";
+      else if (estatusReal === 3) mensajeFinal = "📝 Modo: Tercer conteo";
     }
 
-    try {
-      const r1 = await axios.get("https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/control_carga_inventario.php", {
-        params: { almacen, fecha, empleado, cia: ciaSeleccionada },
-      });
+    setMensajeModo(mensajeFinal);
 
-      if (!r1.data.success) throw new Error(r1.data.error);
+    const esCapturista = capturista === null || parseInt(capturista) === parseInt(empleado);
+    setMostrarComparar(modo === "solo lectura" && esCapturista);
 
+    setLoadingInventario(true);
 
-      const modo = r1.data.modo;
-      const mensaje = r1.data.mensaje || "";
-      const capturista = r1.data.capturista || null;
+    // ✅ 4. Cargar datos de inventario usando el estatus real
+    const r2 = await axios.get(
+      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/obtener_inventario.php",
+      { params: { almacen, fecha, empleado, estatus: estatusReal, cia: ciaSeleccionada } }
+    );
 
-      setModo(modo);
+    if (!r2.data.success) throw new Error(r2.data.error);
+    setDatos(r2.data.data || []);
+    setLoadingInventario(false);
 
-      // Bloquea solo en Primer Conteo si ya fue confirmado
-      const debeBloquear = modo === "solo lectura" && estatus === 1;
-      setBloqueado(debeBloquear);
+  } catch (error) {
+    MySwal.fire("Error", error.message, "error");
+    setLoadingInventario(false);
+  }
+};
 
-
-      let mensajeFinal = mensaje;
-
-      if (modo === "solo lectura") {
-        if (estatus === 2) mensajeFinal = "📝 Modo: Segundo conteo";
-        else if (estatus === 3) mensajeFinal = "📝 Modo: Tercer conteo";
-      }
-
-      setMensajeModo(mensajeFinal);
-
-
-      const esCapturista = capturista === null || parseInt(capturista) === parseInt(empleado);
-      setMostrarComparar(modo === "solo lectura" && esCapturista);
-
-      setLoadingInventario(true);
-
-
-      const r2 = await axios.get("https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/obtener_inventario.php", {
-        params: { almacen, fecha, empleado, estatus },
-      });
-
-
-      if (!r2.data.success) throw new Error(r2.data.error);
-      setDatos(r2.data.data);
-      setLoadingInventario(false);
-
-    } catch (error) {
-      MySwal.fire("Error", error.message, "error");
-      setLoadingInventario(false);
-
-    }
-  };
 
   const cambiarCantidad = (index, valor) => {
     const nuevo = [...datos];
@@ -208,8 +216,9 @@ export default function CapturaInventario() {
       });
 
       navigate("/comparar", {
-        state: { almacen, fecha, empleado, cia: ciaSeleccionada },
+      state: { almacen, fecha, empleado, cia: ciaSeleccionada, estatus },
       });
+
     } catch (error) {
       Swal.close();
       await MySwal.fire("Error", error.message, "error");
@@ -367,7 +376,6 @@ export default function CapturaInventario() {
           }}
         />
       )}
-
 
       {/* Botón escaneo en vivo solo en móviles */}
       {datos.length > 0 && esMovil && (
@@ -605,7 +613,7 @@ export default function CapturaInventario() {
                 <button
                   onClick={() =>
                     navigate("/comparar", {
-                      state: { almacen, fecha, empleado, cia: ciaSeleccionada },
+                       state: { almacen, fecha, empleado, cia: ciaSeleccionada, estatus },
                     })
                   }
                   className="px-4 py-2 bg-blue-200 hover:bg-blue-300 text-blue-900 font-semibold rounded-lg shadow-md text-sm transition-all duration-200 whitespace-nowrap"
