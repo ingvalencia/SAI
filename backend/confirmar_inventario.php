@@ -18,7 +18,7 @@ if (!$almacen || !$fecha || !$empleado || !$datos || !is_array($datos) || !isset
 }
 
 
-if (!in_array($estatus, [0, 1, 2])) {
+if (!in_array($estatus, [0, 2, 3])) {
   echo json_encode(['success' => false, 'error' => 'Estatus inválido']);
   exit;
 }
@@ -40,7 +40,7 @@ mssql_select_db($db, $conn);
 if ($estatus > 1) {
   $check = mssql_query("
     SELECT COUNT(*) AS total FROM CAP_INVENTARIO
-    WHERE almacen = '$almacen' AND fecha_inv = '$fecha' AND usuario = $empleado AND estatus = " . ($estatus - 1), $conn);
+    WHERE almacen = '$almacen' AND fecha_inv = '$fecha' AND usuario = $empleado AND estatus = " . ($estatus ), $conn);
 
   $row = mssql_fetch_assoc($check);
   if (!$row || $row['total'] == 0) {

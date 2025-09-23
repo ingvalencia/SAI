@@ -48,7 +48,7 @@ $row = mssql_fetch_assoc($result);
 $estatus = isset($row['estatus']) ? intval($row['estatus']) : 0;
 
 // Asegurar mínimo estatus 1
-if ($estatus < 1) $estatus = 1;
+if ($estatus < 1) $estatus = 0;
 
 echo json_encode([
   "success" => true,

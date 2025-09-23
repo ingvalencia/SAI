@@ -24,32 +24,38 @@ export default function CompararInventario() {
 
 
   const exportarExcel = () => {
-  const datosExportar = datos.map((item, i) => {
-    const fila = {
-      "#": i + 1,
-      "No Empleado": item.usuario,
-      "Almacén": item.almacen,
-      "CIA": item.cias,
-      "Código": item.codigo,
-      "Nombre": item.nombre,
-      "Código de Barras": item.codebars,
-      "Captura SAP": item.inventario_sap,
-      "Diferencia": item.diferencia,
-    };
+    const datosExportar = datos.map((item, i) => {
+      const fila = {
+        "#": i + 1,
+        "No Empleado": item.usuario,
+        "Almacén": item.almacen,
+        "CIA": item.cias,
+        "Código": item.codigo,
+        "Nombre": item.nombre,
+        "Código de Barras": item.codebars,
+        "Captura SAP": item.inventario_sap ?? 0,
+      };
 
-    if (estatus >= 1) fila["Conteo 1"] = item.conteo1 ?? 0;
-    if (estatus >= 2) fila["Conteo 2"] = item.conteo2 ?? 0;
-    if (estatus >= 3) fila["Conteo 3"] = item.conteo3 ?? 0;
+      if (estatus >= 1) fila["Conteo 1"] = item.conteo1 ?? 0;
+      if (estatus >= 2) fila["Conteo 2"] = item.conteo2 ?? 0;
+      if (estatus >= 3) fila["Conteo 3"] = item.conteo3 ?? 0;
 
-    return fila;
-  });
+      const conteoActual =
+        estatus === 1 ? item.conteo1 ?? 0 :
+        estatus === 2 ? item.conteo2 ?? 0 :
+        estatus === 3 ? item.conteo3 ?? 0 : 0;
 
-  const worksheet = XLSX.utils.json_to_sheet(datosExportar);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Diferencias");
+      fila["Diferencia"] = parseFloat((conteoActual - (item.inventario_sap ?? 0)).toFixed(2));
 
-  XLSX.writeFile(workbook, `comparacion_${almacen}_${fecha}.xlsx`);
-};
+      return fila;
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(datosExportar);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Diferencias");
+
+    XLSX.writeFile(workbook, `comparacion_${almacen}_${fecha}.xlsx`);
+  };
 
 
   useEffect(() => {
@@ -68,7 +74,25 @@ export default function CompararInventario() {
           );
 
           if (!res.data.success) throw new Error(res.data.error);
-          setDatos(res.data.data);
+          const estatusActual = res.data.estatus || 1;
+          setEstatus(estatusActual);
+
+          // Calcula la diferencia según el conteo actual
+          const datosConDiferencias = res.data.data.map((item) => {
+            const conteo =
+              estatusActual === 1 ? item.conteo1 ?? 0 :
+              estatusActual === 2 ? item.conteo2 ?? 0 :
+              estatusActual === 3 ? item.conteo3 ?? 0 :
+              0;
+
+            return {
+              ...item,
+              diferencia: parseFloat((conteo - (item.inventario_sap ?? 0)).toFixed(2))
+            };
+          });
+
+          setDatos(datosConDiferencias);
+
           setEstatus(res.data.estatus || 1);
 
 
@@ -90,7 +114,6 @@ export default function CompararInventario() {
   // Mostrar loading si aún no termina
   if (loading) return <p className="text-center mt-10 text-gray-600">Cargando diferencias...</p>;
 
-  // Función para confirmar diferencias
   // Función para confirmar diferencias
   const confirmarDiferencia = async () => {
     const resultado = await Swal.fire({
@@ -128,7 +151,11 @@ export default function CompararInventario() {
     }
   };
 
-
+  function getColor(diferencia) {
+      if (diferencia > 0) return "orange";
+      if (diferencia < 0) return "red";
+      return "green";
+    }
 
 
   return (
@@ -147,29 +174,80 @@ export default function CompararInventario() {
         }`}
       </h1>
 
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+      <div className="flex items-center gap-2">
         {["Primer Conteo", "Segundo Conteo", "Tercer Conteo"].map((label, index) => {
           const conteoNumero = index + 1;
           const activo = estatus === conteoNumero;
 
           return (
-           <button
-            key={label}
-            onClick={async () => {
-              if (conteoNumero === 1) {
-                // Solo redirige si no estás ya en estatus 1
-                if (estatus !== 1) {
-                  navigate("/captura", {
-                    state: { almacen, fecha, cia, empleado, estatus: 1 },
-                  });
+            <button
+              key={label}
+              onClick={async () => {
+                if (conteoNumero === 1) {
+                  if (estatus === 1) {
+                    Swal.fire("No permitido", "Ya se realizo el primer conteo.", "warning");
+                    return;
+                  }
+                  if ([2, 3, 4].includes(estatus)) {
+                    Swal.fire("No permitido", "Ya no se puede realizar primer conteo.", "warning");
+                    return;
+                  }
                 }
-              }
 
-              else if (conteoNumero === 2) {
-                if (estatus === 1) {
+                else if (conteoNumero === 2) {
+                  if ([2, 3, 4].includes(estatus)) {
+                    Swal.fire("No permitido", "Ya no se puede realizar segundo conteo.", "warning");
+                    return;
+                  }
+
+                  if (estatus === 1) {
+                    const confirm = await Swal.fire({
+                      title: "¿Iniciar segundo conteo?",
+                      text: "¿Estás seguro de avanzar al segundo conteo?",
+                      icon: "question",
+                      showCancelButton: true,
+                      confirmButtonText: "Sí",
+                      cancelButtonText: "Cancelar",
+                    });
+
+                    if (!confirm.isConfirmed) return;
+
+                    try {
+                      const formData = new FormData();
+                      formData.append("almacen", almacen);
+                      formData.append("fecha", fecha);
+                      formData.append("empleado", empleado);
+                      formData.append("estatus", 2);
+
+                      await axios.post(
+                        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/actualizar_estatus.php",
+                        formData
+                      );
+
+                      navigate("/captura", {
+                        state: { almacen, fecha, cia, empleado, estatus: 2 },
+                      });
+                    } catch (error) {
+                      console.error("Error al actualizar estatus", error);
+                      Swal.fire("Error", "No se pudo actualizar el estatus. Revisa la consola.", "error");
+                    }
+                  }
+                }
+
+                else if (conteoNumero === 3) {
+                  if (estatus === 1) {
+                    Swal.fire("No permitido", "Debe hacer el segundo conteo previamente.", "warning");
+                    return;
+                  }
+                  if ([3, 4].includes(estatus)) {
+                    Swal.fire("No permitido", "Ya no se puede hacer ningún conteo.", "warning");
+                    return;
+                  }
+
                   const confirm = await Swal.fire({
-                    title: "¿Iniciar segundo conteo?",
-                    text: "¿Estás seguro de avanzar al segundo conteo?",
+                    title: "¿Iniciar tercer conteo?",
+                    text: "¿Estás seguro de avanzar al tercer conteo?",
                     icon: "question",
                     showCancelButton: true,
                     confirmButtonText: "Sí",
@@ -179,77 +257,49 @@ export default function CompararInventario() {
                   if (!confirm.isConfirmed) return;
 
                   try {
-                    const formData = new FormData();
-                    formData.append("almacen", almacen);
-                    formData.append("fecha", fecha);
-                    formData.append("empleado", empleado);
-                    formData.append("estatus", 2);
+                    const formData3 = new FormData();
+                    formData3.append("almacen", almacen);
+                    formData3.append("fecha", fecha);
+                    formData3.append("empleado", empleado);
+                    formData3.append("estatus", 3);
 
                     await axios.post(
                       "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/actualizar_estatus.php",
-                      formData
+                      formData3
                     );
 
                     navigate("/captura", {
-                      state: { almacen, fecha, cia, empleado, estatus: 2 },
+                      state: { almacen, fecha, cia, empleado, estatus: 3 },
                     });
                   } catch (error) {
                     console.error("Error al actualizar estatus", error);
                     Swal.fire("Error", "No se pudo actualizar el estatus. Revisa la consola.", "error");
                   }
                 }
-              }
-
-              else if (conteoNumero === 3) {
-                if (estatus !== 2) {
-                  Swal.fire("No permitido", "Debes completar el segundo conteo primero.", "warning");
-                  return;
-                }
-
-                const confirm = await Swal.fire({
-                  title: "¿Iniciar tercer conteo?",
-                  text: "¿Estás seguro de avanzar al tercer conteo?",
-                  icon: "question",
-                  showCancelButton: true,
-                  confirmButtonText: "Sí",
-                  cancelButtonText: "Cancelar",
-                });
-
-                if (!confirm.isConfirmed) return;
-
-                try {
-                  const formData3 = new FormData();
-                  formData3.append("almacen", almacen);
-                  formData3.append("fecha", fecha);
-                  formData3.append("empleado", empleado);
-                  formData3.append("estatus", 3);
-
-                  await axios.post(
-                    "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/actualizar_estatus.php",
-                    formData3
-                  );
-
-                  navigate("/captura", {
-                    state: { almacen, fecha, cia, empleado, estatus: 3 },
-                  });
-                } catch (error) {
-                  console.error("Error al actualizar estatus", error);
-                  Swal.fire("Error", "No se pudo actualizar el estatus. Revisa la consola.", "error");
-                }
-              }
-            }}
-            className={`px-3 py-1 rounded-full text-sm font-semibold transition ${
-              activo
-                ? "bg-blue-600 text-white"
-                : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-            }`}
-          >
-            {label}
-          </button>
-
+              }}
+              className={`px-3 py-1 rounded-full text-sm font-semibold transition ${
+                activo
+                  ? "bg-blue-600 text-white"
+                  : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+              }`}
+            >
+              {label}
+            </button>
           );
         })}
       </div>
+
+        {!diferenciaConfirmada && (
+          <button
+            onClick={confirmarDiferencia}
+            className="bg-yellow-500 hover:bg-yellow-600 px-4 py-2 text-white font-semibold rounded shadow transition duration-200"
+          >
+            Confirmar diferencia
+          </button>
+        )}
+
+      </div>
+
 
 
       <div className="w-full bg-white p-4 mb-4 rounded-lg shadow border border-gray-200">
@@ -281,14 +331,7 @@ export default function CompararInventario() {
           Exportar a Excel
         </button>
 
-        {!diferenciaConfirmada && (
-          <button
-            onClick={confirmarDiferencia}
-            className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold rounded shadow transition duration-200"
-          >
-            Confirmar diferencia
-          </button>
-        )}
+
       </div>
 
 
@@ -354,32 +397,41 @@ export default function CompararInventario() {
         </td>
         {/* Conteos dinámicos */}
         {estatus >= 1 && (
-          <td className="p-3 text-sm text-right text-gray-700">
+          <td className="p-3 text-sm text-right bg-blue-50 text-blue-800 font-semibold">
             {(item.conteo1 ?? 0).toFixed(2)}
           </td>
         )}
         {estatus >= 2 && (
-          <td className="p-3 text-sm text-right text-gray-700">
+          <td className="p-3 text-sm text-right bg-purple-50 text-purple-800 font-semibold">
             {(item.conteo2 ?? 0).toFixed(2)}
           </td>
         )}
         {estatus >= 3 && (
-          <td className="p-3 text-sm text-right text-gray-700">
+          <td className="p-3 text-sm text-right bg-amber-50 text-amber-800 font-semibold">
             {(item.conteo3 ?? 0).toFixed(2)}
           </td>
         )}
         {/* Diferencia */}
-        <td
-          className={`p-3 text-sm text-right font-semibold ${
-            item.diferencia === 0
-              ? "text-green-600"
-              : item.diferencia > 0
-              ? "text-yellow-600"
-              : "text-red-600"
-          }`}
+        <td className="p-3 text-sm text-right font-bold"
+            style={{
+              color:
+                estatus === 3
+                  ? getColor((item.sap || 0) - (item.conteo3 || 0))
+                  : estatus === 2
+                  ? getColor((item.sap || 0) - (item.conteo2 || 0))
+                  : getColor((item.sap || 0) - (item.conteo1 || 0)),
+            }}
         >
-          {item.diferencia?.toFixed(2) ?? "0.00"}
+          {(
+            estatus === 3
+              ? (item.sap || 0) - (item.conteo3 || 0)
+              : estatus === 2
+              ? (item.sap || 0) - (item.conteo2 || 0)
+              : (item.sap || 0) - (item.conteo1 || 0)
+          ).toFixed(2)}
         </td>
+
+
       </tr>
     ))}
       </tbody>

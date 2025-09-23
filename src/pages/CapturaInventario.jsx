@@ -618,7 +618,7 @@ export default function CapturaInventario() {
                   }
                   className="px-4 py-2 bg-blue-200 hover:bg-blue-300 text-blue-900 font-semibold rounded-lg shadow-md text-sm transition-all duration-200 whitespace-nowrap"
                 >
-                  📊 Comparar inventario
+                  📊 Ver inventario (Conteos)
                 </button>
 
               )}
@@ -690,7 +690,7 @@ export default function CapturaInventario() {
           {item.codebars}
         </td>
         <td className="p-3">
-          {bloqueado ? (
+          {(bloqueado || estatus === 4) ? (
             <span className="text-gray-600 text-sm font-medium">{valor}</span>
           ) : (
             <input
@@ -763,26 +763,27 @@ export default function CapturaInventario() {
 
 
 
-         {!loadingInventario && !bloqueado && (
-          <div className="mt-4 flex justify-between items-center">
-            {/* Botón Exportar Excel */}
-            <button
-              onClick={exportarExcel}
-              className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition duration-200 ease-in-out flex items-center gap-2"
-            >
-              <img src="https://img.icons8.com/color/24/microsoft-excel-2019.png" alt="excel" />
-              Exportar Excel
-            </button>
+         {!loadingInventario && !bloqueado && estatus !== 4 && (
+            <div className="mt-4 flex justify-between items-center">
+              {/* Botón Exportar Excel */}
+              <button
+                onClick={exportarExcel}
+                className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition duration-200 ease-in-out flex items-center gap-2"
+              >
+                <img src="https://img.icons8.com/color/24/microsoft-excel-2019.png" alt="excel" />
+                Exportar Excel
+              </button>
 
-            {/* Botón Confirmar Inventario */}
-            <button
-              onClick={confirmarInventario}
-              className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition duration-200 ease-in-out flex items-center gap-2"
-            >
-              ✅ Confirmar inventario
-            </button>
-          </div>
-        )}
+              {/* Botón Confirmar Inventario */}
+              <button
+                onClick={confirmarInventario}
+                className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition duration-200 ease-in-out flex items-center gap-2"
+              >
+                ✅ Confirmar inventario
+              </button>
+            </div>
+          )}
+
 
         </div>
       )}
