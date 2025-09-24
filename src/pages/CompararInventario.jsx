@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
@@ -20,42 +21,80 @@ export default function CompararInventario() {
  const { estatus: estatusRuta } = location.state || {};
  const [estatus, setEstatus] = useState(estatusRuta || 1);
 
+ const exportarExcel = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Diferencias");
 
+    // Encabezados
+    const headers = [
+      "#", "No Empleado", "Almacén", "CIA", "Código", "Nombre",
+      "Código de Barras", "Captura SAP", "Conteo 1", "Conteo 2", "Conteo 3", "Diferencia"
+    ];
 
+    worksheet.addRow(headers);
 
-  const exportarExcel = () => {
-    const datosExportar = datos.map((item, i) => {
-      const fila = {
-        "#": i + 1,
-        "No Empleado": item.usuario,
-        "Almacén": item.almacen,
-        "CIA": item.cias,
-        "Código": item.codigo,
-        "Nombre": item.nombre,
-        "Código de Barras": item.codebars,
-        "Captura SAP": item.inventario_sap ?? 0,
+    // Estilo encabezado
+    headers.forEach((_, idx) => {
+      const cell = worksheet.getRow(1).getCell(idx + 1);
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "CC0000" },
       };
-
-      if (estatus >= 1) fila["Conteo 1"] = item.conteo1 ?? 0;
-      if (estatus >= 2) fila["Conteo 2"] = item.conteo2 ?? 0;
-      if (estatus >= 3) fila["Conteo 3"] = item.conteo3 ?? 0;
-
-      const conteoActual =
-        estatus === 1 ? item.conteo1 ?? 0 :
-        estatus === 2 ? item.conteo2 ?? 0 :
-        estatus === 3 ? item.conteo3 ?? 0 : 0;
-
-      fila["Diferencia"] = parseFloat((conteoActual - (item.inventario_sap ?? 0)).toFixed(2));
-
-      return fila;
+      cell.font = {
+        color: { argb: "FFFFFF" },
+        bold: true,
+      };
     });
 
-    const worksheet = XLSX.utils.json_to_sheet(datosExportar);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Diferencias");
+    // Filas
+    datos.forEach((item, i) => {
+      const conteo1 = item.conteo1 ?? 0;
+      const conteo2 = item.conteo2 ?? 0;
+      const conteo3 = item.conteo3 ?? 0;
+      const sap = item.inventario_sap ?? 0;
 
-    XLSX.writeFile(workbook, `comparacion_${almacen}_${fecha}.xlsx`);
+      const conteoActual =
+        estatus === 3 ? conteo3 :
+        estatus === 2 ? conteo2 :
+        conteo1;
+
+      const diferencia = parseFloat((sap - conteoActual).toFixed(2));
+
+      const row = worksheet.addRow([
+        i + 1,
+        item.usuario,
+        item.almacen,
+        item.cias,
+        item.codigo,
+        item.nombre,
+        item.codebars,
+        sap,
+        conteo1,
+        conteo2,
+        conteo3,
+        diferencia,
+      ]);
+
+      // Estilo diferencia negativa
+      if (diferencia < 0) {
+        const diffCell = row.getCell(12); // columna "Diferencia"
+        diffCell.font = { color: { argb: "000000" } };
+      }
+    });
+
+    // Filtros
+    worksheet.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: 1, column: headers.length },
+    };
+
+    // Guardar archivo
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    saveAs(blob, `comparacion_${almacen}_${fecha}.xlsx`);
   };
+
 
 
   useEffect(() => {
@@ -131,6 +170,14 @@ export default function CompararInventario() {
     }
 
     try {
+      // Mostrar modal de cargando
+      Swal.fire({
+        title: "Procesando...",
+        text: "Por favor espera",
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+      });
+
       const formData = new FormData();
       formData.append("almacen", almacen);
       formData.append("fecha", fecha);
@@ -141,15 +188,19 @@ export default function CompararInventario() {
         formData
       );
 
+      Swal.close(); // cerrar el loading
+
       if (!res.data.success) throw new Error(res.data.error);
 
-      Swal.fire("¡Hecho!", "Las diferencias han sido confirmadas.", "success");
+      await Swal.fire("¡Hecho!", "Las diferencias han sido confirmadas.", "success");
       setDiferenciaConfirmada(true);
-      setEstatus(4); // 🔧 Ajuste agregado para reflejar estatus final
+      setEstatus(4); // reflejar estatus final
     } catch (error) {
+      Swal.close();
       Swal.fire("Error", error.message, "error");
     }
   };
+
 
   function getColor(diferencia) {
       if (diferencia > 0) return "orange";
@@ -292,10 +343,11 @@ export default function CompararInventario() {
         {!diferenciaConfirmada && (
           <button
             onClick={confirmarDiferencia}
-            className="bg-yellow-500 hover:bg-yellow-600 px-4 py-2 text-white font-semibold rounded shadow transition duration-200"
+            className="px-3 py-1 rounded-full text-sm font-semibold bg-yellow-500 text-white hover:bg-yellow-600 transition"
           >
             Confirmar diferencia
           </button>
+
         )}
 
       </div>
@@ -325,13 +377,11 @@ export default function CompararInventario() {
       <div className="flex justify-end items-center mb-4 gap-3">
         <button
           onClick={exportarExcel}
-          className="px-4 py-2 bg-green-300 hover:bg-green-400 text-green-900 font-semibold rounded flex items-center gap-2 shadow"
+          className="px-3 py-1 rounded-full text-sm font-semibold bg-green-300 text-green-900 hover:bg-green-400 flex items-center gap-2 transition"
         >
           <img src="https://img.icons8.com/color/24/microsoft-excel-2019.png" alt="excel" />
           Exportar a Excel
         </button>
-
-
       </div>
 
 

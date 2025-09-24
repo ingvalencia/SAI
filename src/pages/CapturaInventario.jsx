@@ -3,7 +3,8 @@ import axios from "axios";
 import { useEffect, useState, useRef, useMemo } from "react";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
 import Select from "react-select";
 import LectorCodigo from "../components/LectorCodigo";
 import EscanerCamaraQuagga from "../components/EscanerCamaraQuagga";
@@ -226,32 +227,67 @@ export default function CapturaInventario() {
   };
 
 
-
-  const exportarExcel = () => {
+  const exportarExcel = async () => {
     const datosFiltrados = datos.filter((item) =>
       item.ItemCode.toLowerCase().includes(busqueda.toLowerCase()) ||
       item.Itemname.toLowerCase().includes(busqueda.toLowerCase())
     );
 
-    const datosExportar = datosFiltrados.map((item, i) => ({
-        "#": i + 1,
-        CIA: item.cias,
-        ALMACÉN: item.almacen,
-        FAMILIA: item.nom_fam,
-        SUBFAMILIA: item.nom_subfam,
-        CÓDIGO: item.ItemCode,
-        NOMBRE: item.Itemname,
-        "CÓDIGO BARRAS": item.codebars,
-        "INVENTARIO FÍSICO": item.cant_invfis,
-      }));
+    const headers = [
+      "#", "CIA", "ALMACÉN", "FAMILIA", "SUBFAMILIA",
+      "CÓDIGO", "NOMBRE", "CÓDIGO BARRAS", "INVENTARIO FÍSICO"
+    ];
 
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Captura");
 
-      const worksheet = XLSX.utils.json_to_sheet(datosExportar);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Captura");
+    // Agrega encabezados
+    worksheet.addRow(headers);
 
-      XLSX.writeFile(workbook, `captura_${almacen}_${fecha}.xlsx`);
+    // Estilo de encabezado: rojo con blanco
+    headers.forEach((_, idx) => {
+      const cell = worksheet.getRow(1).getCell(idx + 1);
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "CC0000" },
+      };
+      cell.font = {
+        color: { argb: "FFFFFF" },
+        bold: true,
+      };
+    });
+
+    // Agrega filas
+    datosFiltrados.forEach((item, i) => {
+      worksheet.addRow([
+        i + 1,
+        item.cias,
+        item.almacen,
+        item.nom_fam,
+        item.nom_subfam,
+        item.ItemCode,
+        item.Itemname,
+        item.codebars,
+        item.cant_invfis ?? 0,
+      ]);
+    });
+
+    // Aplica autofiltro
+    worksheet.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: 1, column: headers.length },
+    };
+
+    // Guarda archivo
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    saveAs(blob, `captura_${almacen}_${fecha}.xlsx`);
   };
+
 
   const familiasDisponibles = [...new Set(datos.map(item => item.nom_fam))];
   const subfamiliasDisponibles = [...new Set(
@@ -316,18 +352,22 @@ export default function CapturaInventario() {
       });
 
       if (cantidad !== undefined) {
-        const nuevo = [...datos];
-        nuevo[index].cant_invfis = cantidad;
-        setDatos(nuevo);
+      const nuevo = [...datos];
+      nuevo[index].cant_invfis = cantidad;
+      setDatos(nuevo);
 
-        // Scroll al producto y resaltar visualmente
-        const elemento = document.getElementById(`fila-${index}`);
-        if (elemento) {
-          elemento.scrollIntoView({ behavior: "smooth", block: "center" });
-          elemento.classList.add("ring-2", "ring-green-400");
-          setTimeout(() => elemento.classList.remove("ring-2", "ring-green-400"), 1500);
-        }
+      // limpiar búsqueda para que quede listo para el siguiente escaneo
+      setBusqueda("");
+
+      // Scroll al producto y resaltar visualmente
+      const elemento = document.getElementById(`fila-${index}`);
+      if (elemento) {
+        elemento.scrollIntoView({ behavior: "smooth", block: "center" });
+        elemento.classList.add("ring-2", "ring-green-400");
+        setTimeout(() => elemento.classList.remove("ring-2", "ring-green-400"), 1500);
       }
+    }
+
     } else {
       MySwal.fire("No encontrado", `El código ${codigo} no está en la tabla actual`, "warning");
     }
@@ -369,13 +409,13 @@ export default function CapturaInventario() {
       {/* Lector invisible solo si NO es móvil */}
       {datos.length > 0 && !esMovil && (
         <LectorCodigo
-          lectorActivo={lectorActivo}
           onCodigoDetectado={(codigo) => {
-            console.log("Código detectado:", codigo);
+            console.log(">>> entro a LectorCodigo con", codigo);
             handleCodigoDetectado(codigo);
           }}
         />
       )}
+
 
       {/* Botón escaneo en vivo solo en móviles */}
       {datos.length > 0 && esMovil && (
@@ -529,8 +569,6 @@ export default function CapturaInventario() {
           >
             Iniciar captura
           </button>
-
-
 
         </div>
       </div>
@@ -768,20 +806,22 @@ export default function CapturaInventario() {
               {/* Botón Exportar Excel */}
               <button
                 onClick={exportarExcel}
-                className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition duration-200 ease-in-out flex items-center gap-2"
+                className="w-40 h-10 px-3 rounded-full text-sm font-semibold bg-green-300 text-green-900 hover:bg-green-400 flex items-center justify-center gap-2 transition"
               >
-                <img src="https://img.icons8.com/color/24/microsoft-excel-2019.png" alt="excel" />
+                <img src="https://img.icons8.com/color/20/microsoft-excel-2019.png" alt="excel" />
                 Exportar Excel
               </button>
 
               {/* Botón Confirmar Inventario */}
               <button
                 onClick={confirmarInventario}
-                className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition duration-200 ease-in-out flex items-center gap-2"
+                className="w-40 h-10 px-3 rounded-full text-sm font-semibold bg-green-600 text-white hover:bg-green-700 flex items-center justify-center gap-2 transition"
               >
-                ✅ Confirmar inventario
+                ✅ Confirmar
               </button>
             </div>
+
+
           )}
 
 

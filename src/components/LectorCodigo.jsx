@@ -1,51 +1,37 @@
 import { useEffect, useRef } from "react";
 
-export default function LectorCodigo({ onCodigoDetectado, lectorActivo }) {
-  const inputRef = useRef(null);
-  const timeoutRef = useRef(null);
+export default function LectorCodigo({ onCodigoDetectado }) {
+  const bufferRef = useRef("");
+  const timerRef = useRef(null);
 
   useEffect(() => {
-    if (lectorActivo && inputRef.current) {
-      inputRef.current.focus();
-
-      const interval = setInterval(() => {
-        if (
-          lectorActivo &&
-          document.activeElement !== inputRef.current
-        ) {
-          inputRef.current.focus();
+    const handler = (e) => {
+      if (e.key === "Enter") {
+        const code = bufferRef.current.trim();
+        bufferRef.current = "";
+        if (code.length >= 4) {
+          console.log(">>> disparando onCodigoDetectado:", code);
+          onCodigoDetectado(code);
         }
-      }, 500);
+      } else if (e.key.length === 1) {
+        bufferRef.current += e.key;
 
-      return () => clearInterval(interval);
-    }
-  }, [lectorActivo]);
-
-  const manejarCambio = (e) => {
-    const input = e.target;
-
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-
-    timeoutRef.current = setTimeout(() => {
-      const codigo = input.value.trim();
-      if (codigo.length >= 4) {
-        onCodigoDetectado(codigo);
+        // si no llega Enter, flush automático en 200ms
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => {
+          const code = bufferRef.current.trim();
+          bufferRef.current = "";
+          if (code.length >= 4) {
+            console.log(">>> disparando (timeout) onCodigoDetectado:", code);
+            onCodigoDetectado(code);
+          }
+        }, 200);
       }
-      input.value = "";
-    }, 100);
-  };
+    };
 
-  return (
-    <div className="fixed bottom-0 left-0 w-0 h-0 overflow-hidden">
-      <input
-        ref={inputRef}
-        type="text"
-        onChange={manejarCambio}
-        className="opacity-0 absolute"
-        autoFocus
-      />
-    </div>
-  );
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onCodigoDetectado]);
+
+  return null;
 }
