@@ -43,6 +43,31 @@ export default function CapturaInventario() {
   const { estatus: estatusDesdeRuta } = location.state || {};
   const [estatus, setEstatus] = useState(0);
 
+  const [ciasPermitidas, setCiasPermitidas] = useState([]);
+
+  useEffect(() => {
+    const cargarCiasPermitidas = async () => {
+      try {
+        const res = await axios.get("https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/catalogo_cias_usuario.php", {
+          params: { empleado: sessionStorage.getItem("empleado") },
+        });
+
+        if (res.data.success && Array.isArray(res.data.data)) {
+          setCiasPermitidas(res.data.data);
+        } else {
+          setCiasPermitidas([]);
+        }
+      } catch (error) {
+        console.error("Error al cargar CIAs permitidas:", error.message);
+        setCiasPermitidas([]);
+      }
+    };
+
+    cargarCiasPermitidas();
+  }, []);
+
+
+
   const handleLogout = () => {
     sessionStorage.clear();
     navigate("/login");
@@ -450,9 +475,10 @@ export default function CapturaInventario() {
             className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
           >
             <option value="">-- Selecciona una CIA --</option>
-            <option value="recrefam">RECREFAM</option>
-            <option value="veser">VESER</option>
-            <option value="opardiv">OPARDIV</option>
+            {ciasPermitidas.map((cia) => (
+              <option key={cia} value={cia}>{cia.toUpperCase()}</option>
+            ))}
+
           </select>
         </div>
 
@@ -475,9 +501,10 @@ export default function CapturaInventario() {
                 if (catalogoAlmacenes.length === 0) {
                   try {
                     const res = await axios.get(
-                      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/catalogo_almacenes.php",
-                      { params: { cia: ciaSeleccionada } }
+                      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/catalogo_almacenes_usuario.php",
+                      { params: { cia: ciaSeleccionada, empleado: sessionStorage.getItem("empleado") } }
                     );
+
                     if (res.data.success && res.data.data) {
                       setCatalogoAlmacenes(res.data.data);
                       setMensajeValidacion("");
