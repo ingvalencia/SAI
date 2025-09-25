@@ -24,8 +24,9 @@ const Login = () => {
         sessionStorage.setItem("roles", JSON.stringify(res.data.roles));
         navigate("/");
       } else {
-        setError("Credenciales incorrectas");
+        setError(res.data.error || "Credenciales incorrectas");
       }
+
     } catch (err) {
       setError("Error de red o servidor");
     }
