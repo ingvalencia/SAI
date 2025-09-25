@@ -1,82 +1,64 @@
 <?php
-// ====== CORS ======
-$origenPermitido = 'http://localhost:3000';
-header("Access-Control-Allow-Origin: $origenPermitido");
-header("Access-Control-Allow-Credentials: true");
+header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
+header("Content-Type: application/json");
 
-// ====== SESIÓN ======
-session_name('SAI_SES');
-session_start();
-
-// ====== CONEXIÓN MSSQL ======
-$server = "192.168.0.174";
-$user   = "sa";
-$pass   = "P@ssw0rd";
-$db     = "SAP_PROCESOS";
-$conn = mssql_connect($server, $user, $pass);
+$conn = mssql_connect("192.168.0.174", "sa", "P@ssw0rd");
 if (!$conn) {
-  echo json_encode(['success' => false, 'error' => 'No se pudo conectar a la BD']);
+  echo json_encode(['success' => false, 'error' => 'Conexión fallida']);
   exit;
 }
-mssql_select_db($db, $conn);
+mssql_select_db("SAP_PROCESOS", $conn);
 
-// Configuración SQL Server
+// 💡 SET obligatorios para columnas computadas, vistas indexadas, etc.
 mssql_query("SET ANSI_NULLS ON", $conn);
+mssql_query("SET ANSI_WARNINGS ON", $conn);
 mssql_query("SET QUOTED_IDENTIFIER ON", $conn);
 mssql_query("SET CONCAT_NULL_YIELDS_NULL ON", $conn);
-mssql_query("SET ANSI_WARNINGS ON", $conn);
 mssql_query("SET ANSI_PADDING ON", $conn);
 
-// ====== PARÁMETRO OPCIONAL ======
-$soloActivos = isset($_GET['solo_activos']) && $_GET['solo_activos'] == '1';
-
-// ====== CONSULTA USUARIOS ======
-$sql = "
+// Cargar usuarios con info de rol
+$query = "
 SELECT
   u.id,
   u.empleado,
   u.nombre,
+  u.email,
+  u.id,
+  r.nombre AS rol_nombre,
   u.activo,
   ISNULL((
     SELECT STUFF((
       SELECT ',' + ul.local_codigo
-      FROM dbo.usuario_local ul
+      FROM usuario_local ul
       WHERE ul.usuario_id = u.id AND ul.activo = 1
       FOR XML PATH(''), TYPE
     ).value('.', 'NVARCHAR(MAX)'), 1, 1, '')
   ), '') AS locales_csv
-FROM dbo.usuarios u
+FROM usuarios u
+LEFT JOIN roles r ON r.id = u.id
+ORDER BY u.empleado
 ";
 
-if ($soloActivos) {
-  $sql .= " WHERE u.activo = 1";
-}
-
-$sql .= " ORDER BY u.empleado";
-
-// ====== EJECUCIÓN ======
-$res = mssql_query($sql, $conn);
+$res = mssql_query($query, $conn);
 if (!$res) {
-  $mensajeError = mssql_get_last_message();
-  echo json_encode(['success' => false, 'error' => "Error SQL: $mensajeError"]);
+  echo json_encode(['success' => false, 'error' => mssql_get_last_message()]);
   exit;
 }
 
-// ====== FORMATO DE RESPUESTA ======
 $data = [];
 while ($row = mssql_fetch_assoc($res)) {
-  $csv = isset($row['locales_csv']) ? trim($row['locales_csv']) : '';
-  $locales = $csv === '' ? [] : array_values(array_filter(array_map('trim', explode(',', $csv))));
-
+  $locales = $row['locales_csv'] !== '' ? explode(',', $row['locales_csv']) : [];
   $data[] = [
     'id'       => (int)$row['id'],
     'empleado' => $row['empleado'],
     'nombre'   => $row['nombre'],
+    'email'    => $row['email'],
+    'id'   => (int)$row['id'],
+    'rol'      => $row['id'],
     'activo'   => (int)$row['activo'],
-    'locales'  => $locales,
+    'locales'  => array_map('trim', $locales)
   ];
 }
 

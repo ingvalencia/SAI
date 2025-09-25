@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import Select from "react-select";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
@@ -9,12 +8,21 @@ const MySwal = withReactContent(Swal);
 export default function Usuarios() {
   const [usuarios, setUsuarios] = useState([]);
   const [locales, setLocales] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [ciaSeleccionada, setCiaSeleccionada] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const rolesSesion = JSON.parse(sessionStorage.getItem("roles") || "[]");
+  const rolLogueado = rolesSesion.length > 0 ? rolesSesion[0].id : null;
+
+
+
   const [form, setForm] = useState({
     empleado: "",
     nombre: "",
+    email: "",
     password: "",
+    rol_id: 4,
     locales: [],
     cia: "",
   });
@@ -43,29 +51,55 @@ export default function Usuarios() {
     }
   };
 
+  const fetchRoles = async () => {
+    try {
+      const res = await axios.get(
+        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/catalogo_roles.php"
+      );
+      if (res.data.success) setRoles(res.data.data);
+    } catch {
+      setRoles([]);
+    }
+  };
+
   useEffect(() => {
     fetchUsuarios();
+    if (rolLogueado === 1 || rolLogueado === 2) {
+      fetchRoles();
+    }
   }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
+      const rolesSesion = JSON.parse(sessionStorage.getItem("roles") || "[]");
+      const rol_creador = rolesSesion.length > 0 ? rolesSesion[0].id : 4;
+
       const res = await axios.post(
         "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/crear_usuario.php",
-        form,
+        { ...form, rol_creador }, // <- aquí lo agregas
         { withCredentials: true }
       );
+
       if (res.data.success) {
         await MySwal.fire({
           icon: "success",
           title: "Usuario registrado",
-          text: `El capturista ${form.nombre} fue creado correctamente.`,
+          text: `El usuario ${form.nombre} fue creado correctamente.`,
           timer: 1800,
           showConfirmButton: false,
         });
         fetchUsuarios();
-        setForm({ empleado: "", nombre: "", password: "", locales: [], cia: "" });
+        setForm({
+          empleado: "",
+          nombre: "",
+          email: "",
+          password: "",
+          rol_id: 4,
+          locales: [],
+          cia: "",
+        });
         setCiaSeleccionada("");
         setLocales([]);
       } else {
@@ -162,6 +196,7 @@ export default function Usuarios() {
       <form onSubmit={handleSubmit} className="bg-white p-4 rounded shadow mb-6">
         <h2 className="font-semibold mb-3">Registrar Capturista</h2>
 
+        {/* CIA */}
         <div className="mb-4">
           <label className="block text-xs font-bold text-gray-700 mb-1 uppercase">
             CIA a Capturar
@@ -174,7 +209,7 @@ export default function Usuarios() {
               setForm((prev) => ({ ...prev, cia, locales: [] }));
               if (cia) await fetchLocales(cia);
             }}
-            className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm"
           >
             <option value="">-- Selecciona una CIA --</option>
             <option value="recrefam">RECREFAM</option>
@@ -183,40 +218,52 @@ export default function Usuarios() {
           </select>
         </div>
 
-        <div className="mb-2">
-          <label className="block text-sm font-medium">Empleado</label>
-          <input
-            type="text"
+        {/* Datos generales */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input type="text" required placeholder="Empleado"
+            className="border rounded px-3 py-2 w-full"
             value={form.empleado}
             onChange={(e) => setForm({ ...form, empleado: e.target.value })}
-            className="border rounded px-3 py-1 w-full"
-            required
           />
-        </div>
-
-        <div className="mb-2">
-          <label className="block text-sm font-medium">Nombre</label>
-          <input
-            type="text"
+          <input type="text" required placeholder="Nombre"
+            className="border rounded px-3 py-2 w-full"
             value={form.nombre}
             onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-            className="border rounded px-3 py-1 w-full"
-            required
           />
-        </div>
 
-        <div className="mb-2">
-          <label className="block text-sm font-medium">Contraseña</label>
-          <input
-            type="password"
+          {(rolLogueado === 1 || rolLogueado === 2) && (
+            <input type="email" required placeholder="Correo electrónico"
+              className="border rounded px-3 py-2 w-full"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
+          )}
+
+          <input type="password" required placeholder="Contraseña"
+            className="border rounded px-3 py-2 w-full"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
-            className="border rounded px-3 py-1 w-full"
-            required
           />
         </div>
 
-        <div className="mb-3">
+        {/* Selector de rol solo para roles 1 y 2 */}
+        {(rolLogueado === 1 || rolLogueado === 2) && (
+          <div className="my-4">
+            <label className="block text-sm mb-1 font-medium text-gray-700">Rol</label>
+            <select
+              value={form.rol_id}
+              onChange={(e) => setForm({ ...form, rol_id: parseInt(e.target.value) })}
+              className="w-full px-3 py-2 border rounded"
+            >
+              {roles.map((r) => (
+                <option key={r.id} value={r.id}>{r.nombre}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Locales */}
+        <div className="mb-4">
           <label className="block text-sm font-medium">Locales asignados</label>
           <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border p-2 rounded">
             {locales.map((l) => (
@@ -235,9 +282,7 @@ export default function Usuarios() {
         <button
           type="submit"
           disabled={loading}
-          className={`px-4 py-2 rounded text-white ${
-            loading ? "bg-blue-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
-          }`}
+          className={`px-4 py-2 rounded text-white ${loading ? "bg-blue-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
         >
           {loading ? "Registrando..." : "Registrar"}
         </button>
@@ -261,27 +306,17 @@ export default function Usuarios() {
                 <td className="px-4 py-2 font-mono text-blue-900">{u.empleado}</td>
                 <td className="px-4 py-2 text-gray-800">{u.nombre}</td>
                 <td className="px-4 py-2 text-gray-700">
-                  {u.locales?.length > 0 ? (
-                    u.locales.join(", ")
-                  ) : (
-                    <span className="text-gray-400">—</span>
-                  )}
+                  {u.locales?.length > 0 ? u.locales.join(", ") : <span className="text-gray-400">—</span>}
                 </td>
                 <td className="px-4 py-2">
-                  {u.activo ? (
-                    <span className="text-green-600 font-semibold">Activo</span>
-                  ) : (
-                    <span className="text-gray-500">Inactivo</span>
-                  )}
+                  {u.activo
+                    ? <span className="text-green-600 font-semibold">Activo</span>
+                    : <span className="text-gray-500">Inactivo</span>}
                 </td>
                 <td className="px-4 py-2 flex gap-2">
                   <button
                     onClick={() => toggleActivo(u.id, u.activo)}
-                    className={`px-3 py-1 rounded text-white text-xs ${
-                      u.activo
-                        ? "bg-green-600 hover:bg-green-700"
-                        : "bg-gray-400 hover:bg-gray-500"
-                    }`}
+                    className={`px-3 py-1 rounded text-white text-xs ${u.activo ? "bg-green-600 hover:bg-green-700" : "bg-gray-400 hover:bg-gray-500"}`}
                   >
                     {u.activo ? "Desactivar" : "Activar"}
                   </button>

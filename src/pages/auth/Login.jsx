@@ -22,7 +22,17 @@ const Login = () => {
         sessionStorage.setItem("empleado", res.data.empleado);
         sessionStorage.setItem("nombre", res.data.nombre);
         sessionStorage.setItem("roles", JSON.stringify(res.data.roles));
-        navigate("/");
+
+        const roles = res.data.roles.map(r => r.id);
+
+        if (roles.includes(1) || roles.includes(2) || roles.includes(3)) {
+          navigate("/admin");
+        } else if (roles.includes(4)) {
+          navigate("/captura");
+        } else {
+          setError("No tienes permisos asignados");
+        }
+
       } else {
         setError(res.data.error || "Credenciales incorrectas");
       }
@@ -31,6 +41,7 @@ const Login = () => {
       setError("Error de red o servidor");
     }
   };
+
 
   return (
     <div className="min-h-screen grid grid-cols-1 md:grid-cols-2">

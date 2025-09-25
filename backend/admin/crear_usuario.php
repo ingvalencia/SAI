@@ -15,13 +15,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $raw   = file_get_contents("php://input");
 $input = $raw ? json_decode($raw, true) : $_POST;
 
-$empleado = isset($input["empleado"]) ? trim($input["empleado"]) : null;
-$nombre   = isset($input["nombre"]) ? trim($input["nombre"]) : null;
-$password = isset($input["password"]) ? (string) $input["password"] : null;
-$cia      = isset($input["cia"]) ? trim($input["cia"]) : null;
-$locales  = isset($input["locales"]) && is_array($input["locales"]) ? $input["locales"] : [];
+$empleado     = isset($input["empleado"]) ? trim($input["empleado"]) : null;
+$nombre       = isset($input["nombre"]) ? trim($input["nombre"]) : null;
+$password     = isset($input["password"]) ? (string) $input["password"] : null;
+$email        = isset($input["email"]) ? trim($input["email"]) : null;
+$rol_id       = isset($input["rol_id"]) ? intval($input["rol_id"]) : 4;
+$cia          = isset($input["cia"]) ? trim($input["cia"]) : null;
+$locales      = isset($input["locales"]) && is_array($input["locales"]) ? $input["locales"] : [];
+$rol_creador  = isset($input["rol_creador"]) ? intval($input["rol_creador"]) : 4;
 
-if (!$empleado || !$nombre || !$password || !$cia) {
+if (!$empleado || !$nombre || !$password || !$rol_id) {
   echo json_encode(["success" => false, "error" => "Faltan datos obligatorios"]);
   exit;
 }
@@ -41,6 +44,7 @@ mssql_select_db($db, $conn);
 
 $empleadoEsc = str_replace("'", "''", $empleado);
 $nombreEsc   = str_replace("'", "''", $nombre);
+$emailEsc    = $email ? str_replace("'", "''", $email) : null;
 
 // ====== VALIDAR SI YA EXISTE ======
 $check = mssql_query("SELECT id FROM usuarios WHERE empleado = '{$empleadoEsc}'", $conn);
@@ -52,13 +56,19 @@ if ($check && mssql_num_rows($check) > 0) {
 // ====== CREAR USUARIO ======
 $salt = substr(md5(uniqid()), 0, 8);
 $hash = md5($salt . $password);
-$sqlInsert = "
-  INSERT INTO usuarios (empleado, nombre, password_hash, salt, activo)
-  VALUES ('{$empleadoEsc}', '{$nombreEsc}', '{$hash}', '{$salt}', 1)
-";
+
+$campos  = "empleado, nombre, password_hash, salt, activo";
+$valores = "'{$empleadoEsc}', '{$nombreEsc}', '{$hash}', '{$salt}', 1";
+
+if ($emailEsc) {
+  $campos  .= ", email";
+  $valores .= ", '{$emailEsc}'";
+}
+
+$sqlInsert = "INSERT INTO usuarios ($campos) VALUES ($valores)";
 $ok = mssql_query($sqlInsert, $conn);
 if (!$ok) {
-  echo json_encode(["success" => false, "error" => "Error al crear el usuario"]);
+  echo json_encode(["success" => false, "error" => "Error al registrar usuario"]);
   exit;
 }
 
@@ -67,17 +77,17 @@ $getUser = mssql_query("SELECT id FROM usuarios WHERE empleado = '{$empleadoEsc}
 $u = mssql_fetch_assoc($getUser);
 $usuario_id = intval($u["id"]);
 
-// ====== ASIGNAR ROL CAPTURISTA (rol_id = 3) ======
-mssql_query("INSERT INTO usuario_rol (usuario_id, rol_id) VALUES ($usuario_id, 3)", $conn);
+// ====== ASIGNAR ROL SELECCIONADO ======
+mssql_query("INSERT INTO usuario_rol (usuario_id, rol_id) VALUES ($usuario_id, $rol_id)", $conn);
 
-// ====== ASIGNAR LOCALES ======
-foreach ($locales as $local_codigo) {
-  $localEsc = str_replace("'", "''", $local_codigo);
-  $ciaEsc   = str_replace("'", "''", $cia);
-  mssql_query("
-    INSERT INTO usuario_local (usuario_id, local_codigo, cia, activo)
-    VALUES ($usuario_id, '{$localEsc}', '{$ciaEsc}', 1)
-  ", $conn);
+// ====== SOLO ROL 3 asigna locales ======
+if ($rol_creador === 3 && $cia && count($locales) > 0) {
+  foreach ($locales as $local_codigo) {
+    $localEsc = str_replace("'", "''", $local_codigo);
+    $ciaEsc   = str_replace("'", "''", $cia);
+    mssql_query("INSERT INTO usuario_local (usuario_id, local_codigo, cia, activo)
+                 VALUES ($usuario_id, '{$localEsc}', '{$ciaEsc}', 1)", $conn);
+  }
 }
 
 // ====== RESPUESTA OK ======
@@ -86,6 +96,7 @@ echo json_encode([
   "usuario" => [
     "empleado" => $empleado,
     "nombre"   => $nombre,
+    "email"    => $email,
     "locales"  => $locales
   ]
 ]);

@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
 import {
   Route,
-  BrowserRouter ,
+  BrowserRouter,
   Routes,
   Navigate,
   useLocation,
 } from "react-router-dom";
+
+import RutaProtegida from "./pages/RutaProtegida";
 import CapturaInventario from "./pages/CapturaInventario";
 import CompararInventario from "./pages/CompararInventario";
 import EnMantenimiento from "./pages/EnMantenimiento";
 import Login from "./pages/auth/Login";
-import AdminDashboard from "./pages/admin/AdminDashboard"; // nueva vista
+import AdminDashboard from "./pages/admin/AdminDashboard";
 
 function FullscreenLoader({ text = "Verificando acceso al sistema..." }) {
   return (
@@ -25,10 +27,9 @@ function AppRoutes() {
   const empleado = sessionStorage.getItem("empleado");
   const nombre = sessionStorage.getItem("nombre");
   const roles = JSON.parse(sessionStorage.getItem("roles") || "[]");
-  const isAdmin = roles.some((r) => r.id === 4); // validar si tiene rol admin
+  const isAdmin = roles.some((r) => r.id === 1 || r.id === 2);
   const location = useLocation();
 
-  // Verifica sistema solo si hay sesión
   useEffect(() => {
     const run = async () => {
       if (!empleado) {
@@ -48,7 +49,6 @@ function AppRoutes() {
       }
     };
     run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empleado]);
 
   const handleLogout = () => {
@@ -56,8 +56,6 @@ function AppRoutes() {
     window.location.href = "/diniz/inventarios/";
   };
 
-
-  // Guard para rutas privadas
   const RequireAuth = ({ children }) => {
     if (!empleado) return <Navigate to="/login" replace />;
     if (estadoSistema === null) return <FullscreenLoader />;
@@ -71,7 +69,7 @@ function AppRoutes() {
 
   return (
     <>
-      {/* Encabezado visible excepto en /login */}
+      {/* Encabezado global */}
       {location.pathname !== "/login" && (
         <div className="flex justify-between items-center bg-gray-800 text-white px-4 py-2">
           <span>
@@ -86,39 +84,63 @@ function AppRoutes() {
         </div>
       )}
 
+      {/* Aviso modo desarrollador */}
       {modo_forzado && location.pathname !== "/login" && (
         <div className="bg-yellow-900 text-yellow-300 px-4 py-2 font-mono text-xs text-center border-b border-yellow-700">
           ⚠ Acceso de desarrollador. Sistema en mantenimiento para otros usuarios.
         </div>
       )}
 
+      {/* Rutas */}
       <Routes>
         <Route path="/login" element={<Login />} />
 
+        {/* Home redirige según rol */}
         <Route
           path="/"
           element={
             <RequireAuth>
-              {isAdmin ? <AdminDashboard /> : <CapturaInventario />}
+              {roles.some((r) => r.id === 1 || r.id === 2 || r.id === 3) ? (
+                <Navigate to="/admin" replace />
+              ) : (
+                <Navigate to="/captura" replace />
+              )}
             </RequireAuth>
           }
         />
 
+        {/* Vista Captura */}
+        <Route
+          path="/captura"
+          element={
+            <RequireAuth>
+              <RutaProtegida permitidos={[4]}>
+                <CapturaInventario />
+              </RutaProtegida>
+            </RequireAuth>
+          }
+        />
+
+        {/* Vista Comparación */}
         <Route
           path="/comparar"
           element={
             <RequireAuth>
-              <CompararInventario />
+              <RutaProtegida permitidos={[4]}>
+                <CompararInventario />
+              </RutaProtegida>
             </RequireAuth>
           }
         />
 
-        {/* Ruta directa para admin */}
+        {/* Vista Administrador */}
         <Route
           path="/admin"
           element={
             <RequireAuth>
-              <AdminDashboard />
+              <RutaProtegida permitidos={[1, 2, 3]}>
+                <AdminDashboard />
+              </RutaProtegida>
             </RequireAuth>
           }
         />
@@ -138,6 +160,5 @@ export default function App() {
     <BrowserRouter basename="/diniz/inventarios">
       <AppRoutes />
     </BrowserRouter>
-
   );
 }
