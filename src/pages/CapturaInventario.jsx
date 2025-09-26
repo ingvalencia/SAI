@@ -427,7 +427,7 @@ export default function CapturaInventario() {
 
     <div className="max-w-7xl mx-auto p-6">
 
-      <h1 className="text-3xl md:text-4xl font-extrabold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-700 via-indigo-600 to-green-600 tracking-tight drop-shadow-sm text-center">
+      <h1 className="text-3xl md:text-4xl font-extrabold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-red-700 via-indigo-600 to-green-600 tracking-tight drop-shadow-sm text-center">
         📦 Captura de Inventario Físico
       </h1>
 
@@ -472,7 +472,7 @@ export default function CapturaInventario() {
               setCatalogoAlmacenes([]);
               setMostrarCatalogo(false);
             }}
-            className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
           >
             <option value="">-- Selecciona una CIA --</option>
             {ciasPermitidas.map((cia) => (
@@ -576,7 +576,7 @@ export default function CapturaInventario() {
             value={fecha}
             onChange={(e) => setFecha(e.target.value)}
             disabled={ciaSeleccionada === ""}
-            className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
           />
 
           {/* Empleado */}
@@ -592,7 +592,7 @@ export default function CapturaInventario() {
           {/* Botón */}
           <button
             onClick={iniciarCaptura}
-            className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+            className="w-full px-4 py-2 bg-red-800 hover:bg-red-800 text-white font-semibold rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-red-400 transition"
           >
             Iniciar captura
           </button>
@@ -622,7 +622,7 @@ export default function CapturaInventario() {
                     setSubfamiliaSeleccionada("");
                     setBusqueda(""); // limpiar búsqueda al cambiar
                   }}
-                  className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
                 >
                   <option value="">Todas las familias</option>
                   {familiasDisponibles.map((fam, i) => (
@@ -642,7 +642,7 @@ export default function CapturaInventario() {
                     setBusqueda(""); // limpiar búsqueda al cambiar
                   }}
                   disabled={!familiaSeleccionada}
-                  className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-red-400 disabled:bg-gray-100 disabled:text-gray-500"
                 >
                   <option value="">Todas las subfamilias</option>
                   {subfamiliasDisponibles.map((sub, i) => (
@@ -681,7 +681,7 @@ export default function CapturaInventario() {
                        state: { almacen, fecha, empleado, cia: ciaSeleccionada, estatus },
                     })
                   }
-                  className="px-4 py-2 bg-blue-200 hover:bg-blue-300 text-blue-900 font-semibold rounded-lg shadow-md text-sm transition-all duration-200 whitespace-nowrap"
+                  className="px-4 py-2 bg-red-200 hover:bg-red-300 text-red-900 font-semibold rounded-lg shadow-md text-sm transition-all duration-200 whitespace-nowrap"
                 >
                   📊 Ver inventario (Conteos)
                 </button>
@@ -691,8 +691,8 @@ export default function CapturaInventario() {
           </div>
 
          {loadingInventario ? (
-            <div className="flex items-center justify-center h-40 border rounded-lg bg-white shadow-inner text-blue-600 text-base font-medium animate-pulse gap-2">
-              <svg className="animate-spin h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <div className="flex items-center justify-center h-40 border rounded-lg bg-white shadow-inner text-red-600 text-base font-medium animate-pulse gap-2">
+              <svg className="animate-spin h-6 w-6 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
               </svg>
@@ -703,7 +703,7 @@ export default function CapturaInventario() {
 
             <div className="overflow-auto max-h-[70vh] border rounded-lg shadow-md">
               <table className="min-w-full text-sm table-auto">
-                <thead className="sticky top-0 bg-gradient-to-r from-blue-100 via-white to-blue-100 text-gray-800 text-xs uppercase tracking-wider shadow-md z-10">
+                <thead className="sticky top-0 bg-gradient-to-r from-red-100 via-white to-red-100 text-gray-800 text-xs uppercase tracking-wider shadow-md z-10">
                   <tr>
                     <th className="p-3 text-left w-10">#</th>
                     <th className="p-3 text-left">CIA</th>
@@ -728,7 +728,7 @@ export default function CapturaInventario() {
       <tr
         key={k}
         id={`fila-${k}`}
-        className="hover:bg-blue-50 transition duration-150 ease-in-out"
+        className="hover:bg-red-50 transition duration-150 ease-in-out"
       >
         <td className="p-3 text-sm text-gray-500 font-semibold whitespace-nowrap">
           {indiceInicial + i + 1}
@@ -797,7 +797,7 @@ export default function CapturaInventario() {
               className={`px-3 py-1 rounded border ${
                 paginaActual === 1
                   ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                  : "bg-white hover:bg-blue-100 text-blue-700"
+                  : "bg-white hover:bg-red-100 text-red-700"
               }`}
             >
               ⬅️ Anterior
@@ -819,7 +819,7 @@ export default function CapturaInventario() {
               className={`px-3 py-1 rounded border ${
                 paginaActual >= Math.ceil(datosFiltrados.length / registrosPorPagina)
                   ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                  : "bg-white hover:bg-blue-100 text-blue-700"
+                  : "bg-white hover:bg-red-100 text-red-700"
               }`}
             >
               Siguiente ➡️

@@ -5,6 +5,10 @@ import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
+import * as pdfMake from "pdfmake/build/pdfmake";
+import * as pdfFonts from "pdfmake/build/vfs_fonts";
+pdfMake.vfs = pdfFonts.vfs;
+
 
 export default function CompararInventario() {
   const location = useLocation();
@@ -94,6 +98,89 @@ export default function CompararInventario() {
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     saveAs(blob, `comparacion_${almacen}_${fecha}.xlsx`);
   };
+
+  const exportarPDF = () => {
+    const headers = [
+      "#", "No Empleado", "Almacén", "CIA", "Código", "Nombre",
+      "Código de Barras", "SAP", "Conteo 1", "Conteo 2", "Conteo 3", "Diferencia"
+    ];
+
+    const body = [
+      headers,
+      ...datos.map((item, i) => {
+        const c1 = item.conteo1 ?? 0;
+        const c2 = item.conteo2 ?? 0;
+        const c3 = item.conteo3 ?? 0;
+        const sap = (item.inventario_sap ?? item.sap ?? 0);
+        const conteoActual = estatus === 3 ? c3 : estatus === 2 ? c2 : c1;
+        const dif = Number((sap - conteoActual).toFixed(2));
+        return [
+          i + 1,
+          item.usuario ?? "",
+          item.almacen ?? "",
+          item.cias ?? "",
+          item.codigo ?? "",
+          item.nombre ?? "",
+          item.codebars ?? "",
+          sap.toFixed(2),
+          c1.toFixed(2),
+          c2.toFixed(2),
+          c3.toFixed(2),
+          dif.toFixed(2),
+        ];
+      }),
+    ];
+
+    const docDefinition = {
+      pageSize: "A4",
+      pageOrientation: "landscape", // ← HOJA HORIZONTAL
+      pageMargins: [20, 60, 20, 80], // ← MÁRGENES REDUCIDOS
+      header: {
+        columns: [
+          { text: "Comparación de Inventarios", style: "title" },
+          { text: `${fecha}  |  ${almacen}  |  ${cia ?? ""}`, alignment: "right", style: "meta" },
+        ],
+        margin: [20, 20, 20, 0],
+      },
+      footer: (currentPage, pageCount) => ({
+        columns: [
+          { text: `Capturista: ${empleado}`, alignment: "left", margin: [20, 0, 0, 0] },
+          { text: `Página ${currentPage} de ${pageCount}`, alignment: "right", margin: [0, 0, 20, 0] },
+        ],
+        margin: [20, 0, 20, 20],
+      }),
+      content: [
+        {
+          table: {
+            headerRows: 1,
+            widths: [
+              "auto", "auto", "auto", "auto", "auto", "*", "auto",
+              "auto", "auto", "auto", "auto", "auto"
+            ],
+            body,
+          },
+          layout: "lightHorizontalLines", // ← LÍNEAS DELICADAS
+          fontSize: 7,                    // ← TEXTO MÁS PEQUEÑO
+        },
+        { text: "\n" },
+        {
+          columns: [
+            { text: "_____________________________\nCapturista", alignment: "center" },
+            { text: "_____________________________\nSupervisor", alignment: "center" },
+          ],
+          margin: [0, 20, 0, 0],
+        },
+      ],
+      styles: {
+        title: { fontSize: 12, bold: true },
+        meta: { fontSize: 8, color: "gray" },
+      },
+    };
+
+    pdfMake.createPdf(docDefinition).download(`comparacion_${almacen}_${fecha}.pdf`);
+  };
+
+
 
 
 
@@ -330,12 +417,14 @@ export default function CompararInventario() {
               }}
               className={`px-3 py-1 rounded-full text-sm font-semibold transition ${
                 activo
-                  ? "bg-blue-600 text-white"
-                  : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                  ? "bg-red-600 text-white"
+                  : "bg-red-100 text-red-700 hover:bg-red-200"
               }`}
             >
               {label}
             </button>
+
+
           );
         })}
       </div>
@@ -347,6 +436,8 @@ export default function CompararInventario() {
           >
             Confirmar diferencia
           </button>
+
+
 
         )}
 
@@ -362,7 +453,7 @@ export default function CompararInventario() {
             placeholder="Escribe código, nombre o código de barras..."
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full px-4 py-2 border border-blue-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm"
+            className="w-full px-4 py-2 border border-red-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-red-400 text-sm"
           />
           <div className="absolute right-3 top-2.5 text-gray-400 pointer-events-none">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none"
@@ -382,13 +473,21 @@ export default function CompararInventario() {
           <img src="https://img.icons8.com/color/24/microsoft-excel-2019.png" alt="excel" />
           Exportar a Excel
         </button>
+
+        <button
+          onClick={exportarPDF}
+          className="px-3 py-1 rounded-full text-sm font-semibold bg-red-300 text-red-900 hover:bg-red-400 flex items-center gap-2 transition"
+        >
+          📄 Exportar a PDF
+        </button>
+
       </div>
 
 
       <div className="relative overflow-auto max-h-[70vh] border rounded-lg shadow-md">
 
         <table className="min-w-full text-sm table-auto">
-          <thead className="sticky top-0 bg-gradient-to-r from-blue-100 via-white to-blue-100 text-gray-800 text-xs uppercase tracking-wider shadow-md z-10">
+          <thead className="sticky top-0 bg-gradient-to-r from-red-100 via-white to-red-100 text-gray-800 text-xs uppercase tracking-wider shadow-md z-10">
             <tr>
               <th className="p-3 text-left w-10">#</th>
               <th className="p-3 text-left">No Empleado</th>
@@ -418,7 +517,7 @@ export default function CompararInventario() {
     .map((item, i) => (
       <tr
         key={i}
-        className="hover:bg-blue-50 transition duration-150 ease-in-out"
+        className="hover:bg-red-50 transition duration-150 ease-in-out"
       >
         <td className="p-3 text-sm text-gray-500 font-semibold whitespace-nowrap">
           {i + 1}
@@ -447,7 +546,7 @@ export default function CompararInventario() {
         </td>
         {/* Conteos dinámicos */}
         {estatus >= 1 && (
-          <td className="p-3 text-sm text-right bg-blue-50 text-blue-800 font-semibold">
+          <td className="p-3 text-sm text-right bg-red-50 text-red-800 font-semibold">
             {(item.conteo1 ?? 0).toFixed(2)}
           </td>
         )}

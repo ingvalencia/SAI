@@ -46,7 +46,7 @@ const Login = () => {
   return (
     <div className="min-h-screen grid grid-cols-1 md:grid-cols-2">
       {/* Panel izquierdo */}
-      <div className="hidden md:flex flex-col items-center justify-center bg-blue-700 text-white px-10">
+      <div className="hidden md:flex flex-col items-center justify-center bg-red-700 text-white px-10">
         <div className="max-w-md">
           <h1 className="text-4xl font-bold mb-4">Bienvenido</h1>
           <p className="text-lg opacity-90">
@@ -94,8 +94,8 @@ const Login = () => {
             )}
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white font-medium py-2 rounded-lg
-              hover:bg-blue-700 transition"
+              className="w-full bg-red-700 text-white font-medium py-2 rounded-lg
+              hover:bg-red-800 transition"
             >
               Entrar
             </button>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo  } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
@@ -14,6 +14,10 @@ export default function Usuarios() {
 
   const rolesSesion = JSON.parse(sessionStorage.getItem("roles") || "[]");
   const rolLogueado = rolesSesion.length > 0 ? rolesSesion[0].id : null;
+
+  const [filtroRol, setFiltroRol] = useState(""); // "" = todos
+  const empleadoSesion = sessionStorage.getItem("empleado") || "";
+
 
 
 
@@ -75,10 +79,11 @@ export default function Usuarios() {
     try {
       const rolesSesion = JSON.parse(sessionStorage.getItem("roles") || "[]");
       const rol_creador = rolesSesion.length > 0 ? rolesSesion[0].id : 4;
+      const empleadoSesion = sessionStorage.getItem("empleado") || "";
 
       const res = await axios.post(
         "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/crear_usuario.php",
-        { ...form, rol_creador }, // <- aquí lo agregas
+        { ...form, rol_creador, creado_por: empleadoSesion },
         { withCredentials: true }
       );
 
@@ -189,6 +194,27 @@ export default function Usuarios() {
     }
   };
 
+  const usuariosFiltrados = useMemo(() => {
+    let base = [];
+    if (rolLogueado === 1) base = usuarios;
+    if (rolLogueado === 2) base = usuarios;
+    if (rolLogueado === 3) {
+      base = usuarios.filter(
+        u => u.rol === 4 && u.creado_por === empleadoSesion
+      );
+    }
+
+    if (filtroRol) {
+      base = base.filter(u => String(u.rol) === filtroRol);
+    }
+
+    return base;
+  }, [usuarios, rolLogueado, filtroRol, empleadoSesion]);
+
+
+
+
+
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">Gestión de Usuarios</h1>
@@ -197,26 +223,28 @@ export default function Usuarios() {
         <h2 className="font-semibold mb-3">Registrar Capturista</h2>
 
         {/* CIA */}
-        <div className="mb-4">
-          <label className="block text-xs font-bold text-gray-700 mb-1 uppercase">
-            CIA a Capturar
-          </label>
-          <select
-            value={ciaSeleccionada}
-            onChange={async (e) => {
-              const cia = e.target.value;
-              setCiaSeleccionada(cia);
-              setForm((prev) => ({ ...prev, cia, locales: [] }));
-              if (cia) await fetchLocales(cia);
-            }}
-            className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm"
-          >
-            <option value="">-- Selecciona una CIA --</option>
-            <option value="recrefam">RECREFAM</option>
-            <option value="veser">VESER</option>
-            <option value="opardiv">OPARDIV</option>
-          </select>
-        </div>
+        {!(rolLogueado === 4) && (
+          <div className="mb-4">
+            <label className="block text-xs font-bold text-gray-700 mb-1 uppercase">
+              CIA a Capturar
+            </label>
+            <select
+              value={ciaSeleccionada}
+              onChange={async (e) => {
+                const cia = e.target.value;
+                setCiaSeleccionada(cia);
+                setForm((prev) => ({ ...prev, cia, locales: [] }));
+                if (cia) await fetchLocales(cia);
+              }}
+              className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm"
+            >
+              <option value="">-- Selecciona una CIA --</option>
+              <option value="recrefam">RECREFAM</option>
+              <option value="veser">VESER</option>
+              <option value="opardiv">OPARDIV</option>
+            </select>
+          </div>
+        )}
 
         {/* Datos generales */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -263,73 +291,104 @@ export default function Usuarios() {
         )}
 
         {/* Locales */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium">Locales asignados</label>
-          <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border p-2 rounded">
-            {locales.map((l) => (
-              <label key={l.codigo} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={form.locales.includes(l.codigo)}
-                  onChange={() => handleLocalesChange(l.codigo)}
-                />
-                {l.codigo} - {l.nombre}
-              </label>
-            ))}
+        {!(rolLogueado === 4) && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium">Locales asignados</label>
+            <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border p-2 rounded">
+              {locales.map((l) => (
+                <label key={l.codigo} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.locales.includes(l.codigo)}
+                    onChange={() => handleLocalesChange(l.codigo)}
+                  />
+                  {l.codigo} - {l.nombre}
+                </label>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <button
           type="submit"
           disabled={loading}
-          className={`px-4 py-2 rounded text-white ${loading ? "bg-blue-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
+          className={`px-4 py-2 rounded text-white ${loading ? "bg-red-300 cursor-not-allowed" : "bg-red-600 hover:bg-red-700"}`}
         >
           {loading ? "Registrando..." : "Registrar"}
         </button>
       </form>
 
+      {/* Filtro de roles solo visible para rol 1 y 2 */}
+        {(rolLogueado === 1 || rolLogueado === 2) && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Filtrar por rol
+            </label>
+            <select
+              value={filtroRol}
+              onChange={(e) => setFiltroRol(e.target.value)}
+              className="w-full md:w-64 px-3 py-2 border rounded shadow-sm text-sm"
+            >
+              <option value="">Todos</option>
+              <option value="1">Administrador TI</option>
+              <option value="2">Administrador Sistema</option>
+              <option value="3">Supervisor</option>
+              <option value="4">Capturista</option>
+            </select>
+          </div>
+        )}
+
       <h2 className="font-semibold mb-4 text-lg">Usuarios registrados</h2>
       <div className="overflow-auto rounded border border-gray-300 shadow-sm">
         <table className="min-w-full text-sm text-left">
-          <thead className="bg-blue-600 text-white uppercase tracking-wide text-xs">
+          <thead className="bg-red-600 text-white uppercase tracking-wide text-xs">
             <tr>
               <th className="px-4 py-2">Empleado</th>
               <th className="px-4 py-2">Nombre</th>
               <th className="px-4 py-2">Locales asignados</th>
+              <th className="px-4 py-2">Responsable</th>
               <th className="px-4 py-2">Estado</th>
               <th className="px-4 py-2">Acciones</th>
             </tr>
           </thead>
+
           <tbody className="bg-white divide-y divide-gray-200">
-            {usuarios.map((u, i) => (
-              <tr key={i} className="hover:bg-blue-50 transition">
-                <td className="px-4 py-2 font-mono text-blue-900">{u.empleado}</td>
-                <td className="px-4 py-2 text-gray-800">{u.nombre}</td>
-                <td className="px-4 py-2 text-gray-700">
-                  {u.locales?.length > 0 ? u.locales.join(", ") : <span className="text-gray-400">—</span>}
-                </td>
-                <td className="px-4 py-2">
-                  {u.activo
-                    ? <span className="text-green-600 font-semibold">Activo</span>
-                    : <span className="text-gray-500">Inactivo</span>}
-                </td>
-                <td className="px-4 py-2 flex gap-2">
-                  <button
-                    onClick={() => toggleActivo(u.id, u.activo)}
-                    className={`px-3 py-1 rounded text-white text-xs ${u.activo ? "bg-green-600 hover:bg-green-700" : "bg-gray-400 hover:bg-gray-500"}`}
-                  >
-                    {u.activo ? "Desactivar" : "Activar"}
-                  </button>
+          {usuariosFiltrados.map((u, i) => (
+            <tr key={i} className="hover:bg-red-50 transition">
+              <td className="px-4 py-2 font-mono text-red-900">{u.empleado}</td>
+              <td className="px-4 py-2 text-gray-800">{u.nombre}</td>
+              <td className="px-4 py-2 text-gray-700">
+                {u.locales?.length > 0 ? u.locales.join(", ") : <span className="text-gray-400">—</span>}
+              </td>
+              <td className="px-4 py-2 text-gray-700">{u.creado_por || "—"}</td>
+              <td className="px-4 py-2">
+                {u.activo
+                  ? <span className="text-green-600 font-semibold">Activo</span>
+                  : <span className="text-gray-500">Inactivo</span>}
+              </td>
+              <td className="px-4 py-2 flex gap-2">
+                <button
+                  onClick={() => toggleActivo(u.id, u.activo)}
+                  className={`px-3 py-1 rounded text-white text-xs ${
+                    u.activo ? "bg-green-600 hover:bg-green-700" : "bg-gray-400 hover:bg-gray-500"
+                  }`}
+                >
+                  {u.activo ? "Desactivar" : "Activar"}
+                </button>
+
+                {(rolLogueado === 1 || rolLogueado === 2) && (
                   <button
                     onClick={() => eliminarUsuario(u.id)}
                     className="px-3 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-xs"
                   >
                     Eliminar
                   </button>
-                </td>
-              </tr>
-            ))}
+                )}
+              </td>
+            </tr>
+          ))}
           </tbody>
+
         </table>
       </div>
     </div>

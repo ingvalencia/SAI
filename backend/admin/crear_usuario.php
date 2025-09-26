@@ -1,19 +1,28 @@
 <?php
 // ====== CORS para permitir cookies desde React local ======
-$origenPermitido = 'http://localhost:3000';
-header("Access-Control-Allow-Origin: $origenPermitido");
-header("Access-Control-Allow-Credentials: true");
-header("Access-Control-Allow-Headers: Content-Type");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+$origenPermitido = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
+if (in_array($origenPermitido, [
+  'http://localhost:3000',
+  'https://diniz.com.mx'
+])) {
+  header("Access-Control-Allow-Origin: $origenPermitido");
+  header("Access-Control-Allow-Credentials: true");
+  header("Access-Control-Allow-Headers: Content-Type");
+  header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+}
+
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   http_response_code(200);
   exit;
 }
 
+
+
 // ====== INPUT ======
 $raw   = file_get_contents("php://input");
 $input = $raw ? json_decode($raw, true) : $_POST;
+
 
 $empleado     = isset($input["empleado"]) ? trim($input["empleado"]) : null;
 $nombre       = isset($input["nombre"]) ? trim($input["nombre"]) : null;
@@ -23,6 +32,10 @@ $rol_id       = isset($input["rol_id"]) ? intval($input["rol_id"]) : 4;
 $cia          = isset($input["cia"]) ? trim($input["cia"]) : null;
 $locales      = isset($input["locales"]) && is_array($input["locales"]) ? $input["locales"] : [];
 $rol_creador  = isset($input["rol_creador"]) ? intval($input["rol_creador"]) : 4;
+$creado_por = isset($input["creado_por"]) ? trim($input["creado_por"]) : null;
+
+
+
 
 if (!$empleado || !$nombre || !$password || !$rol_id) {
   echo json_encode(["success" => false, "error" => "Faltan datos obligatorios"]);
@@ -57,8 +70,8 @@ if ($check && mssql_num_rows($check) > 0) {
 $salt = substr(md5(uniqid()), 0, 8);
 $hash = md5($salt . $password);
 
-$campos  = "empleado, nombre, password_hash, salt, activo";
-$valores = "'{$empleadoEsc}', '{$nombreEsc}', '{$hash}', '{$salt}', 1";
+$campos  = "empleado, nombre, password_hash, salt, activo, creado_por";
+$valores = "'{$empleadoEsc}', '{$nombreEsc}', '{$hash}', '{$salt}', 1,'{$creado_por}'";
 
 if ($emailEsc) {
   $campos  .= ", email";

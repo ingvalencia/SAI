@@ -25,9 +25,10 @@ SELECT
   u.empleado,
   u.nombre,
   u.email,
-  u.id,
+  ur.rol_id,
   r.nombre AS rol_nombre,
   u.activo,
+  u.creado_por,
   ISNULL((
     SELECT STUFF((
       SELECT ',' + ul.local_codigo
@@ -37,8 +38,9 @@ SELECT
     ).value('.', 'NVARCHAR(MAX)'), 1, 1, '')
   ), '') AS locales_csv
 FROM usuarios u
-LEFT JOIN roles r ON r.id = u.id
-ORDER BY u.empleado
+LEFT JOIN usuario_rol ur ON ur.usuario_id = u.id
+LEFT JOIN roles r ON r.id = ur.rol_id
+ORDER BY u.empleado;
 ";
 
 $res = mssql_query($query, $conn);
@@ -55,9 +57,9 @@ while ($row = mssql_fetch_assoc($res)) {
     'empleado' => $row['empleado'],
     'nombre'   => $row['nombre'],
     'email'    => $row['email'],
-    'id'   => (int)$row['id'],
-    'rol'      => $row['id'],
+    'rol'      => $row['rol_id'],
     'activo'   => (int)$row['activo'],
+    'creado_por'=> $row['creado_por'],
     'locales'  => array_map('trim', $locales)
   ];
 }

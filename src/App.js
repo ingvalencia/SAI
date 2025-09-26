@@ -71,7 +71,7 @@ function AppRoutes() {
     <>
       {/* Encabezado global */}
       {location.pathname !== "/login" && (
-        <div className="flex justify-between items-center bg-gray-800 text-white px-4 py-2">
+        <div className="flex justify-between items-center bg-red-800 text-white px-4 py-2">
           <span>
             Usuario: <strong>{nombre || "Sin nombre"}</strong> ({empleado || "—"})
           </span>
