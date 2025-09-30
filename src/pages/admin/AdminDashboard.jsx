@@ -1,5 +1,7 @@
 import { useState } from "react";
 import Usuarios from "./Usuarios";
+import Control from "./Control";
+import Mapa from "./Mapa";
 
 
 export default function AdminDashboard() {
@@ -27,16 +29,29 @@ export default function AdminDashboard() {
           </button>
 
           <button
-            onClick={() => setVista("reportes")}
+            onClick={() => setVista("control")}
             className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-sm tracking-wide transition-all duration-200
               ${
-                vista === "reportes"
+                vista === "control"
                   ? "bg-red-700 text-white font-medium shadow-sm"
                   : "text-red-100 hover:bg-red-800 hover:text-white"
               }`}
           >
             <span className="text-lg">📊</span>
-            <span>Reportes</span>
+            <span>Control de operaciones</span>
+          </button>
+
+          <button
+            onClick={() => setVista("mapa")}
+            className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-sm tracking-wide transition-all duration-200
+              ${
+                vista === "mapa"
+                  ? "bg-red-700 text-white font-medium shadow-sm"
+                  : "text-red-100 hover:bg-red-800 hover:text-white"
+              }`}
+          >
+            <span className="text-lg">📊</span>
+            <span>Mapa de operaciones</span>
           </button>
 
         </nav>
@@ -58,14 +73,9 @@ export default function AdminDashboard() {
           </div>
         )}
         {vista === "usuarios" && <Usuarios />}
-        {vista === "reportes" && (
-          <div className="p-6 bg-white rounded-lg shadow border border-gray-200">
-            <h2 className="text-xl font-semibold text-red-800 mb-4">
-              Reportes del sistema
-            </h2>
-            <p className="text-gray-600">Módulo en construcción.</p>
-          </div>
-        )}
+        {vista === "control" && <Control />}
+        {vista === "mapa" && <Mapa />}
+
       </main>
     </div>
 

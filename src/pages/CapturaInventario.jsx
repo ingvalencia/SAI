@@ -528,27 +528,37 @@ export default function CapturaInventario() {
                     }
                   : null
               }
-              onChange={(opcion) => {
+              onChange={async (opcion) => {
                 const valor = opcion?.value || "";
                 setAlmacen(valor);
                 setMensajeValidacion("");
 
-                axios
-                  .get(
-                    "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/buscar_fecha_nexdate.php",
-                    { params: { almacen: valor } }
-                  )
-                  .then((res) => {
-                    if (res.data.success && res.data.fecha) {
-                      setFecha(res.data.fecha);
+                try {
+                  const res = await axios.get(
+                    "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/catalogo_almacenes_usuario.php",
+                    { params: { cia: ciaSeleccionada, empleado: sessionStorage.getItem("empleado") } }
+                  );
+
+                  if (res.data.success && Array.isArray(res.data.data)) {
+                    setCatalogoAlmacenes(res.data.data);
+
+                    // Buscar la fecha correspondiente al almacén seleccionado
+                    const almacénSeleccionado = res.data.data.find(a => a.codigo === valor);
+                    if (almacénSeleccionado && almacénSeleccionado.fecha_gestion) {
+                      const partes = almacénSeleccionado.fecha_gestion.split("/");
+                      if (partes.length === 3) {
+                        const yyyy_mm_dd = `${partes[2]}-${partes[1].padStart(2, '0')}-${partes[0].padStart(2, '0')}`;
+                        setFecha(yyyy_mm_dd); // <-- formato que acepta el input type="date"
+                      }
                     } else {
                       setFecha("");
                     }
-                  })
-                  .catch((error) => {
-                    console.error("Error al buscar fecha:", error.message);
-                  });
+                  }
+                } catch (error) {
+                  console.error("Error al obtener almacenes:", error.message);
+                }
               }}
+
               isClearable
               noOptionsMessage={() => "No encontrado"}
               filterOption={(option, inputValue) =>
@@ -574,9 +584,9 @@ export default function CapturaInventario() {
           <input
             type="date"
             value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
-            disabled={ciaSeleccionada === ""}
-            className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+            readOnly
+            disabled
+            className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm bg-gray-100 text-gray-500 cursor-not-allowed"
           />
 
           {/* Empleado */}
