@@ -37,7 +37,7 @@ export default function AdminDashboard() {
                   : "text-red-100 hover:bg-red-800 hover:text-white"
               }`}
           >
-            <span className="text-lg">📊</span>
+            <span className="text-lg">⚙️</span>
             <span>Control de operaciones</span>
           </button>
 
@@ -50,7 +50,7 @@ export default function AdminDashboard() {
                   : "text-red-100 hover:bg-red-800 hover:text-white"
               }`}
           >
-            <span className="text-lg">📊</span>
+            <span className="text-lg">🗺️</span>
             <span>Mapa de operaciones</span>
           </button>
 
