@@ -31,16 +31,19 @@ switch ($action) {
   // ====================
   case 'listar':
     $query = "
-      SELECT a.id,
-             c.cia,
-             c.fecha_gestion,
-             a.almacen,
-             a.conteo,
-             c.actualizado_por,
-             c.actualizado_en
+      SELECT
+        a.id AS detalle_id,
+        c.id AS configuracion_id,
+        c.cia,
+        c.fecha_gestion,
+        a.almacen,
+        a.conteo,
+        c.actualizado_por,
+        c.actualizado_en
       FROM configuracion_inventario c
-      JOIN configuracion_inventario_almacenes a ON c.id = a.configuracion_id
-      ORDER BY c.fecha_gestion DESC, c.cia, a.almacen
+      LEFT JOIN configuracion_inventario_almacenes a
+        ON c.id = a.configuracion_id
+      ORDER BY c.id DESC, a.almacen
     ";
     $result = mssql_query($query, $conn);
 
@@ -67,7 +70,8 @@ switch ($action) {
       exit;
     }
 
-    $query = "DELETE FROM configuracion_inventario_almacenes WHERE id = $id";
+    // Eliminar cabecera, por ON DELETE CASCADE se eliminan almacenes asociados
+    $query = "DELETE FROM configuracion_inventario WHERE id = $id";
     $res = mssql_query($query, $conn);
 
     if (!$res) {
@@ -82,7 +86,7 @@ switch ($action) {
   // EDITAR
   // ====================
   case 'editar':
-    $id      = isset($_POST['id']) ? intval($_POST['id']) : 0;
+    $id      = isset($_POST['id']) ? intval($_POST['id']) : 0; // este es el ID del detalle (almacén)
     $cia     = isset($_POST['cia']) ? $_POST['cia'] : null;
     $fecha   = isset($_POST['fecha_gestion']) ? $_POST['fecha_gestion'] : null;
     $almacen = isset($_POST['almacen']) ? $_POST['almacen'] : null;
@@ -94,6 +98,15 @@ switch ($action) {
       exit;
     }
 
+    // Obtener configuracion_id desde el detalle
+    $resCfg = mssql_query("SELECT configuracion_id FROM configuracion_inventario_almacenes WHERE id = $id", $conn);
+    if (!$resCfg || mssql_num_rows($resCfg) === 0) {
+      echo json_encode(["success" => false, "error" => "No se encontró configuración asociada"]);
+      exit;
+    }
+    $rowCfg = mssql_fetch_assoc($resCfg);
+    $configId = $rowCfg['configuracion_id'];
+
     // Actualizar cabecera
     $queryCab = "
       UPDATE configuracion_inventario
@@ -101,9 +114,7 @@ switch ($action) {
           fecha_gestion = '$fecha',
           actualizado_por = '$usuario',
           actualizado_en = GETDATE()
-      WHERE id = (
-        SELECT configuracion_id FROM configuracion_inventario_almacenes WHERE id = $id
-      )
+      WHERE id = $configId
     ";
     $resCab = mssql_query($queryCab, $conn);
     if (!$resCab) {

@@ -169,7 +169,7 @@ export default function Control() {
 
     try {
       const payload = new FormData();
-      payload.append("id", config.id);
+      payload.append("id", config.detalle_id);
       payload.append("cia", formValues.cia);
       payload.append("fecha_gestion", formValues.fecha_gestion);
       payload.append("almacen", formValues.almacen);
@@ -339,6 +339,7 @@ export default function Control() {
         setFechaGestion("");
         setNivelConteo("");
 
+        fetchConfiguraciones();
         //setVista("usuarios");
       }else {
         MySwal.fire("Error", res.data.error || "No se pudo guardar", "error");
