@@ -149,12 +149,16 @@ export default function CapturaInventario() {
 };
 
 
-  const cambiarCantidad = (index, valor) => {
+  const cambiarCantidad = (id, valor) => {
     const nuevo = [...datos];
-
-    nuevo[index].cant_invfis = valor === "" ? "" : String(parseInt(valor, 10));
-    setDatos(nuevo);
+    const idx = nuevo.findIndex(x => x.id === id);
+    if (idx !== -1) {
+      nuevo[idx].cant_invfis = valor;
+      setDatos(nuevo);
+    }
   };
+
+
 
 
  const autoGuardar = async (item, cantidad) => {
@@ -162,7 +166,7 @@ export default function CapturaInventario() {
     const form = new FormData();
     form.append("id_inventario", item.id);
     form.append("nro_conteo", estatus);
-    form.append("cantidad", cantidad);
+    form.append("cantidad", cantidad === "" ? 0 : parseInt(cantidad, 10));
     form.append("usuario", empleado);
 
     const res = await axios.post(
@@ -399,13 +403,15 @@ export default function CapturaInventario() {
   };
 
   const datosFiltrados = useMemo(() => {
+    const q = busqueda.trim().toLowerCase();
+
     return datos.filter((item) => {
       const matchBusqueda =
-        item.ItemCode.toLowerCase().includes(busqueda.toLowerCase()) ||
-        item.Itemname.toLowerCase().includes(busqueda.toLowerCase()) ||
-        item.codebars.toLowerCase().includes(busqueda.toLowerCase()) ||
-        item.almacen.toLowerCase().includes(busqueda.toLowerCase()) ||
-        item.cias.toLowerCase().includes(busqueda.toLowerCase());
+        (item.ItemCode && item.ItemCode.toLowerCase().includes(q)) ||
+        (item.Itemname && item.Itemname.toLowerCase().includes(q)) ||
+        (item.codebars && item.codebars.toLowerCase().includes(q)) ||
+        (item.almacen && item.almacen.toLowerCase().includes(q)) ||
+        (item.cias && item.cias.toLowerCase().includes(q));
 
       const matchFamilia = !familiaSeleccionada || item.nom_fam === familiaSeleccionada;
       const matchSubfamilia = !subfamiliaSeleccionada || item.nom_subfam === subfamiliaSeleccionada;
@@ -413,6 +419,7 @@ export default function CapturaInventario() {
       return matchBusqueda && matchFamilia && matchSubfamilia;
     });
   }, [datos, busqueda, familiaSeleccionada, subfamiliaSeleccionada]);
+
 
   const indiceInicial = (paginaActual - 1) * registrosPorPagina;
   const indiceFinal = indiceInicial + registrosPorPagina;
@@ -737,7 +744,7 @@ export default function CapturaInventario() {
     return (
       <tr
         key={k}
-        id={`fila-${k}`}
+        id={`fila-${item.id}`}
         className="hover:bg-red-50 transition duration-150 ease-in-out"
       >
         <td className="p-3 text-sm text-gray-500 font-semibold whitespace-nowrap">
@@ -784,7 +791,9 @@ export default function CapturaInventario() {
                   autoGuardar(item, e.target.value);
                 }
               }}
-              onChange={(e) => cambiarCantidad(i, e.target.value.replace(/\D/g, ""))}
+              onChange={(e) => cambiarCantidad(item.id, e.target.value)}
+
+
             />
 
 
