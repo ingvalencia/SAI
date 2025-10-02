@@ -23,7 +23,7 @@ const Login = () => {
         sessionStorage.setItem("nombre", res.data.nombre);
         sessionStorage.setItem("roles", JSON.stringify(res.data.roles));
 
-        const roles = res.data.roles.map(r => r.id);
+        const roles = res.data.roles.map((r) => r.id);
 
         if (roles.includes(1) || roles.includes(2) || roles.includes(3)) {
           navigate("/admin");
@@ -32,76 +32,84 @@ const Login = () => {
         } else {
           setError("No tienes permisos asignados");
         }
-
       } else {
         setError(res.data.error || "Credenciales incorrectas");
       }
-
     } catch (err) {
       setError("Error de red o servidor");
     }
   };
 
-
   return (
     <div className="min-h-screen grid grid-cols-1 md:grid-cols-2">
-      {/* Panel izquierdo */}
-      <div className="hidden md:flex flex-col items-center justify-center bg-red-700 text-white px-10">
-        <div className="max-w-md">
-          <h1 className="text-4xl font-bold mb-4">Bienvenido</h1>
-          <p className="text-lg opacity-90">
-            Accede al sistema de inventarios de Diniz y gestiona tu información
-            de forma segura.
+      {/* Panel izquierdo (desktop) */}
+      <div className="hidden md:flex flex-col items-center justify-center bg-gradient-to-b from-red-800 to-red-600 text-white px-10">
+        <div className="max-w-md text-center">
+          <h1 className="text-5xl font-extrabold mb-6 tracking-tight">SICAF</h1>
+          <h2 className="text-xl font-semibold mb-4">
+            Sistema de Captura de Inventarios Físicos
+          </h2>
+          <p className="text-base opacity-90 leading-relaxed">
+            Ingresa al sistema web-móvil para gestionar tus conteos de inventario de forma
+            rápida, segura y centralizada.
           </p>
         </div>
       </div>
 
-      {/* Panel derecho */}
-      <div className="flex items-center justify-center bg-gray-50 px-6">
-        <div className="bg-white shadow-lg rounded-xl w-full max-w-sm p-8 border border-gray-200">
-          <h2 className="text-2xl font-semibold text-center text-gray-800 mb-6">
+      {/* Panel derecho (login) */}
+      <div className="flex items-center justify-center bg-gray-50 px-6 py-10">
+        <div className="bg-white shadow-2xl rounded-2xl w-full max-w-md p-8 border border-gray-200">
+          <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">
             Iniciar sesión
           </h2>
-          <form onSubmit={handleLogin} className="space-y-5">
+
+          <form onSubmit={handleLogin} className="space-y-6">
             <div>
-              <label className="block text-gray-600 text-sm mb-1">Empleado</label>
+              <label className="block text-gray-600 text-sm font-medium mb-1">
+                Número de empleado
+              </label>
               <input
                 type="text"
                 value={empleado}
                 onChange={(e) => setEmpleado(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg
-                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                transition text-gray-800"
-                placeholder="Número de empleado"
+                focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600
+                text-gray-800 transition"
+                placeholder="Ej. 12345"
                 required
               />
             </div>
             <div>
-              <label className="block text-gray-600 text-sm mb-1">Contraseña</label>
+              <label className="block text-gray-600 text-sm font-medium mb-1">
+                Contraseña
+              </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg
-                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                transition text-gray-800"
+                focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600
+                text-gray-800 transition"
                 placeholder="••••••••"
                 required
               />
             </div>
+
             {error && (
-              <div className="text-sm text-red-600 text-center">{error}</div>
+              <div className="text-sm text-red-600 text-center font-medium">{error}</div>
             )}
+
             <button
               type="submit"
-              className="w-full bg-red-700 text-white font-medium py-2 rounded-lg
-              hover:bg-red-800 transition"
+              className="w-full bg-red-700 text-white font-semibold py-3 rounded-lg
+              hover:bg-red-800 transition-all duration-200 shadow-md"
             >
               Entrar
             </button>
           </form>
-          <p className="text-center text-xs text-gray-500 mt-6">
-            © {new Date().getFullYear()} Diniz
+
+          <p className="text-center text-xs text-gray-500 mt-8">
+            © {new Date().getFullYear()} SICAF
           </p>
         </div>
       </div>

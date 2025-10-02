@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo  } from "react";
+import { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
@@ -14,12 +14,9 @@ export default function Usuarios() {
 
   const rolesSesion = JSON.parse(sessionStorage.getItem("roles") || "[]");
   const rolLogueado = rolesSesion.length > 0 ? rolesSesion[0].id : null;
-
-  const [filtroRol, setFiltroRol] = useState(""); // "" = todos
   const empleadoSesion = sessionStorage.getItem("empleado") || "";
 
-
-
+  const [filtroRol, setFiltroRol] = useState("");
 
   const [form, setForm] = useState({
     empleado: "",
@@ -31,6 +28,7 @@ export default function Usuarios() {
     cia: "",
   });
 
+  // === Fetch usuarios ===
   const fetchUsuarios = async () => {
     try {
       const res = await axios.get(
@@ -42,6 +40,7 @@ export default function Usuarios() {
     }
   };
 
+  // === Fetch locales por CIA ===
   const fetchLocales = async (cia) => {
     try {
       const res = await axios.get(
@@ -55,6 +54,7 @@ export default function Usuarios() {
     }
   };
 
+  // === Fetch roles ===
   const fetchRoles = async () => {
     try {
       const res = await axios.get(
@@ -73,6 +73,7 @@ export default function Usuarios() {
     }
   }, []);
 
+  // === Crear usuario ===
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -125,6 +126,7 @@ export default function Usuarios() {
     }
   };
 
+  // === Toggle locales en formulario ===
   const handleLocalesChange = (codigo) => {
     setForm((prev) => {
       const selected = prev.locales.includes(codigo)
@@ -134,6 +136,7 @@ export default function Usuarios() {
     });
   };
 
+  // === Eliminar usuario ===
   const eliminarUsuario = async (id) => {
     const confirm = await MySwal.fire({
       title: "¿Eliminar usuario?",
@@ -164,6 +167,7 @@ export default function Usuarios() {
     }
   };
 
+  // === Activar / Desactivar usuario ===
   const toggleActivo = async (id, activo) => {
     try {
       const formData = new FormData();
@@ -194,40 +198,33 @@ export default function Usuarios() {
     }
   };
 
+  // === Filtrar usuarios ===
   const usuariosFiltrados = useMemo(() => {
     let base = [];
-    if (rolLogueado === 1) base = usuarios;
-    if (rolLogueado === 2) base = usuarios;
+    if (rolLogueado === 1 || rolLogueado === 2) base = usuarios;
     if (rolLogueado === 3) {
       base = usuarios.filter(
-        u => u.rol === 4 && u.creado_por === empleadoSesion
+        (u) => u.rol === 4 && u.creado_por === empleadoSesion
       );
     }
-
     if (filtroRol) {
-      base = base.filter(u => String(u.rol) === filtroRol);
+      base = base.filter((u) => String(u.rol) === filtroRol);
     }
-
     return base;
   }, [usuarios, rolLogueado, filtroRol, empleadoSesion]);
 
-
-
-
-
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Gestión de Usuarios</h1>
+    <div className="p-6 max-w-7xl mx-auto">
+      <h1 className="text-3xl font-extrabold text-gray-900 mb-8">👥 Gestión de Usuarios</h1>
 
-      <form onSubmit={handleSubmit} className="bg-white p-4 rounded shadow mb-6">
-        <h2 className="font-semibold mb-3">Registrar Capturista</h2>
+      {/* Formulario */}
+      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-lg mb-10">
+        <h2 className="text-lg font-bold mb-6 text-gray-800">Registrar nuevo usuario</h2>
 
         {/* CIA */}
         {!(rolLogueado === 4) && (
-          <div className="mb-4">
-            <label className="block text-xs font-bold text-gray-700 mb-1 uppercase">
-              CIA a Capturar
-            </label>
+          <div className="mb-6">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">CIA a Capturar</label>
             <select
               value={ciaSeleccionada}
               onChange={async (e) => {
@@ -236,9 +233,9 @@ export default function Usuarios() {
                 setForm((prev) => ({ ...prev, cia, locales: [] }));
                 if (cia) await fetchLocales(cia);
               }}
-              className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-red-600"
             >
-              <option value="">-- Selecciona una CIA --</option>
+              <option value="">— Selecciona una CIA —</option>
               <option value="recrefam">RECREFAM</option>
               <option value="veser">VESER</option>
               <option value="opardiv">OPARDIV</option>
@@ -249,39 +246,39 @@ export default function Usuarios() {
         {/* Datos generales */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <input type="text" required placeholder="Empleado"
-            className="border rounded px-3 py-2 w-full"
+            className="border rounded-lg px-3 py-2 w-full shadow-sm focus:ring-2 focus:ring-red-600"
             value={form.empleado}
             onChange={(e) => setForm({ ...form, empleado: e.target.value })}
           />
           <input type="text" required placeholder="Nombre"
-            className="border rounded px-3 py-2 w-full"
+            className="border rounded-lg px-3 py-2 w-full shadow-sm focus:ring-2 focus:ring-red-600"
             value={form.nombre}
             onChange={(e) => setForm({ ...form, nombre: e.target.value })}
           />
 
           {(rolLogueado === 1 || rolLogueado === 2) && (
             <input type="email" required placeholder="Correo electrónico"
-              className="border rounded px-3 py-2 w-full"
+              className="border rounded-lg px-3 py-2 w-full shadow-sm focus:ring-2 focus:ring-red-600"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
             />
           )}
 
           <input type="password" required placeholder="Contraseña"
-            className="border rounded px-3 py-2 w-full"
+            className="border rounded-lg px-3 py-2 w-full shadow-sm focus:ring-2 focus:ring-red-600"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
           />
         </div>
 
-        {/* Selector de rol solo para roles 1 y 2 */}
+        {/* Rol */}
         {(rolLogueado === 1 || rolLogueado === 2) && (
-          <div className="my-4">
-            <label className="block text-sm mb-1 font-medium text-gray-700">Rol</label>
+          <div className="my-6">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Rol</label>
             <select
               value={form.rol_id}
               onChange={(e) => setForm({ ...form, rol_id: parseInt(e.target.value) })}
-              className="w-full px-3 py-2 border rounded"
+              className="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-red-600"
             >
               {roles.map((r) => (
                 <option key={r.id} value={r.id}>{r.nombre}</option>
@@ -292,11 +289,11 @@ export default function Usuarios() {
 
         {/* Locales */}
         {!(rolLogueado === 4) && (
-          <div className="mb-4">
-            <label className="block text-sm font-medium">Locales asignados</label>
-            <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border p-2 rounded">
+          <div className="mb-6">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Locales asignados</label>
+            <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border p-3 rounded-lg bg-gray-50">
               {locales.map((l) => (
-                <label key={l.codigo} className="flex items-center gap-2 text-sm">
+                <label key={l.codigo} className="flex items-center gap-2 text-sm text-gray-700">
                   <input
                     type="checkbox"
                     checked={form.locales.includes(l.codigo)}
@@ -312,14 +309,15 @@ export default function Usuarios() {
         <button
           type="submit"
           disabled={loading}
-          className={`px-4 py-2 rounded text-white ${loading ? "bg-red-300 cursor-not-allowed" : "bg-red-600 hover:bg-red-700"}`}
+          className={`px-6 py-3 rounded-lg shadow-md text-white font-semibold transition ${
+            loading ? "bg-red-300 cursor-not-allowed" : "bg-red-600 hover:bg-red-700"
+          }`}
         >
-          {loading ? "Registrando..." : "Registrar"}
+          {loading ? "Registrando..." : "Registrar usuario"}
         </button>
       </form>
 
-
-
+      
     </div>
   );
 }

@@ -26,7 +26,7 @@ export default function Dashboard() {
 
   const mostrarAlerta = () => {
     MySwal.fire({
-      title: "Bienvenido a SAI",
+      title: "Bienvenido a SICAF",
       text: "Todo está funcionando correctamente 🚀",
       icon: "success",
     });

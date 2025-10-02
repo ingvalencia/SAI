@@ -79,7 +79,10 @@ export default function CapturaInventario() {
       setBloqueado(false);
   }, [almacen, fecha]);
 
-  const esMovil = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const esMovil = navigator.userAgentData?.mobile ??
+                /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const soportaCamara = !!(navigator.mediaDevices?.getUserMedia) && window.isSecureContext;
+
 
 
   const iniciarCaptura = async () => {
@@ -439,7 +442,7 @@ export default function CapturaInventario() {
       </h1>
 
       {/* Lector invisible solo si NO es móvil */}
-      {datos.length > 0 && !esMovil && (
+      {datos.length > 0 && !soportaCamara  && (
         <LectorCodigo
           onCodigoDetectado={(codigo) => {
             console.log(">>> entro a LectorCodigo con", codigo);
@@ -450,7 +453,7 @@ export default function CapturaInventario() {
 
 
       {/* Botón escaneo en vivo solo en móviles */}
-      {datos.length > 0 && esMovil && (
+      {datos.length > 0 && soportaCamara && (
         <button
           onClick={() => {
             setLectorActivo(false); // Desactiva escáner invisible
@@ -677,12 +680,10 @@ export default function CapturaInventario() {
                   onFocus={() => setLectorActivo(false)}
                   onBlur={() => {
                     setTimeout(() => {
-                      if (
-                        document.activeElement.tagName !== "INPUT" &&
-                        document.activeElement.tagName !== "SELECT"
-                      ) {
-                        setLectorActivo(true);
-                      }
+                      const ae = document.activeElement;
+                      const tag = ae?.tagName?.toUpperCase() || "";
+                      if (tag !== "INPUT" && tag !== "SELECT") setLectorActivo(true);
+
                     }, 500);
                   }}
                   onChange={(e) => setBusqueda(e.target.value)}

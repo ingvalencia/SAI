@@ -7,8 +7,8 @@ const MySwal = withReactContent(Swal);
 
 export default function Control() {
   const [usuarios, setUsuarios] = useState([]);
-  const [filtroRol, setFiltroRol] = useState(""); // "" = todos
-  const [vista, setVista] = useState("usuarios"); // vista activa
+  const [filtroRol, setFiltroRol] = useState("");
+  const [vista, setVista] = useState("usuarios");
 
   const rolesSesion = JSON.parse(sessionStorage.getItem("roles") || "[]");
   const rolLogueado = rolesSesion.length > 0 ? rolesSesion[0].id : null;
@@ -21,8 +21,7 @@ export default function Control() {
   const [nivelConteo, setNivelConteo] = useState("");
   const [configuraciones, setConfiguraciones] = useState([]);
 
-
-
+  // === Usuarios ===
   const fetchUsuarios = async () => {
     try {
       const res = await axios.get(
@@ -48,7 +47,7 @@ export default function Control() {
     }
   }, [vista]);
 
-
+  // === Eliminar usuario ===
   const eliminarUsuario = async (id) => {
     const confirm = await MySwal.fire({
       title: "¿Eliminar usuario?",
@@ -79,6 +78,7 @@ export default function Control() {
     }
   };
 
+  // === Eliminar configuración ===
   const eliminarConfiguracion = async (id) => {
     const confirm = await MySwal.fire({
       title: "¿Eliminar configuración?",
@@ -107,12 +107,12 @@ export default function Control() {
     }
   };
 
+  // === Editar configuración ===
   const editarConfiguracion = async (config) => {
     const { value: formValues } = await MySwal.fire({
       title: "Editar configuración",
       html: `
         <div class="space-y-4 text-left">
-          <!-- CIA -->
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-2">Selecciona CIA</label>
             <select id="swal-cia"
@@ -123,22 +123,16 @@ export default function Control() {
               <option value="opardiv" ${config.cia === "opardiv" ? "selected" : ""}>OPARDIV</option>
             </select>
           </div>
-
-          <!-- Almacén -->
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-2">Almacén</label>
             <input id="swal-almacen" value="${config.almacen}"
               class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500" />
           </div>
-
-          <!-- Fecha -->
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-2">Fecha de gestión</label>
             <input type="date" id="swal-fecha" value="${config.fecha_gestion}"
               class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500" />
           </div>
-
-          <!-- Nivel de conteo -->
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-2">Nivel de conteo</label>
             <select id="swal-conteo"
@@ -192,7 +186,7 @@ export default function Control() {
     }
   };
 
-
+  // === Activar/Desactivar usuario ===
   const toggleActivo = async (id, activo) => {
     try {
       const formData = new FormData();
@@ -223,6 +217,7 @@ export default function Control() {
     }
   };
 
+  // === Filtrado de usuarios ===
   const usuariosFiltrados = useMemo(() => {
     let base = [];
     if (rolLogueado === 1 || rolLogueado === 2) base = usuarios;
@@ -235,6 +230,7 @@ export default function Control() {
     return base;
   }, [usuarios, rolLogueado, filtroRol, empleadoSesion]);
 
+  // === Toggle almacenes ===
   const toggleAlmacen = (codigo) => {
     setAlmacenesSeleccionados((prev) =>
       prev.includes(codigo)
@@ -243,7 +239,7 @@ export default function Control() {
     );
   };
 
-
+  // === Fetch almacenes ===
   const fetchAlmacenes = async (ciaSeleccionada) => {
     try {
       const res = await axios.get(
@@ -257,6 +253,7 @@ export default function Control() {
     }
   };
 
+  // === Fetch configuraciones ===
   const fetchConfiguraciones = async () => {
     try {
       const res = await axios.get(
@@ -276,7 +273,7 @@ export default function Control() {
     }
   };
 
-
+  // === Guardar configuración ===
   const guardarConfiguracion = async () => {
     if (!cia || !fechaGestion || almacenesSeleccionados.length === 0) {
       MySwal.fire("Faltan datos", "Debes seleccionar CIA, fecha y al menos un almacén", "warning");
@@ -307,11 +304,9 @@ export default function Control() {
     formData.append("actualizado_por", empleadoSesion);
     formData.append("nivel_conteo", nivelConteo);
 
-
     almacenesSeleccionados.forEach(a => {
       formData.append("almacenes[]", a);
     });
-
 
     try {
       MySwal.fire({
@@ -332,7 +327,6 @@ export default function Control() {
       if (res.data.success) {
         await MySwal.fire("Guardado", res.data.mensaje || "Configuración actualizada", "success");
 
-        // Limpiar formulario
         setCia("");
         setAlmacenes([]);
         setAlmacenesSeleccionados([]);
@@ -340,8 +334,7 @@ export default function Control() {
         setNivelConteo("");
 
         fetchConfiguraciones();
-        //setVista("usuarios");
-      }else {
+      } else {
         MySwal.fire("Error", res.data.error || "No se pudo guardar", "error");
       }
     } catch (err) {
@@ -350,21 +343,16 @@ export default function Control() {
     }
   };
 
+  // === Formato fecha ===
   const formatSoloFecha = (valor) => {
     if (!valor) return "—";
-
-    // Ejemplo de valores que llegan:
-    // "Oct  1 2025 12:00:00:AM"
-    // "Sep 30 2025 03:25:22:563PM"
 
     const meses = {
       Jan: "01", Feb: "02", Mar: "03", Apr: "04", May: "05", Jun: "06",
       Jul: "07", Aug: "08", Sep: "09", Oct: "10", Nov: "11", Dec: "12"
     };
 
-    // separar por espacio, filtrando vacíos
     const partes = valor.trim().split(" ").filter(Boolean);
-    // ["Oct","1","2025","12:00:00:AM"]
 
     if (partes.length < 3) return valor;
 
@@ -375,29 +363,27 @@ export default function Control() {
     return `${dia}/${mes}/${anio}`;
   };
 
-
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Control de Operaciones</h1>
+    <div className="p-6 max-w-7xl mx-auto">
+      <h1 className="text-3xl font-extrabold text-gray-900 mb-8">⚙️ Control de Operaciones</h1>
 
-      {/* Botones de navegación interna */}
-      <div className="flex gap-2 mb-6">
+      {/* Tabs */}
+      <div className="flex gap-3 mb-8">
         <button
           onClick={() => setVista("usuarios")}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
+          className={`px-6 py-2 rounded-lg font-medium shadow-sm transition-all ${
             vista === "usuarios"
-              ? "bg-red-600 text-white"
+              ? "bg-red-700 text-white"
               : "bg-gray-200 text-gray-700 hover:bg-gray-300"
           }`}
         >
           Usuarios registrados
         </button>
-
         <button
           onClick={() => setVista("fecha")}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
+          className={`px-6 py-2 rounded-lg font-medium shadow-sm transition-all ${
             vista === "fecha"
-              ? "bg-red-600 text-white"
+              ? "bg-red-700 text-white"
               : "bg-gray-200 text-gray-700 hover:bg-gray-300"
           }`}
         >
@@ -405,18 +391,16 @@ export default function Control() {
         </button>
       </div>
 
-      {/* Contenido dinámico */}
+      {/* Vista Usuarios */}
       {vista === "usuarios" && (
-        <div>
+        <div className="bg-white shadow-lg rounded-xl p-6">
           {(rolLogueado === 1 || rolLogueado === 2) && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Filtrar por rol
-              </label>
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Filtrar por rol</label>
               <select
                 value={filtroRol}
                 onChange={(e) => setFiltroRol(e.target.value)}
-                className="w-full md:w-64 px-3 py-2 border rounded shadow-sm text-sm"
+                className="w-full md:w-64 px-3 py-2 border rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-red-600"
               >
                 <option value="">Todos</option>
                 <option value="1">Administrador TI</option>
@@ -427,10 +411,10 @@ export default function Control() {
             </div>
           )}
 
-          <h2 className="font-semibold mb-4 text-lg">Usuarios registrados</h2>
-          <div className="overflow-auto rounded border border-gray-300 shadow-sm">
+          <h2 className="text-lg font-bold text-gray-800 mb-4">Usuarios registrados</h2>
+          <div className="overflow-auto rounded-lg border border-gray-200 shadow-sm">
             <table className="min-w-full text-sm text-left">
-              <thead className="bg-red-600 text-white uppercase tracking-wide text-xs">
+              <thead className="bg-gradient-to-r from-red-800 to-red-600 text-white uppercase text-xs">
                 <tr>
                   <th className="px-4 py-2">Empleado</th>
                   <th className="px-4 py-2">Nombre</th>
@@ -440,9 +424,9 @@ export default function Control() {
                   <th className="px-4 py-2">Acciones</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-gray-100">
                 {usuariosFiltrados.map((u, i) => (
-                  <tr key={i} className="hover:bg-red-50 transition">
+                  <tr key={i} className="hover:bg-gray-50 transition">
                     <td className="px-4 py-2 font-mono text-red-900">{u.empleado}</td>
                     <td className="px-4 py-2 text-gray-800">{u.nombre}</td>
                     <td className="px-4 py-2 text-gray-700">
@@ -455,15 +439,15 @@ export default function Control() {
                     <td className="px-4 py-2 text-gray-700">{u.creado_por || "—"}</td>
                     <td className="px-4 py-2">
                       {u.activo ? (
-                        <span className="text-green-600 font-semibold">Activo</span>
+                        <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700 font-semibold">Activo</span>
                       ) : (
-                        <span className="text-gray-500">Inactivo</span>
+                        <span className="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-600">Inactivo</span>
                       )}
                     </td>
                     <td className="px-4 py-2 flex gap-2">
                       <button
                         onClick={() => toggleActivo(u.id, u.activo)}
-                        className={`px-3 py-1 rounded text-white text-xs ${
+                        className={`px-3 py-1 rounded text-xs text-white ${
                           u.activo
                             ? "bg-green-600 hover:bg-green-700"
                             : "bg-gray-400 hover:bg-gray-500"
@@ -489,16 +473,15 @@ export default function Control() {
         </div>
       )}
 
-     {vista === "fecha" && (
+      {/* Vista Fecha */}
+      {vista === "fecha" && (
         <div className="space-y-10 max-w-6xl mx-auto">
-          {/* === Tarjeta: Formulario === */}
           <div className="bg-white border border-gray-300 rounded-xl shadow p-8">
             <h2 className="text-2xl font-bold mb-8 text-gray-800 flex items-center gap-2">
               🗓 Configuración de fecha de gestión
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {/* CIA */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Selecciona CIA</label>
                 <select
@@ -518,7 +501,6 @@ export default function Control() {
                 </select>
               </div>
 
-              {/* Almacenes */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Almacenes asignados</label>
                 <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto border p-3 rounded-lg bg-gray-50">
@@ -536,7 +518,6 @@ export default function Control() {
                 </div>
               </div>
 
-              {/* Fecha */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Fecha de gestión</label>
                 <input
@@ -547,7 +528,6 @@ export default function Control() {
                 />
               </div>
 
-              {/* Nivel de conteo */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Nivel de conteo</label>
                 <select
@@ -573,7 +553,6 @@ export default function Control() {
             </div>
           </div>
 
-          {/* === Tarjeta: Lista de configuraciones existentes === */}
           <div className="bg-white border border-gray-300 rounded-xl shadow p-8">
             <h2 className="text-2xl font-bold mb-8 text-gray-800 flex items-center gap-2">
               📋 Fechas de gestión existentes
@@ -610,6 +589,7 @@ export default function Control() {
                         >
                           Editar
                         </button>
+                        {/* Si quieres habilitar eliminar, descomenta */}
                         {/*
                         <button
                           onClick={() => eliminarConfiguracion(c.id)}
@@ -627,8 +607,6 @@ export default function Control() {
           </div>
         </div>
       )}
-
-
     </div>
   );
 }

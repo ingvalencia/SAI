@@ -1,19 +1,24 @@
 {
-  "name": "SAI - Captura Inventario",
-  "short_name": "SAI",
+  "name": "SICAF - Sistema de Captura de Inventarios Físicos",
+  "short_name": "SICAF",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#00ff00",
+  "background_color": "#ffffff",
+  "theme_color": "#b30000",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/icons/sia-icon-192.png",
+      "src": "/icons/sicaf-icon-64.png",
+      "sizes": "64x64",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/sicaf-icon-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/icons/sia-icon-512.png",
+      "src": "/icons/sicaf-icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
     }

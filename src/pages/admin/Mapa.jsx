@@ -12,7 +12,6 @@ const coloresEstatus = {
   4: { color: "bg-blue-600", label: "Conteo 3", icono: "🔵" },
 };
 
-
 export default function Mapa() {
   const [almacenes, setAlmacenes] = useState([]);
   const [cia, setCia] = useState("");
@@ -116,7 +115,6 @@ export default function Mapa() {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Mapa Operaciones");
 
-    // Encabezados
     worksheet.addRow(headers);
 
     headers.forEach((_, idx) => {
@@ -124,7 +122,7 @@ export default function Mapa() {
       cell.fill = {
         type: "pattern",
         pattern: "solid",
-        fgColor: { argb: "CC0000" },
+        fgColor: { argb: "9B1C1C" }, // rojo elegante
       };
       cell.font = {
         color: { argb: "FFFFFF" },
@@ -132,7 +130,6 @@ export default function Mapa() {
       };
     });
 
-    // Filas
     datosExportar.forEach((item, i) => {
       worksheet.addRow([
         i + 1,
@@ -163,20 +160,19 @@ export default function Mapa() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">
-        Mapa de operaciones
+      <h1 className="text-3xl font-extrabold text-gray-900 mb-6">
+        📊 Mapa de Operaciones
       </h1>
 
       {/* Filtros */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 items-end">
-        {/* Select CIA */}
         <select
           value={cia}
           onChange={(e) => {
             setCia(e.target.value);
             setAlmacenSeleccionado(null);
           }}
-          className="border rounded px-4 py-2 shadow-sm"
+          className="border rounded-lg px-4 py-2 shadow-sm focus:ring-2 focus:ring-red-600"
         >
           <option value="">Selecciona CIA</option>
           <option value="recrefam">RECREFAM</option>
@@ -184,7 +180,6 @@ export default function Mapa() {
           <option value="opardiv">OPARDIV</option>
         </select>
 
-        {/* Fecha */}
         <input
           type="date"
           value={fecha}
@@ -192,19 +187,18 @@ export default function Mapa() {
             setFecha(e.target.value);
             setAlmacenSeleccionado(null);
           }}
-          className="border rounded px-4 py-2 shadow-sm"
+          className="border rounded-lg px-4 py-2 shadow-sm focus:ring-2 focus:ring-red-600"
         />
 
-        {/* Botón buscar */}
         <button
           onClick={fetchAlmacenes}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded shadow-sm"
+          className="px-4 py-2 bg-red-700 hover:bg-red-800 text-white font-semibold rounded-lg shadow-md transition"
         >
           🔍 Buscar
         </button>
       </div>
 
-      {/* Grid de almacenes o detalle */}
+      {/* Grid de almacenes */}
       {!almacenSeleccionado ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
           {almacenes.map((a, i) => {
@@ -214,52 +208,41 @@ export default function Mapa() {
               <div
                 key={i}
                 onClick={() => setAlmacenSeleccionado(a.almacen)}
-                className={`group cursor-pointer rounded-2xl overflow-hidden shadow-lg transition-transform duration-200 hover:scale-105`}
+                className="cursor-pointer rounded-2xl overflow-hidden shadow-lg transition-all hover:scale-105 hover:shadow-2xl bg-white"
               >
-                {/* Encabezado con color dinámico */}
-                <div
-                  className={`h-20 flex items-center justify-between px-4 ${estado.color}`}
-                >
-                  <span className="text-xl font-semibold tracking-wide">
-                    {a.almacen}
-                  </span>
+                <div className={`h-20 flex items-center justify-between px-4 text-white ${estado.color}`}>
+                  <span className="text-lg font-bold">{a.almacen}</span>
                   <span className="text-2xl">{estado.icono}</span>
                 </div>
-
-                {/* Cuerpo blanco */}
-                <div className="bg-white p-4 text-gray-700 flex flex-col items-center">
-                  <div className="text-sm font-medium mb-1">{estado.label}</div>
-                  <button
-                    className="mt-2 px-4 py-1 text-sm rounded-full border border-gray-300 text-gray-600
-                              group-hover:bg-gray-100 transition"
-                  >
+                <div className="p-4 text-center">
+                  <div className="text-sm font-medium text-gray-700">{estado.label}</div>
+                  <span className="inline-block mt-2 px-4 py-1 text-xs rounded-full bg-gray-100 text-gray-600">
                     Ver detalle
-                  </button>
+                  </span>
                 </div>
               </div>
             );
           })}
         </div>
-
       ) : (
-        <div className="bg-white rounded-xl shadow p-6">
+        <div className="bg-white rounded-xl shadow-lg p-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-gray-800">
               🔎 Detalle: {almacenSeleccionado}
             </h2>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <button
                 onClick={exportarExcelMapa}
-                className="w-40 h-10 px-3 rounded-full text-sm font-semibold bg-green-300 text-green-900 hover:bg-green-400 flex items-center justify-center gap-2 transition"
+                className="px-4 py-2 rounded-lg text-sm font-semibold bg-green-600 text-white hover:bg-green-700 shadow-md flex items-center gap-2"
               >
                 <img src="https://img.icons8.com/color/20/microsoft-excel-2019.png" alt="excel" />
-                Exportar Excel
+                Exportar
               </button>
               <button
                 onClick={() => setAlmacenSeleccionado(null)}
-                className="text-sm text-blue-600 hover:underline"
+                className="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition"
               >
-                ⬅️ Volver al mapa
+                ⬅️ Volver
               </button>
             </div>
           </div>
@@ -267,21 +250,19 @@ export default function Mapa() {
           {detalle.length === 0 ? (
             <p className="text-gray-500">Sin registros para este almacén.</p>
           ) : (
-            <div className="border rounded shadow">
-              {/* Input de búsqueda */}
+            <div className="border rounded-lg overflow-hidden">
               <div className="mb-4">
                 <input
                   type="text"
                   placeholder="Buscar por código, nombre, familia..."
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm"
+                  className="w-full px-4 py-2 border rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-red-600"
                 />
               </div>
 
-              {/* Tabla */}
-              <table className="min-w-full text-sm text-left">
-                <thead className="bg-gray-800 text-white text-xs">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gradient-to-r from-red-800 to-red-600 text-white text-xs uppercase">
                   <tr>
                     <th className="px-4 py-2">Código</th>
                     <th className="px-4 py-2">Nombre</th>
@@ -294,9 +275,9 @@ export default function Mapa() {
                     <th className="px-4 py-2">Diferencia</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-gray-100">
                   {datosPaginados.map((d, i) => (
-                    <tr key={i}>
+                    <tr key={i} className="hover:bg-gray-50">
                       <td className="px-4 py-2 font-mono text-red-900">{d.codigo}</td>
                       <td className="px-4 py-2 text-gray-800">{d.nombre}</td>
                       <td className="px-4 py-2 text-gray-700">{d.familia ?? "-"}</td>
@@ -305,16 +286,18 @@ export default function Mapa() {
                       <td className="px-4 py-2 text-center">{d.conteo1 ?? "-"}</td>
                       <td className="px-4 py-2 text-center">{d.conteo2 ?? "-"}</td>
                       <td className="px-4 py-2 text-center">{d.conteo3 ?? "-"}</td>
-                      <td
-                        className={`px-4 py-2 text-center font-bold ${
-                          d.diferencia === 0
-                            ? "text-green-600"
-                            : d.diferencia > 0
-                            ? "text-yellow-600"
-                            : "text-red-600"
-                        }`}
-                      >
-                        {d.diferencia.toFixed(2)}
+                      <td className="px-4 py-2 text-center">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-bold ${
+                            d.diferencia === 0
+                              ? "bg-green-100 text-green-700"
+                              : d.diferencia > 0
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {d.diferencia.toFixed(2)}
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -329,7 +312,7 @@ export default function Mapa() {
                   className={`px-3 py-1 rounded border ${
                     paginaActual === 1
                       ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                      : "bg-white hover:bg-blue-100 text-blue-700"
+                      : "bg-white hover:bg-red-50 text-red-700"
                   }`}
                 >
                   ⬅️ Anterior
@@ -351,7 +334,7 @@ export default function Mapa() {
                   className={`px-3 py-1 rounded border ${
                     paginaActual >= Math.ceil(detalleFiltrado.length / registrosPorPagina)
                       ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                      : "bg-white hover:bg-blue-100 text-blue-700"
+                      : "bg-white hover:bg-red-50 text-red-700"
                   }`}
                 >
                   Siguiente ➡️
