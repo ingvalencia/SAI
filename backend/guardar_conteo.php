@@ -60,11 +60,24 @@ if ($row && intval($row['total']) > 0) {
   ";
 }
 
-// --- Ejecutar SQL ---
+// --- Ejecutar SQL principal ---
 $res = mssql_query($sql, $conn);
 if (!$res) {
   $error = mssql_get_last_message();
   echo json_encode(["success" => false, "error" => "Error en SQL: $error"]);
+  exit;
+}
+
+// --- Actualizar también el valor en CAP_INVENTARIO ---
+$updInv = "
+  UPDATE CAP_INVENTARIO
+  SET cant_invfis = $cantidad
+  WHERE id = $id_inventario
+";
+$resInv = mssql_query($updInv, $conn);
+if (!$resInv) {
+  $error = mssql_get_last_message();
+  echo json_encode(["success" => false, "error" => "Error actualizando inventario: $error"]);
   exit;
 }
 

@@ -45,6 +45,9 @@ export default function CapturaInventario() {
 
   const [ciasPermitidas, setCiasPermitidas] = useState([]);
 
+  const [historial, setHistorial] = useState([]);
+
+
   useEffect(() => {
     const cargarCiasPermitidas = async () => {
       try {
@@ -78,6 +81,8 @@ export default function CapturaInventario() {
       setDatos([]);
       setBloqueado(false);
   }, [almacen, fecha]);
+
+
 
   const esMovil = navigator.userAgentData?.mobile ??
                 /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -339,88 +344,146 @@ export default function CapturaInventario() {
   //
 
 
-  const handleCodigoDetectado = async (codigo) => {
-    const index = datos.findIndex((item) => item.codebars?.toLowerCase() === codigo.toLowerCase());
+ const handleCodigoDetectado = async (codigo) => {
+  if (modalActivo) return; // evita múltiples ejecuciones mientras hay modal
+  setModalActivo(true);
 
-    if (index !== -1) {
-      const producto = datos[index];
+  const codigoNormalizado = (codigo || "")
+    .toString()
+    .trim()
+    .replace(/[\s\r\n]+/g, "")
+    .toLowerCase();
 
-      // Aplicar filtro visual para mostrar solo el producto
-      setBusqueda(producto.ItemCode);
+  const index = datos.findIndex(
+    (item) => item.codebars?.toLowerCase().trim() === codigoNormalizado
+  );
 
-      const { value: cantidad } = await MySwal.fire({
-        title: `<div class="text-xl font-bold text-gray-800 text-center">
-                  Producto encontrado: ${producto.Itemname}
+  if (index !== -1) {
+    const producto = datos[index];
+    setBusqueda(producto.ItemCode);
+
+    const { value: cantidad } = await MySwal.fire({
+      title: `<div class="text-xl font-bold text-gray-800 text-center">
+                Producto encontrado: ${producto.Itemname}
               </div>`,
-        html: `
-          <div class="text-left text-sm text-gray-700 leading-relaxed mb-2">
-            <p>🧾 <strong>Código:</strong> ${producto.ItemCode}</p>
-            <p>🏬 <strong>Almacén:</strong> ${producto.almacen}</p>
-            <p>📁 <strong>Familia:</strong> ${producto.nom_fam}</p>
-          </div>
-          <input
-            type="number"
-            id="cantidad"
-            class="swal2-input text-center text-lg font-bold"
-            placeholder="Cantidad"
-            min="0"
-            step="any"
-            maxlength="6"
-            oninput="if(this.value.length > 6) this.value = this.value.slice(0, 6)"
-          />
-        `,
-        focusConfirm: false,
-        confirmButtonText: "Guardar",
-        showCancelButton: true,
-        cancelButtonText: "Cancelar",
-        preConfirm: () => {
-          const valor = document.getElementById("cantidad").value;
-          if (!valor || isNaN(valor) || parseFloat(valor) < 0) {
-            Swal.showValidationMessage("Ingrese una cantidad válida.");
-            return false;
-          }
-          return parseFloat(valor);
-        },
-      });
+      html: `
+        <div class="text-left text-sm text-gray-700 leading-relaxed mb-2">
+          <p>🧾 <strong>Código:</strong> ${producto.ItemCode}</p>
+          <p>🏬 <strong>Almacén:</strong> ${producto.almacen}</p>
+          <p>📁 <strong>Familia:</strong> ${producto.nom_fam}</p>
+        </div>
+        <input
+          type="number"
+          id="cantidad"
+          class="swal2-input text-center text-lg font-bold"
+          placeholder="Cantidad"
+          min="0"
+          step="any"
+          maxlength="6"
+          oninput="if(this.value.length > 6) this.value = this.value.slice(0, 6)"
+        />
+      `,
+      focusConfirm: false,
+      confirmButtonText: "Guardar",
+      showCancelButton: true,
+      cancelButtonText: "Cancelar",
+      allowOutsideClick: false,
+      didOpen: () => {
+        const input = document.getElementById("cantidad");
+        if (input) {
+          input.focus();
+          input.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              document.querySelector(".swal2-confirm").click();
+            }
+          });
+        }
+      },
+      preConfirm: () => {
+        const valor = document.getElementById("cantidad").value;
+        if (!valor || isNaN(valor) || parseFloat(valor) < 0) {
+          Swal.showValidationMessage("Ingrese una cantidad válida.");
+          return false;
+        }
+        return parseFloat(valor);
+      },
+    });
 
-      if (cantidad !== undefined) {
+    if (cantidad !== undefined) {
       const nuevo = [...datos];
       nuevo[index].cant_invfis = cantidad;
       setDatos(nuevo);
 
-      // limpiar búsqueda para que quede listo para el siguiente escaneo
-      setBusqueda("");
+      // 🔑 Guarda en backend inmediato igual que desde la tabla
+      await autoGuardar(producto, cantidad);
 
-      // Scroll al producto y resaltar visualmente
+      setBusqueda("");
+      const inputPrincipal = document.getElementById("inputCaptura");
+      if (inputPrincipal) inputPrincipal.focus();
+
       const elemento = document.getElementById(`fila-${index}`);
       if (elemento) {
         elemento.scrollIntoView({ behavior: "smooth", block: "center" });
         elemento.classList.add("ring-2", "ring-green-400");
         setTimeout(() => elemento.classList.remove("ring-2", "ring-green-400"), 1500);
       }
-    }
 
-    } else {
-      MySwal.fire("No encontrado", `El código ${codigo} no está en la tabla actual`, "warning");
+      setHistorial((prev) => {
+        const nuevoHistorial = [
+          { codigo: producto.ItemCode, nombre: producto.Itemname, cantidad },
+          ...prev,
+        ];
+        return nuevoHistorial.slice(0, 5);
+      });
     }
+  } else {
+    const inputPrincipal = document.getElementById("inputCaptura");
+
+    // pausa entradas mientras hay modal
+    setLectorActivo(false);
+    inputPrincipal?.blur();
+
+    // traga el Enter residual del escáner
+    await new Promise((r) => setTimeout(r, 150));
+
+    await MySwal.fire({
+      title: "No encontrado",
+      text: `El código ${codigoNormalizado} no está en la tabla actual`,
+      icon: "warning",
+      confirmButtonText: "OK",
+      allowOutsideClick: false,
+      allowEnterKey: false,
+      heightAuto: false,
+    });
+
+    setLectorActivo(true);
+    inputPrincipal?.focus();
+  }
+
+  setModalActivo(false); // desbloquea al terminar
   };
 
+
+
+
+
   const datosFiltrados = useMemo(() => {
-    const q = busqueda.trim().toLowerCase();
+      const q = busqueda.trim().toLowerCase();
 
-    return datos.filter((item) => {
-      const matchBusqueda =
-        (item.ItemCode && item.ItemCode.toLowerCase().includes(q)) ||
-        (item.Itemname && item.Itemname.toLowerCase().includes(q)) ||
-        (item.codebars && item.codebars.toLowerCase().includes(q)) ||
-        (item.almacen && item.almacen.toLowerCase().includes(q)) ||
-        (item.cias && item.cias.toLowerCase().includes(q));
+      return datos.filter((item) => {
+        const matchBusqueda =
+          (item.ItemCode && item.ItemCode.toLowerCase().includes(q)) ||
+          (item.Itemname && item.Itemname.toLowerCase().includes(q)) ||
+          (item.codebars && item.codebars.toLowerCase().includes(q)) ||
+          (item.almacen && item.almacen.toLowerCase().includes(q)) ||
+          (item.cias && item.cias.toLowerCase().includes(q));
 
-      const matchFamilia = !familiaSeleccionada || item.nom_fam === familiaSeleccionada;
-      const matchSubfamilia = !subfamiliaSeleccionada || item.nom_subfam === subfamiliaSeleccionada;
+        const matchFamilia = !familiaSeleccionada || item.nom_fam === familiaSeleccionada;
+        const matchSubfamilia = !subfamiliaSeleccionada || item.nom_subfam === subfamiliaSeleccionada;
 
-      return matchBusqueda && matchFamilia && matchSubfamilia;
-    });
+        return matchBusqueda && matchFamilia && matchSubfamilia;
+      });
   }, [datos, busqueda, familiaSeleccionada, subfamiliaSeleccionada]);
 
 
@@ -428,9 +491,33 @@ export default function CapturaInventario() {
   const indiceFinal = indiceInicial + registrosPorPagina;
   const datosPaginados = datosFiltrados.slice(indiceInicial, indiceFinal);
 
+  const [modalActivo, setModalActivo] = useState(false);
+
+
   useEffect(() => {
-    setPaginaActual(1);
+      setPaginaActual(1);
   }, [busqueda, familiaSeleccionada, subfamiliaSeleccionada]);
+
+  // Mantener siempre el foco en el input de captura rápida
+ useEffect(() => {
+  const mantenerFoco = setInterval(() => {
+    const haySwal = document.querySelector(".swal2-container");
+    if (haySwal && haySwal.style.display !== "none") return;
+
+    // detectar si el usuario está en otro input o select
+    const activo = document.activeElement;
+    const esCampoEditable =
+      activo &&
+      (activo.tagName === "INPUT" || activo.tagName === "SELECT" || activo.tagName === "TEXTAREA");
+
+    if (esCampoEditable) return; // 🔒 no robar foco cuando manipulas filtros
+
+    const input = document.getElementById("inputCaptura");
+    if (input && document.activeElement !== input) input.focus();
+  }, 1000);
+
+  return () => clearInterval(mantenerFoco);
+}, []);
 
 
   return (
@@ -442,7 +529,7 @@ export default function CapturaInventario() {
       </h1>
 
       {/* Lector invisible solo si NO es móvil */}
-      {datos.length > 0 && !soportaCamara  && (
+      {datos.length > 0 && !soportaCamara && lectorActivo && (
         <LectorCodigo
           onCodigoDetectado={(codigo) => {
             console.log(">>> entro a LectorCodigo con", codigo);
@@ -452,8 +539,8 @@ export default function CapturaInventario() {
       )}
 
 
-      {/* Botón escaneo en vivo solo en móviles */}
-      {datos.length > 0 && soportaCamara && (
+      {/* Botón escaneo en vivo - solo en móviles */}
+      {datos.length > 0 && soportaCamara && esMovil && (
         <button
           onClick={() => {
             setLectorActivo(false); // Desactiva escáner invisible
@@ -461,9 +548,10 @@ export default function CapturaInventario() {
           }}
           className="mt-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded shadow-sm text-sm"
         >
-          🎥 Escanear en vivo
+          🎥 Escanear código
         </button>
       )}
+
 
 
       {/* BLOQUE DE SELECCIÓN PRINCIPAL EN ESTILO TARJETA */}
@@ -627,6 +715,94 @@ export default function CapturaInventario() {
 
           </p>
 
+
+          {/* Input de captura universal - solo visible en escritorio */}
+          {!esMovil && (
+            <div className="relative bg-gradient-to-br from-white via-gray-50 to-white border border-gray-200 rounded-3xl shadow-2xl p-10 mb-10">
+              {/* Encabezado */}
+              <h2 className="text-center text-3xl font-extrabold text-gray-800 mb-10 tracking-tight flex items-center justify-center gap-3">
+                <span className="text-4xl">📦</span>
+                <span className="bg-gradient-to-r from-green-600 to-emerald-500 bg-clip-text text-transparent">
+                  Captura rápida de artículos
+                </span>
+              </h2>
+
+              {/* Input central con estilo llamativo */}
+              <div className="flex items-center justify-center mb-8">
+                <input
+                  id="inputCaptura"
+                  type="text"
+                  placeholder="🔍 Escanea con el lector o escribe un código y presiona Enter..."
+                  className="w-full md:w-3/4 lg:w-2/3 text-center text-3xl font-extrabold tracking-widest px-10 py-8
+                            rounded-3xl border-4 border-green-500 shadow-xl bg-gradient-to-r from-white to-gray-50
+                            focus:outline-none focus:ring-4 focus:ring-green-400 focus:border-green-500
+                            placeholder-gray-400 transition duration-300 ease-in-out animate-pulse"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && e.currentTarget.value.trim() !== "") {
+                      const codigo = e.currentTarget.value.trim();
+                      handleCodigoDetectado(codigo);
+                      e.currentTarget.value = "";
+                    }
+                  }}
+                />
+              </div>
+
+              {/* Historial de últimos escaneos */}
+              <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-2xl shadow-inner p-6">
+                <h3 className="text-base font-bold text-gray-700 mb-4 flex items-center gap-2">
+                  🕑 Últimos escaneos
+                </h3>
+                {historial.length === 0 ? (
+                  <p className="text-sm text-gray-400 italic text-center">Aún no hay registros</p>
+                ) : (
+                  <ul className="space-y-3 text-sm">
+                    {historial.map((h, i) => (
+                      <li
+                        key={i}
+                        className="flex justify-between items-center bg-white border border-gray-100 rounded-xl px-4 py-3 shadow-sm hover:shadow-md transition"
+                      >
+                        <span className="font-mono text-gray-700 text-sm bg-gray-100 px-2 py-1 rounded-lg">
+                          {h.codigo}
+                        </span>
+                        <span className="flex-1 text-gray-700 ml-4 font-medium truncate">{h.nombre}</span>
+                        <span className="font-bold text-green-700 bg-green-100 px-3 py-1 rounded-full text-xs ml-3">
+                          x{h.cantidad}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {/* Botón deshacer */}
+                {historial.length > 0 && (
+                  <button
+                    onClick={() => {
+                      const ultimo = historial[0];
+                      const nuevo = [...datos];
+                      const idx = nuevo.findIndex((x) => x.ItemCode === ultimo.codigo);
+                      if (idx !== -1) {
+                        nuevo[idx].cant_invfis = "";
+                        setDatos(nuevo);
+                      }
+                      setHistorial((prev) => prev.slice(1));
+                    }}
+                    className="mt-5 w-full px-4 py-3 text-sm font-semibold bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all duration-200 shadow-md"
+                  >
+                    ↩️ Deshacer último
+                  </button>
+                )}
+              </div>
+
+              {/* Nota inferior */}
+              <p className="text-center mt-8 text-sm text-gray-600 italic">
+                Usa el lector o escribe manualmente y confirma con <span className="font-semibold">Enter</span>
+              </p>
+            </div>
+          )}
+
+
+
           <div className="bg-white border border-gray-300 rounded-lg shadow-sm p-4 mb-4">
             <h2 className="text-sm font-semibold text-gray-700 mb-2">🎯 Filtros de captura</h2>
 
@@ -777,25 +953,22 @@ export default function CapturaInventario() {
             <span className="text-gray-600 text-sm font-medium">{valor}</span>
           ) : (
             <input
-              ref={(el) => (inputRefs.current[k] = el)}
               type="text"
               inputMode="numeric"
-              pattern="[0-9]*"
               value={valor}
-              onFocus={() => setLectorActivo(false)}
-              onBlur={(e) => {
-                setTimeout(() => setLectorActivo(true), 200);
-                autoGuardar(item, e.target.value);
-              }}
+              onChange={(e) => cambiarCantidad(item.id, e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  autoGuardar(item, e.target.value);
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  e.currentTarget.blur(); // dispara onBlur -> 1 solo guardado
                 }
               }}
-              onChange={(e) => cambiarCantidad(item.id, e.target.value)}
-
-
+              onBlur={(e) => {
+                setTimeout(() => setLectorActivo(true), 200);
+                autoGuardar(item, e.target.value); // <— ÚNICO lugar donde se llama
+              }}
             />
+
 
 
 

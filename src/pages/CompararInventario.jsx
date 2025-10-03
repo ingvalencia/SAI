@@ -5,9 +5,12 @@ import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
-import * as pdfMake from "pdfmake/build/pdfmake";
-import * as pdfFonts from "pdfmake/build/vfs_fonts";
+import pdfMake from "pdfmake/build/pdfmake";
+import pdfFonts from "pdfmake/build/vfs_fonts";
+
 pdfMake.vfs = pdfFonts.vfs;
+
+
 
 
 export default function CompararInventario() {
@@ -24,6 +27,10 @@ export default function CompararInventario() {
 
  const { estatus: estatusRuta } = location.state || {};
  const [estatus, setEstatus] = useState(estatusRuta || 1);
+
+ const [paginaActual, setPaginaActual] = useState(1);
+ const registrosPorPagina = 100;
+
 
  const exportarExcel = async () => {
     const workbook = new ExcelJS.Workbook();
@@ -50,6 +57,7 @@ export default function CompararInventario() {
         bold: true,
       };
     });
+
 
     // Filas
     datos.forEach((item, i) => {
@@ -99,88 +107,92 @@ export default function CompararInventario() {
     saveAs(blob, `comparacion_${almacen}_${fecha}.xlsx`);
   };
 
-  const exportarPDF = () => {
-    const headers = [
-      "#", "No Empleado", "Almacén", "CIA", "Código", "Nombre",
-      "Código de Barras", "SAP", "Conteo 1", "Conteo 2", "Conteo 3", "Diferencia"
-    ];
+ const exportarPDF = () => {
+  const headers = [
+    "#", "No Empleado", "Almacén", "CIA", "Código", "Nombre",
+    "Código de Barras", "SAP", "Conteo 1", "Conteo 2", "Conteo 3", "Diferencia"
+  ];
 
-    const body = [
-      headers,
-      ...datos.map((item, i) => {
-        const c1 = item.conteo1 ?? 0;
-        const c2 = item.conteo2 ?? 0;
-        const c3 = item.conteo3 ?? 0;
-        const sap = (item.inventario_sap ?? item.sap ?? 0);
-        const conteoActual = estatus === 3 ? c3 : estatus === 2 ? c2 : c1;
-        const dif = Number((sap - conteoActual).toFixed(2));
-        return [
-          i + 1,
-          item.usuario ?? "",
-          item.almacen ?? "",
-          item.cias ?? "",
-          item.codigo ?? "",
-          item.nombre ?? "",
-          item.codebars ?? "",
-          sap.toFixed(2),
-          c1.toFixed(2),
-          c2.toFixed(2),
-          c3.toFixed(2),
-          dif.toFixed(2),
-        ];
-      }),
-    ];
+  const body = [
+    headers,
+    ...datos.map((item, i) => {
+      const c1 = item.conteo1 ?? 0;
+      const c2 = item.conteo2 ?? 0;
+      const c3 = item.conteo3 ?? 0;
+      const sap = item.inventario_sap ?? item.sap ?? 0;
+      const conteoActual = estatus === 3 ? c3 : estatus === 2 ? c2 : c1;
+      const dif = Number((sap - conteoActual).toFixed(2));
 
-    const docDefinition = {
-      pageSize: "A4",
-      pageOrientation: "landscape", // ← HOJA HORIZONTAL
-      pageMargins: [20, 60, 20, 80], // ← MÁRGENES REDUCIDOS
-      header: {
-        columns: [
-          { text: "Comparación de Inventarios", style: "title" },
-          { text: `${fecha}  |  ${almacen}  |  ${cia ?? ""}`, alignment: "right", style: "meta" },
-        ],
-        margin: [20, 20, 20, 0],
-      },
-      footer: (currentPage, pageCount) => ({
-        columns: [
-          { text: `Capturista: ${empleado}`, alignment: "left", margin: [20, 0, 0, 0] },
-          { text: `Página ${currentPage} de ${pageCount}`, alignment: "right", margin: [0, 0, 20, 0] },
-        ],
-        margin: [20, 0, 20, 20],
-      }),
-      content: [
-        {
-          table: {
-            headerRows: 1,
-            widths: [
-              "auto", "auto", "auto", "auto", "auto", "*", "auto",
-              "auto", "auto", "auto", "auto", "auto"
-            ],
-            body,
-          },
-          layout: "lightHorizontalLines", // ← LÍNEAS DELICADAS
-          fontSize: 7,                    // ← TEXTO MÁS PEQUEÑO
-        },
-        { text: "\n" },
-        {
-          columns: [
-            { text: "_____________________________\nCapturista", alignment: "center" },
-            { text: "_____________________________\nSupervisor", alignment: "center" },
-          ],
-          margin: [0, 20, 0, 0],
-        },
+      return [
+        i + 1,
+        item.usuario ?? "",
+        item.almacen ?? "",
+        item.cias ?? "",
+        item.codigo ?? "",
+        item.nombre ?? "",
+        item.codebars ?? "",
+        sap.toFixed(2),
+        c1.toFixed(2),
+        c2.toFixed(2),
+        c3.toFixed(2),
+        { text: dif.toFixed(2), color: dif > 0 ? "orange" : dif < 0 ? "red" : "green", bold: true }
+      ];
+    }),
+  ];
+
+  const docDefinition = {
+    pageSize: "A4",
+    pageOrientation: "landscape",
+    pageMargins: [20, 60, 20, 80],
+
+    defaultStyle: {
+      font: "Roboto"  // ✅ Roboto ya está disponible por defecto
+    },
+
+    header: {
+      columns: [
+        { text: "Comparación de Inventarios", style: "title" },
+        { text: `${fecha}  |  ${almacen}  |  ${cia ?? ""}`, alignment: "right", style: "meta" },
       ],
-      styles: {
-        title: { fontSize: 12, bold: true },
-        meta: { fontSize: 8, color: "gray" },
+      margin: [20, 20, 20, 0],
+    },
+    footer: (currentPage, pageCount) => ({
+      columns: [
+        { text: `Capturista: ${empleado}`, alignment: "left", margin: [20, 0, 0, 0] },
+        { text: `Página ${currentPage} de ${pageCount}`, alignment: "right", margin: [0, 0, 20, 0] },
+      ],
+      margin: [20, 0, 20, 20],
+    }),
+    content: [
+      {
+        table: {
+          headerRows: 1,
+          widths: [
+            "auto", "auto", "auto", "auto", "auto", "*", "auto",
+            "auto", "auto", "auto", "auto", "auto"
+          ],
+          body,
+        },
+        layout: "lightHorizontalLines",
+        fontSize: 7,
       },
-    };
-
-    pdfMake.createPdf(docDefinition).download(`comparacion_${almacen}_${fecha}.pdf`);
+      { text: "\n" },
+      {
+        columns: [
+          { text: "_____________________________\nCapturista", alignment: "center" },
+          { text: "_____________________________\nSupervisor", alignment: "center" },
+        ],
+        margin: [0, 20, 0, 0],
+      },
+    ],
+    styles: {
+      title: { fontSize: 12, bold: true },
+      meta: { fontSize: 8, color: "gray" },
+    },
   };
 
-
+  pdfMake.createPdf(docDefinition).download(`comparacion_${almacen}_${fecha}.pdf`);
+};
 
 
 
@@ -236,6 +248,10 @@ export default function CompararInventario() {
       obtenerComparacion();
     }
   }, [almacen, fecha, empleado, navigate, datos.length]);
+
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [busqueda]);
 
   // Mostrar loading si aún no termina
   if (loading) return <p className="text-center mt-10 text-gray-600">Cargando diferencias...</p>;
@@ -294,6 +310,25 @@ export default function CompararInventario() {
       if (diferencia < 0) return "red";
       return "green";
     }
+
+  // === PAGINACIÓN: filtrar, paginar y numerar ===
+    const datosFiltrados = datos.filter((item) => {
+      const texto = busqueda.toLowerCase();
+      return (
+        item.codigo?.toLowerCase().includes(texto) ||
+        item.codebars?.toLowerCase().includes(texto) ||
+        item.nombre?.toLowerCase().includes(texto)
+      );
+    });
+
+    const totalPaginas = Math.max(1, Math.ceil(datosFiltrados.length / registrosPorPagina));
+    const pagina = Math.min(paginaActual, totalPaginas); // evita quedar en una página inexistente
+
+    const indiceInicial = (pagina - 1) * registrosPorPagina;
+    const indiceFinal = indiceInicial + registrosPorPagina;
+
+    const datosPaginados = datosFiltrados.slice(indiceInicial, indiceFinal);
+
 
 
   return (
@@ -501,92 +536,122 @@ export default function CompararInventario() {
               {estatus >= 2 && <th className="p-3 text-right">Conteo 2</th>}
               {estatus >= 3 && <th className="p-3 text-right">Conteo 3</th>}
               <th className="p-3 text-right">Diferencia</th>
-
             </tr>
           </thead>
+
           <tbody className="bg-white divide-y divide-gray-100">
-  {datos
-    .filter((item) => {
-      const texto = busqueda.toLowerCase();
-      return (
-        item.codigo?.toLowerCase().includes(texto) ||
-        item.codebars?.toLowerCase().includes(texto) ||
-        item.nombre?.toLowerCase().includes(texto)
-      );
-    })
-    .map((item, i) => (
-      <tr
-        key={i}
-        className="hover:bg-red-50 transition duration-150 ease-in-out"
-      >
-        <td className="p-3 text-sm text-gray-500 font-semibold whitespace-nowrap">
-          {i + 1}
-        </td>
-        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-          {item.usuario ?? "-"}
-        </td>
-        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-          {item.almacen ?? "-"}
-        </td>
-        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-          {item.cias ?? "-"}
-        </td>
-        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-          {item.codigo ?? "-"}
-        </td>
-        <td className="p-3 text-sm text-gray-700 whitespace-nowrap truncate max-w-[16rem]">
-          {item.nombre ?? "-"}
-        </td>
-        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-          {item.codebars ?? "-"}
-        </td>
-        {/* Columna SAP */}
-        <td className="p-3 text-sm text-right text-gray-700">
-          {item.inventario_sap?.toFixed(2) ?? "0.00"}
-        </td>
-        {/* Conteos dinámicos */}
-        {estatus >= 1 && (
-          <td className="p-3 text-sm text-right bg-red-50 text-red-800 font-semibold">
-            {(item.conteo1 ?? 0).toFixed(2)}
-          </td>
-        )}
-        {estatus >= 2 && (
-          <td className="p-3 text-sm text-right bg-purple-50 text-purple-800 font-semibold">
-            {(item.conteo2 ?? 0).toFixed(2)}
-          </td>
-        )}
-        {estatus >= 3 && (
-          <td className="p-3 text-sm text-right bg-amber-50 text-amber-800 font-semibold">
-            {(item.conteo3 ?? 0).toFixed(2)}
-          </td>
-        )}
-        {/* Diferencia */}
-        <td className="p-3 text-sm text-right font-bold"
-            style={{
-              color:
-                estatus === 3
-                  ? getColor((item.sap || 0) - (item.conteo3 || 0))
-                  : estatus === 2
-                  ? getColor((item.sap || 0) - (item.conteo2 || 0))
-                  : getColor((item.sap || 0) - (item.conteo1 || 0)),
-            }}
-        >
-          {(
-            estatus === 3
-              ? (item.sap || 0) - (item.conteo3 || 0)
-              : estatus === 2
-              ? (item.sap || 0) - (item.conteo2 || 0)
-              : (item.sap || 0) - (item.conteo1 || 0)
-          ).toFixed(2)}
-        </td>
+            {datosPaginados.map((item, i) => (
+              <tr
+                key={i}
+                className="hover:bg-red-50 transition duration-150 ease-in-out"
+              >
+                {/* Número consecutivo global */}
+                <td className="p-3 text-sm text-gray-500 font-semibold whitespace-nowrap">
+                  {indiceInicial + i + 1}
+                </td>
 
+                <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+                  {item.usuario ?? "-"}
+                </td>
+                <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+                  {item.almacen ?? "-"}
+                </td>
+                <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+                  {item.cias ?? "-"}
+                </td>
+                <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+                  {item.codigo ?? "-"}
+                </td>
+                <td className="p-3 text-sm text-gray-700 whitespace-nowrap truncate max-w-[16rem]">
+                  {item.nombre ?? "-"}
+                </td>
+                <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+                  {item.codebars ?? "-"}
+                </td>
 
-      </tr>
-    ))}
-      </tbody>
+                {/* Columna SAP */}
+                <td className="p-3 text-sm text-right text-gray-700">
+                  {item.inventario_sap?.toFixed(2) ?? "0.00"}
+                </td>
 
+                {/* Conteos dinámicos */}
+                {estatus >= 1 && (
+                  <td className="p-3 text-sm text-right bg-red-50 text-red-800 font-semibold">
+                    {(item.conteo1 ?? 0).toFixed(2)}
+                  </td>
+                )}
+                {estatus >= 2 && (
+                  <td className="p-3 text-sm text-right bg-purple-50 text-purple-800 font-semibold">
+                    {(item.conteo2 ?? 0).toFixed(2)}
+                  </td>
+                )}
+                {estatus >= 3 && (
+                  <td className="p-3 text-sm text-right bg-amber-50 text-amber-800 font-semibold">
+                    {(item.conteo3 ?? 0).toFixed(2)}
+                  </td>
+                )}
 
+                {/* Diferencia */}
+                <td
+                  className="p-3 text-sm text-right font-bold"
+                  style={{
+                    color:
+                      estatus === 3
+                        ? getColor((item.sap || 0) - (item.conteo3 || 0))
+                        : estatus === 2
+                        ? getColor((item.sap || 0) - (item.conteo2 || 0))
+                        : getColor((item.sap || 0) - (item.conteo1 || 0)),
+                  }}
+                >
+                  {(
+                    estatus === 3
+                      ? (item.sap || 0) - (item.conteo3 || 0)
+                      : estatus === 2
+                      ? (item.sap || 0) - (item.conteo2 || 0)
+                      : (item.sap || 0) - (item.conteo1 || 0)
+                  ).toFixed(2)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
         </table>
+
+         <div className="mt-4 flex justify-center items-center gap-4 text-sm text-gray-700 font-medium">
+            <button
+              onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
+              disabled={paginaActual === 1}
+              className={`px-3 py-1 rounded border ${
+                paginaActual === 1
+                  ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                  : "bg-white hover:bg-red-100 text-red-700"
+              }`}
+            >
+              ⬅️ Anterior
+            </button>
+
+            <span>
+              Página {paginaActual} de {Math.ceil(datosFiltrados.length / registrosPorPagina)}
+            </span>
+
+            <button
+              onClick={() =>
+                setPaginaActual((prev) =>
+                  prev < Math.ceil(datosFiltrados.length / registrosPorPagina)
+                    ? prev + 1
+                    : prev
+                )
+              }
+              disabled={paginaActual >= Math.ceil(datosFiltrados.length / registrosPorPagina)}
+              className={`px-3 py-1 rounded border ${
+                paginaActual >= Math.ceil(datosFiltrados.length / registrosPorPagina)
+                  ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                  : "bg-white hover:bg-red-100 text-red-700"
+              }`}
+            >
+              Siguiente ➡️
+            </button>
+         </div>
+
         {diferenciaConfirmada && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0">
             <div className="text-[5rem] font-bold text-gray-600 opacity-20 rotate-[-20deg]">
