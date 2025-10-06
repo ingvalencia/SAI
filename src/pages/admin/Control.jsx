@@ -367,6 +367,7 @@ export default function Control() {
     <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-3xl font-extrabold text-gray-900 mb-8">⚙️ Control de Operaciones</h1>
 
+      
       {/* Tabs */}
       <div className="flex gap-3 mb-8">
         <button
@@ -379,17 +380,22 @@ export default function Control() {
         >
           Usuarios registrados
         </button>
-        <button
-          onClick={() => setVista("fecha")}
-          className={`px-6 py-2 rounded-lg font-medium shadow-sm transition-all ${
-            vista === "fecha"
-              ? "bg-red-700 text-white"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-          }`}
-        >
-          Fecha de gestión
-        </button>
+
+        {/* Solo roles 1 y 2 ven este botón */}
+        {(rolLogueado === 1 || rolLogueado === 2) && (
+          <button
+            onClick={() => setVista("fecha")}
+            className={`px-6 py-2 rounded-lg font-medium shadow-sm transition-all ${
+              vista === "fecha"
+                ? "bg-red-700 text-white"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+            }`}
+          >
+            Fecha de gestión
+          </button>
+        )}
       </div>
+
 
       {/* Vista Usuarios */}
       {vista === "usuarios" && (

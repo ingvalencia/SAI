@@ -18,7 +18,7 @@ if (!$almacen || !$fecha || !$empleado || !$datos || !is_array($datos) || !isset
 }
 
 
-if (!in_array($estatus, [0, 2, 3])) {
+if (!in_array($estatus, [0,1,2,3])) {
   echo json_encode(['success' => false, 'error' => 'Estatus inválido']);
   exit;
 }

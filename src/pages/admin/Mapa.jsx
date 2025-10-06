@@ -6,11 +6,12 @@ import { saveAs } from "file-saver";
 
 const coloresEstatus = {
   0: { color: "bg-gray-300", label: "Sin conteo", icono: "➕" },
-  1: { color: "bg-red-500", label: "Conteo 0", icono: "🔴" },
-  2: { color: "bg-yellow-400", label: "Conteo 1", icono: "🟡" },
-  3: { color: "bg-green-500", label: "Conteo 2", icono: "🟢" },
-  4: { color: "bg-blue-600", label: "Conteo 3", icono: "🔵" },
+  1: { color: "bg-red-500", label: "Conteo 1", icono: "🔴" },
+  2: { color: "bg-yellow-400", label: "Conteo 2", icono: "🟡" },
+  3: { color: "bg-green-500", label: "Conteo 3", icono: "🟢" },
+  4: { color: "bg-blue-600", label: "Finalizado", icono: "🔵" },
 };
+
 
 export default function Mapa() {
   const [almacenes, setAlmacenes] = useState([]);

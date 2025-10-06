@@ -158,7 +158,7 @@ export default function CompararInventario() {
     },
     footer: (currentPage, pageCount) => ({
       columns: [
-        { text: `Capturista: ${empleado}`, alignment: "left", margin: [20, 0, 0, 0] },
+        { text: `Subgerente de Administración: ${empleado}`, alignment: "left", margin: [20, 0, 0, 0] },
         { text: `Página ${currentPage} de ${pageCount}`, alignment: "right", margin: [0, 0, 20, 0] },
       ],
       margin: [20, 0, 20, 20],
@@ -179,8 +179,8 @@ export default function CompararInventario() {
       { text: "\n" },
       {
         columns: [
-          { text: "_____________________________\nCapturista", alignment: "center" },
-          { text: "_____________________________\nSupervisor", alignment: "center" },
+          { text: "_____________________________\nSubgerente de Administración", alignment: "center" },
+          { text: "_____________________________\nGerente de Administración", alignment: "center" },
         ],
         margin: [0, 20, 0, 0],
       },

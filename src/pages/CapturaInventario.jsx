@@ -193,8 +193,7 @@ export default function CapturaInventario() {
 };
 
   const confirmarInventario = async () => {
-
-  const hayCaptura = datos.some(
+    const hayCaptura = datos.some(
       (item) =>
         item.cant_invfis !== "" &&
         item.cant_invfis !== null &&
@@ -217,7 +216,6 @@ export default function CapturaInventario() {
     if (!confirmacion.isConfirmed) return;
 
     try {
-      // NO AWAIT aquí
       MySwal.fire({
         title: "Procesando...",
         text: "Por favor espera",
@@ -230,7 +228,11 @@ export default function CapturaInventario() {
       payload.append("fecha", fecha);
       payload.append("empleado", empleado);
       payload.append("cia", ciaSeleccionada);
-      payload.append("estatus", estatus);
+
+      // ✅ Si estatus es 0, lo cambia a 1 antes de enviar
+      const estatusFinal = estatus === 0 ? 1 : estatus;
+      payload.append("estatus", estatusFinal);
+
       payload.append("datos", JSON.stringify(datos));
 
       const res = await axios.post(
@@ -238,13 +240,12 @@ export default function CapturaInventario() {
         payload
       );
 
-      Swal.close(); // cierra el loading
+      Swal.close();
 
       if (!res.data.success) throw new Error(res.data.error);
 
       setBloqueado(true);
 
-      // Espera a que cierren el modal de éxito antes de navegar
       await MySwal.fire({
         title: "Confirmado",
         text: res.data.mensaje,
@@ -254,7 +255,7 @@ export default function CapturaInventario() {
       });
 
       navigate("/comparar", {
-      state: { almacen, fecha, empleado, cia: ciaSeleccionada, estatus },
+        state: { almacen, fecha, empleado, cia: ciaSeleccionada, estatus: estatusFinal },
       });
 
     } catch (error) {
@@ -262,6 +263,7 @@ export default function CapturaInventario() {
       await MySwal.fire("Error", error.message, "error");
     }
   };
+
 
 
   const exportarExcel = async () => {
