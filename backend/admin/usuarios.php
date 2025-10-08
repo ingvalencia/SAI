@@ -29,6 +29,7 @@ SELECT
   r.nombre AS rol_nombre,
   u.activo,
   u.creado_por,
+  creador.nombre AS responsable_nombre,
   ISNULL((
     SELECT STUFF((
       SELECT ',' + ul.local_codigo
@@ -40,6 +41,7 @@ SELECT
 FROM usuarios u
 LEFT JOIN usuario_rol ur ON ur.usuario_id = u.id
 LEFT JOIN roles r ON r.id = ur.rol_id
+LEFT JOIN usuarios creador ON creador.empleado = u.creado_por
 ORDER BY u.empleado;
 ";
 
@@ -60,6 +62,7 @@ while ($row = mssql_fetch_assoc($res)) {
     'rol'      => $row['rol_id'],
     'activo'   => (int)$row['activo'],
     'creado_por'=> $row['creado_por'],
+    'responsable_nombre'=> $row['responsable_nombre'],
     'locales'  => array_map('trim', $locales)
   ];
 }

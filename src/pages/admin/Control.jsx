@@ -20,6 +20,12 @@ export default function Control() {
   const [almacenes, setAlmacenes] = useState([]);
   const [nivelConteo, setNivelConteo] = useState("");
   const [configuraciones, setConfiguraciones] = useState([]);
+  const [filtroAlmacen, setFiltroAlmacen] = useState("");
+  const [filtroConteo, setFiltroConteo] = useState("");
+  const [filtroFecha, setFiltroFecha] = useState("");
+  const [busquedaAlmacen, setBusquedaAlmacen] = useState("");
+
+
 
   // === Usuarios ===
   const fetchUsuarios = async () => {
@@ -109,30 +115,33 @@ export default function Control() {
 
   // === Editar configuración ===
   const editarConfiguracion = async (config) => {
+    // Convertir la fecha al formato que acepta el input type="date"
+    const fechaISO = config.fecha_gestion
+      ? new Date(config.fecha_gestion).toISOString().split("T")[0]
+      : "";
+
     const { value: formValues } = await MySwal.fire({
       title: "Editar configuración",
       html: `
         <div class="space-y-4 text-left">
           <div>
-            <label class="block text-sm font-semibold text-gray-700 mb-2">Selecciona CIA</label>
-            <select id="swal-cia"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500">
-              <option value="">—</option>
-              <option value="recrefam" ${config.cia === "recrefam" ? "selected" : ""}>RECREFAM</option>
-              <option value="veser" ${config.cia === "veser" ? "selected" : ""}>VESER</option>
-              <option value="opardiv" ${config.cia === "opardiv" ? "selected" : ""}>OPARDIV</option>
-            </select>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">CIA</label>
+            <input type="text" id="swal-cia" value="${config.cia}" readonly
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm bg-gray-100 cursor-not-allowed" />
           </div>
+
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-2">Almacén</label>
-            <input id="swal-almacen" value="${config.almacen}"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500" />
+            <input id="swal-almacen" value="${config.almacen}" readonly
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm bg-gray-100 cursor-not-allowed" />
           </div>
+
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-2">Fecha de gestión</label>
-            <input type="date" id="swal-fecha" value="${config.fecha_gestion}"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500" />
+            <input type="date" id="swal-fecha" value="${fechaISO}" readonly
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm bg-gray-100 cursor-not-allowed" />
           </div>
+
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-2">Nivel de conteo</label>
             <select id="swal-conteo"
@@ -185,6 +194,8 @@ export default function Control() {
       MySwal.fire("Error", "No se pudo conectar al servidor", "error");
     }
   };
+
+
 
   // === Activar/Desactivar usuario ===
   const toggleActivo = async (id, activo) => {
@@ -363,11 +374,40 @@ export default function Control() {
     return `${dia}/${mes}/${anio}`;
   };
 
+  const toISODate = (valor) => {
+    if (!valor) return "";
+    if (/^\d{4}-\d{2}-\d{2}/.test(valor)) return valor.slice(0,10);      // YYYY-MM-DD
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(valor)) {                            // dd/mm/yyyy
+      const [d,m,y] = valor.split("/");
+      return `${y}-${m}-${d}`;
+    }
+    const d = new Date(valor);
+    if (isNaN(d)) return "";
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,"0");
+    const dd = String(d.getDate()).padStart(2,"0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+
+  const configuracionesFiltradas = useMemo(() => {
+    const iso = (v) => toISODate(v);
+    return configuraciones
+      .filter(c => {
+        const coincideAlmacen = filtroAlmacen ? c.almacen?.toLowerCase().includes(filtroAlmacen.toLowerCase()) : true;
+        const coincideConteo  = filtroConteo ? String(c.conteo) === filtroConteo : true;
+        const coincideFecha   = filtroFecha ? iso(c.fecha_gestion) === filtroFecha : true;
+        return coincideAlmacen && coincideConteo && coincideFecha;
+      })
+      .sort((a, b) => iso(b.fecha_gestion).localeCompare(iso(a.fecha_gestion))); // más reciente primero
+  }, [configuraciones, filtroAlmacen, filtroConteo, filtroFecha]);
+
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-3xl font-extrabold text-gray-900 mb-8">⚙️ Control de Operaciones</h1>
 
-      
+
       {/* Tabs */}
       <div className="flex gap-3 mb-8">
         <button
@@ -411,8 +451,8 @@ export default function Control() {
                 <option value="">Todos</option>
                 <option value="1">Administrador TI</option>
                 <option value="2">Administrador Sistema</option>
-                <option value="3">Supervisor</option>
-                <option value="4">Capturista</option>
+                <option value="3">Jefe_Mesa_Control</option>
+                <option value="4">Operador_Inventario</option>
               </select>
             </div>
           )}
@@ -424,7 +464,7 @@ export default function Control() {
                 <tr>
                   <th className="px-4 py-2">Empleado</th>
                   <th className="px-4 py-2">Nombre</th>
-                  <th className="px-4 py-2">Locales asignados</th>
+                  <th className="px-4 py-2">Almacenes asignados</th>
                   <th className="px-4 py-2">Responsable</th>
                   <th className="px-4 py-2">Estado</th>
                   <th className="px-4 py-2">Acciones</th>
@@ -442,7 +482,7 @@ export default function Control() {
                         <span className="text-gray-400">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-gray-700">{u.creado_por || "—"}</td>
+                    <td className="px-4 py-2 text-gray-700">{u.responsable_nombre || "—"}</td>
                     <td className="px-4 py-2">
                       {u.activo ? (
                         <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700 font-semibold">Activo</span>
@@ -509,18 +549,31 @@ export default function Control() {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Almacenes asignados</label>
+                <input
+                    type="text"
+                    placeholder="Buscar almacén..."
+                    value={busquedaAlmacen}
+                    onChange={(e) => setBusquedaAlmacen(e.target.value)}
+                    className="w-full mb-2 px-3 py-2 border rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-blue-500"
+                  />
+
                 <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto border p-3 rounded-lg bg-gray-50">
-                  {almacenes.map((a) => (
-                    <label key={a.codigo} className="flex items-center gap-2 text-sm text-gray-700">
-                      <input
-                        type="checkbox"
-                        value={a.codigo}
-                        checked={almacenesSeleccionados.includes(a.codigo)}
-                        onChange={() => toggleAlmacen(a.codigo)}
-                      />
-                      {a.codigo} - {a.nombre}
-                    </label>
+                  {almacenes
+                    .filter(a =>
+                      `${a.codigo} - ${a.nombre}`.toLowerCase().includes(busquedaAlmacen.toLowerCase())
+                    )
+                    .map((a) => (
+                      <label key={a.codigo} className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          value={a.codigo}
+                          checked={almacenesSeleccionados.includes(a.codigo)}
+                          onChange={() => toggleAlmacen(a.codigo)}
+                        />
+                        {a.codigo} - {a.nombre}
+                      </label>
                   ))}
+
                 </div>
               </div>
 
@@ -564,6 +617,57 @@ export default function Control() {
               📋 Fechas de gestión existentes
             </h2>
 
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Filtrar por almacén</label>
+                <input
+                  type="text"
+                  value={filtroAlmacen}
+                  onChange={(e) => setFiltroAlmacen(e.target.value)}
+                  placeholder="Ej. MGP-G"
+                  className="w-full px-3 py-2 border rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Filtrar por conteo</label>
+                <select
+                  value={filtroConteo}
+                  onChange={(e) => setFiltroConteo(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Todos</option>
+                  <option value="0">Conteo 1</option>
+                  <option value="2">Conteo 2</option>
+                  <option value="3">Conteo 3</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Filtrar por fecha</label>
+                <input
+                  type="date"
+                  value={filtroFecha}
+                  onChange={(e) => setFiltroFecha(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex items-end">
+                <button
+                  onClick={() => {
+                    setFiltroAlmacen("");
+                    setFiltroConteo("");
+                    setFiltroFecha("");
+                  }}
+                  className="w-full px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg shadow-sm transition"
+                >
+                  🧹 Limpiar filtros
+                </button>
+              </div>
+            </div>
+
+
             <div className="overflow-auto rounded border border-gray-300 shadow-sm">
               <table className="min-w-full text-sm text-left">
                 <thead className="bg-gray-800 text-white uppercase text-xs">
@@ -578,7 +682,7 @@ export default function Control() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {configuraciones.map((c, i) => (
+                  {configuracionesFiltradas.map((c, i) => (
                     <tr key={i} className="hover:bg-gray-50 transition">
                       <td className="px-4 py-2">{c.cia}</td>
                       <td className="px-4 py-2">{formatSoloFecha(c.fecha_gestion)}</td>
@@ -604,6 +708,7 @@ export default function Control() {
                           Eliminar
                         </button>
                         */}
+
                       </td>
                     </tr>
                   ))}

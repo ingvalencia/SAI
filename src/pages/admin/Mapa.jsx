@@ -3,6 +3,9 @@ import axios from "axios";
 import Swal from "sweetalert2";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
+import Calendar from "react-calendar";
+import "react-calendar/dist/Calendar.css";
+
 
 const coloresEstatus = {
   0: { color: "bg-gray-300", label: "Sin conteo", icono: "➕" },
@@ -24,27 +27,93 @@ export default function Mapa() {
   const [paginaActual, setPaginaActual] = useState(1);
   const registrosPorPagina = 100;
 
-  const fetchAlmacenes = async () => {
+  const [fechasDisponibles, setFechasDisponibles] = useState([]);
+
+  const fetchFechasDisponibles = async (ciaSeleccionada) => {
+    const ciaActiva = ciaSeleccionada || cia;
+    if (!ciaActiva) {
+      Swal.fire("Falta dato", "Debes seleccionar una CIA.", "warning");
+      return;
+    }
+
+    try {
+      Swal.fire({
+        title: "Procesando...",
+        text: "Cargando fechas disponibles, por favor espera.",
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+      });
+
+      const res = await axios.get(
+        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/mapa_fechas.php",
+        { params: { cia: ciaActiva } }
+      );
+
+      Swal.close();
+
+      if (res.data.success) {
+        setFechasDisponibles(res.data.data);
+        if (res.data.data.length === 0) {
+          Swal.fire("Sin datos", "No se encontraron fechas con registros para esta CIA.", "info");
+        }
+      } else {
+        Swal.fire("Error", res.data.error || "Error al obtener las fechas.", "error");
+      }
+    } catch (err) {
+      Swal.close();
+      console.error("Error al cargar fechas:", err);
+      Swal.fire("Error", "No se pudieron cargar las fechas disponibles.", "error");
+    }
+  };
+
+
+  useEffect(() => {
+    if (cia) {
+      fetchFechasDisponibles(cia);
+    }
+  }, [cia]);
+
+
+ const fetchAlmacenes = async () => {
     if (!cia || !fecha) {
       Swal.fire("Faltan datos", "Debes seleccionar una CIA y una fecha.", "warning");
       return;
     }
+
     try {
+      Swal.fire({
+        title: "Procesando...",
+        text: "Obteniendo información de los almacenes, por favor espera.",
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+      });
+
       const res = await axios.get(
         `https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/mapa_operaciones.php`,
         { params: { cia, fecha } }
       );
+
+      Swal.close();
+
       if (res.data.success) {
         setAlmacenes(res.data.data);
         if (res.data.data.length === 0) {
-          Swal.fire("Sin datos", "No se encontraron almacenes para la CIA y fecha seleccionada.", "warning");
+          Swal.fire(
+            "Sin datos",
+            "No se encontraron almacenes para la CIA y fecha seleccionada.",
+            "warning"
+          );
         }
+      } else {
+        Swal.fire("Error", res.data.error || "Error desconocido en la carga de datos.", "error");
       }
     } catch (err) {
+      Swal.close();
       console.error("Error al cargar almacenes:", err);
       Swal.fire("Error", "No se pudieron cargar los almacenes.", "error");
     }
   };
+
 
   const fetchDetalle = async () => {
     if (!cia || !fecha || !almacenSeleccionado) return;
@@ -76,6 +145,22 @@ export default function Mapa() {
       Swal.fire("Error", "No se pudo obtener el detalle del almacén.", "error");
     }
   };
+
+  useEffect(() => {
+    if (!fecha || !cia) {
+      setAlmacenes([]);
+      setAlmacenSeleccionado(null);
+      setDetalle([]);
+    }
+  }, [fecha, cia]);
+
+
+  useEffect(() => {
+    if (cia && fecha) {
+      fetchAlmacenes();
+    }
+  }, [fecha, cia]);
+
 
   useEffect(() => {
     fetchDetalle();
@@ -110,7 +195,7 @@ export default function Mapa() {
 
     const headers = [
       "#", "CÓDIGO", "NOMBRE", "FAMILIA", "SUBFAMILIA",
-      "INVENTARIO SAP", "CONTEO 1", "CONTEO 2", "CONTEO 3", "DIFERENCIA"
+      "EXISTENCIA SAP", "CONTEO 1", "CONTEO 2", "CONTEO 3", "DIFERENCIA"
     ];
 
     const workbook = new ExcelJS.Workbook();
@@ -170,8 +255,15 @@ export default function Mapa() {
         <select
           value={cia}
           onChange={(e) => {
-            setCia(e.target.value);
+            const nuevaCia = e.target.value;
+            setCia(nuevaCia);
             setAlmacenSeleccionado(null);
+            setAlmacenes([]);
+            setDetalle([]);
+            setFecha("");
+            setFechasDisponibles([]);
+
+            if (nuevaCia) fetchFechasDisponibles(nuevaCia);
           }}
           className="border rounded-lg px-4 py-2 shadow-sm focus:ring-2 focus:ring-red-600"
         >
@@ -180,23 +272,89 @@ export default function Mapa() {
           <option value="veser">VESER</option>
           <option value="opardiv">OPARDIV</option>
         </select>
+      </div>
 
-        <input
-          type="date"
-          value={fecha}
-          onChange={(e) => {
-            setFecha(e.target.value);
-            setAlmacenSeleccionado(null);
-          }}
-          className="border rounded-lg px-4 py-2 shadow-sm focus:ring-2 focus:ring-red-600"
-        />
+      {/* === CALENDARIO === */}
 
-        <button
-          onClick={fetchAlmacenes}
-          className="px-4 py-2 bg-red-700 hover:bg-red-800 text-white font-semibold rounded-lg shadow-md transition"
-        >
-          🔍 Buscar
-        </button>
+      <div className="bg-white border border-gray-300 rounded-2xl shadow-lg p-6 mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-2xl">📅</span>
+          <h2 className="text-xl font-bold text-gray-800">Fechas con datos</h2>
+        </div>
+
+        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+          {/* === Calendario === */}
+          <div className="w-full md:w-1/2">
+            <Calendar
+              onClickDay={(value) => {
+                const fechaSeleccionada = value.toISOString().split("T")[0];
+                setFecha(fechaSeleccionada);
+                setAlmacenSeleccionado(null);
+                setAlmacenes([]);
+              }}
+
+
+
+              tileContent={({ date, view }) => {
+                if (view === "month") {
+                  const fechaStr = date.toISOString().split("T")[0];
+                  const registro = fechasDisponibles.find(f => f.fecha === fechaStr);
+
+                  if (registro) {
+                    const estado = coloresEstatus[registro.estatus] || coloresEstatus[0];
+
+                    return (
+                      <div className="flex justify-center mt-1">
+                        <div
+                          className={`h-2.5 w-2.5 rounded-full ${estado.color} shadow-md`}
+                          title={estado.label}
+                        ></div>
+                      </div>
+                    );
+                  }
+                }
+              }}
+              tileClassName={({ date }) => {
+                const fechaStr = date.toISOString().split("T")[0];
+                const registro = fechasDisponibles.find(f => f.fecha === fechaStr);
+                return registro ? "font-semibold bg-gray-50 rounded-lg" : "";
+              }}
+              className="rounded-xl border border-gray-200 shadow-sm p-2 w-full"
+            />
+          </div>
+
+          {/* === Leyenda de colores === */}
+          <div className="w-full md:w-1/2 bg-gray-50 border border-gray-200 rounded-xl p-4 shadow-inner">
+            <h3 className="text-md font-semibold text-gray-700 mb-3">📊 Indicadores de conteo</h3>
+            <ul className="text-sm text-gray-600 space-y-2">
+              <li className="flex items-center gap-2">
+                <span className={`h-3 w-3 ${coloresEstatus[1].color} rounded-full shadow-sm`}></span>
+                {coloresEstatus[1].label}
+              </li>
+              <li className="flex items-center gap-2">
+                <span className={`h-3 w-3 ${coloresEstatus[2].color} rounded-full shadow-sm`}></span>
+                {coloresEstatus[2].label}
+              </li>
+              <li className="flex items-center gap-2">
+                <span className={`h-3 w-3 ${coloresEstatus[3].color} rounded-full shadow-sm`}></span>
+                {coloresEstatus[3].label}
+              </li>
+              <li className="flex items-center gap-2">
+                <span className={`h-3 w-3 ${coloresEstatus[4].color} rounded-full shadow-sm`}></span>
+                {coloresEstatus[4].label}
+              </li>
+            </ul>
+
+            {fecha && (
+              <div className="mt-5 p-3 bg-white border rounded-lg shadow-sm text-gray-700">
+                <p className="text-sm">
+                  Fecha seleccionada:{" "}
+                  <span className="font-semibold text-red-700">{fecha}</span>
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Grid de almacenes */}
@@ -269,7 +427,7 @@ export default function Mapa() {
                     <th className="px-4 py-2">Nombre</th>
                     <th className="px-4 py-2">Familia</th>
                     <th className="px-4 py-2">Subfamilia</th>
-                    <th className="px-4 py-2">Inventario SAP</th>
+                    <th className="px-4 py-2">Existencia SAP</th>
                     <th className="px-4 py-2">Conteo 1</th>
                     <th className="px-4 py-2">Conteo 2</th>
                     <th className="px-4 py-2">Conteo 3</th>

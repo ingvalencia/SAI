@@ -70,7 +70,7 @@ $conteo_config = isset($rowConfig['conteo']) ? intval($rowConfig['conteo']) : 0;
 
 // === Paso 3: Validaciones según reglas de negocio ===
 // Caso: administrador aún no autoriza pasar a siguiente conteo
-if ($estatus > $conteo_config && $estatus !== 1) {
+if ($estatus > $conteo_config && $estatus !== 1 && $estatus !== 4) {
   echo json_encode([
     "success" => false,
     "error"   => "Administrador aun no autoriza este conteo"

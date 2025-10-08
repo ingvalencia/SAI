@@ -18,6 +18,9 @@ export default function Usuarios() {
 
   const [filtroRol, setFiltroRol] = useState("");
 
+  const [busquedaLocal, setBusquedaLocal] = useState("");
+
+
   const [form, setForm] = useState({
     empleado: "",
     nombre: "",
@@ -288,23 +291,41 @@ export default function Usuarios() {
         )}
 
         {/* Locales */}
-        {!(rolLogueado === 4) && (
+        {rolLogueado !== 4 && (
           <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Locales asignados</label>
-            <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border p-3 rounded-lg bg-gray-50">
-              {locales.map((l) => (
-                <label key={l.codigo} className="flex items-center gap-2 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={form.locales.includes(l.codigo)}
-                    onChange={() => handleLocalesChange(l.codigo)}
-                  />
-                  {l.codigo} - {l.nombre}
-                </label>
-              ))}
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Almacenes asignados
+            </label>
+
+            {/* Buscador rápido */}
+            <input
+              type="text"
+              placeholder="Buscar local..."
+              value={busquedaLocal}
+              onChange={(e) => setBusquedaLocal(e.target.value)}
+              className="w-full mb-2 px-3 py-2 border rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-blue-500"
+            />
+
+            {/* Lista filtrada */}
+            <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto border p-3 rounded-lg bg-gray-50">
+              {locales
+                .filter((l) =>
+                  `${l.codigo} - ${l.nombre}`.toLowerCase().includes(busquedaLocal.toLowerCase())
+                )
+                .map((l) => (
+                  <label key={l.codigo} className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={form.locales.includes(l.codigo)}
+                      onChange={() => handleLocalesChange(l.codigo)}
+                    />
+                    {l.codigo} - {l.nombre}
+                  </label>
+                ))}
             </div>
           </div>
         )}
+
 
         <button
           type="submit"
@@ -317,7 +338,7 @@ export default function Usuarios() {
         </button>
       </form>
 
-      
+
     </div>
   );
 }

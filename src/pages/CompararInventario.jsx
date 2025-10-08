@@ -531,7 +531,7 @@ export default function CompararInventario() {
               <th className="p-3 text-left">Código</th>
               <th className="p-3 text-left w-64 max-w-[16rem]">NOMBRE</th>
               <th className="p-3 text-left">Código de Barras</th>
-              <th className="p-3 text-right">Captura SAP</th>
+              <th className="p-3 text-right">Existencia SAP</th>
               {estatus >= 1 && <th className="p-3 text-right">Conteo 1</th>}
               {estatus >= 2 && <th className="p-3 text-right">Conteo 2</th>}
               {estatus >= 3 && <th className="p-3 text-right">Conteo 3</th>}

@@ -69,6 +69,74 @@ export default function CapturaInventario() {
     cargarCiasPermitidas();
   }, []);
 
+  // === Detección de conexión y errores de red ===
+  useEffect(() => {
+    // Interceptor global de errores Axios
+    axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (!error.response) {
+          Swal.fire({
+            icon: "error",
+            title: "❌ Error de conexión",
+            text: "No se pudo conectar con el servidor. Verifica tu conexión a internet o inténtalo más tarde.",
+            confirmButtonText: "Aceptar",
+            allowOutsideClick: false,
+          });
+        } else {
+          Swal.fire({
+            icon: "error",
+            title: "⚠️ Error en la respuesta del servidor",
+            text: `Código: ${error.response.status} - ${error.response.statusText}`,
+            confirmButtonText: "Aceptar",
+            allowOutsideClick: false,
+          });
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    // Monitoreo constante de conexión
+    let estabaOffline = !navigator.onLine;
+
+    const verificarConexion = async () => {
+      const online = navigator.onLine;
+
+      if (!online && !estabaOffline) {
+        estabaOffline = true;
+        Swal.fire({
+          icon: "warning",
+          title: "Sin conexión a internet",
+          text: "Revisa tu conexión antes de continuar.",
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          confirmButtonText: "Reintentar",
+          didClose: () => {
+            if (!navigator.onLine) Swal.showLoading();
+          },
+        });
+      }
+
+      if (online && estabaOffline) {
+        estabaOffline = false;
+        Swal.close();
+      }
+    };
+
+    // Verifica cada 3 segundos el estado
+    const intervalo = setInterval(verificarConexion, 3000);
+
+    // También escucha eventos nativos
+    window.addEventListener("online", verificarConexion);
+    window.addEventListener("offline", verificarConexion);
+
+    return () => {
+      clearInterval(intervalo);
+      window.removeEventListener("online", verificarConexion);
+      window.removeEventListener("offline", verificarConexion);
+    };
+  }, []);
+
 
 
   const handleLogout = () => {
@@ -193,6 +261,7 @@ export default function CapturaInventario() {
 };
 
   const confirmarInventario = async () => {
+    // 1 Validar captura
     const hayCaptura = datos.some(
       (item) =>
         item.cant_invfis !== "" &&
@@ -201,10 +270,15 @@ export default function CapturaInventario() {
         parseFloat(item.cant_invfis) > 0
     );
     if (!hayCaptura) {
-      await MySwal.fire("Sin captura", "Debes ingresar al menos un inventario físico antes de confirmar.", "warning");
+      await MySwal.fire(
+        "Sin captura",
+        "Debes ingresar al menos un inventario físico antes de confirmar.",
+        "warning"
+      );
       return;
     }
 
+    // 2️Confirmación del usuario
     const confirmacion = await MySwal.fire({
       title: "¿Confirmar inventario?",
       text: "Esta acción es irreversible. ¿Estás seguro?",
@@ -215,56 +289,104 @@ export default function CapturaInventario() {
     });
     if (!confirmacion.isConfirmed) return;
 
+    // 3️Configuración inicial
+    const estatusFinal = estatus === 0 ? 1 : estatus;
+    const loteTamaño = 200; // 🔹 Ajuste: lotes más pequeños para rendimiento estable
+    const lotes = [];
+    for (let i = 0; i < datos.length; i += loteTamaño) {
+      lotes.push(datos.slice(i, i + loteTamaño));
+    }
+
+    // 4️Modal persistente de progreso
+    Swal.fire({
+      title: "Procesando Registros...",
+      html: `
+        <div id="progresoWrap" style="width:100%; text-align:left; margin-top:10px;">
+          <div id="barraProgreso" style="width:100%; background:#eee; border-radius:8px; overflow:hidden; height:26px; position:relative;">
+            <div id="progresoInterno" style="width:0%; background:linear-gradient(90deg, #4caf50, #43a047); height:26px; transition:width 0.3s ease;"></div>
+            <div id="spinner" style="position:absolute; right:10px; top:50%; transform:translateY(-50%);">
+              <svg width="16" height="16" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="35" stroke="#fff" stroke-width="8" fill="none" stroke-linecap="round">
+                  <animateTransform attributeName="transform" type="rotate" dur="1s" from="0 50 50" to="360 50 50" repeatCount="indefinite"/>
+                </circle>
+              </svg>
+            </div>
+          </div>
+          <p id="porcentajeTexto" style="margin-top:6px; font-weight:bold; font-size:14px; color:#222;">0%</p>
+          <p id="mensajeLote" style="margin-top:4px; font-size:13px; color:#555;">Iniciando...</p>
+        </div>
+      `,
+      allowOutsideClick: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        const progreso = document.getElementById("progresoInterno");
+        const porcentajeTexto = document.getElementById("porcentajeTexto");
+        const mensaje = document.getElementById("mensajeLote");
+        progreso.style.width = "0%";
+        porcentajeTexto.textContent = "0%";
+        mensaje.textContent = "Preparando confirmación...";
+      },
+    });
+
     try {
-      MySwal.fire({
-        title: "Procesando...",
-        text: "Por favor espera",
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading(),
-      });
+      // 5️ Procesar cada lote secuencialmente
+      for (let i = 0; i < lotes.length; i++) {
+        const payload = new FormData();
+        payload.append("almacen", almacen);
+        payload.append("fecha", fecha);
+        payload.append("empleado", empleado);
+        payload.append("cia", ciaSeleccionada);
+        payload.append("estatus", estatusFinal);
+        payload.append("datos", JSON.stringify(lotes[i]));
 
-      const payload = new FormData();
-      payload.append("almacen", almacen);
-      payload.append("fecha", fecha);
-      payload.append("empleado", empleado);
-      payload.append("cia", ciaSeleccionada);
+        const res = await axios.post(
+          "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/confirmar_inventario.php",
+          payload
+        );
 
-      // ✅ Si estatus es 0, lo cambia a 1 antes de enviar
-      const estatusFinal = estatus === 0 ? 1 : estatus;
-      payload.append("estatus", estatusFinal);
+        if (!res.data.success) throw new Error(res.data.error);
 
-      payload.append("datos", JSON.stringify(datos));
+        //
+        const progreso = document.getElementById("progresoInterno");
+        const porcentajeTexto = document.getElementById("porcentajeTexto");
+        const mensaje = document.getElementById("mensajeLote");
 
-      const res = await axios.post(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/confirmar_inventario.php",
-        payload
-      );
+        const porcentaje = Math.round(((i + 1) / lotes.length) * 100);
+        if (progreso) progreso.style.width = `${porcentaje}%`;
+        if (porcentajeTexto) porcentajeTexto.textContent = `${porcentaje}%`;
+        if (mensaje)
+          mensaje.textContent = `Lote ${i + 1} de ${lotes.length} confirmado (${lotes[i].length} registros)...`;
 
+        //
+        await new Promise((r) => setTimeout(r, 150));
+      }
+
+      //
       Swal.close();
-
-      if (!res.data.success) throw new Error(res.data.error);
-
       setBloqueado(true);
 
       await MySwal.fire({
-        title: "Confirmado",
-        text: res.data.mensaje,
+        title: "Confirmado ✅",
+        text: `Todos los ${datos.length} fueron confirmados exitosamente.`,
         icon: "success",
         confirmButtonText: "OK",
         allowOutsideClick: false,
       });
 
       navigate("/comparar", {
-        state: { almacen, fecha, empleado, cia: ciaSeleccionada, estatus: estatusFinal },
+        state: {
+          almacen,
+          fecha,
+          empleado,
+          cia: ciaSeleccionada,
+          estatus: estatusFinal,
+        },
       });
-
     } catch (error) {
       Swal.close();
       await MySwal.fire("Error", error.message, "error");
     }
   };
-
-
 
   const exportarExcel = async () => {
     const datosFiltrados = datos.filter((item) =>
@@ -465,9 +587,6 @@ export default function CapturaInventario() {
 
   setModalActivo(false); // desbloquea al terminar
   };
-
-
-
 
 
   const datosFiltrados = useMemo(() => {
@@ -735,19 +854,20 @@ export default function CapturaInventario() {
                   id="inputCaptura"
                   type="text"
                   placeholder="🔍 Escanea con el lector o escribe un código y presiona Enter..."
-                  className="w-full md:w-3/4 lg:w-2/3 text-center text-3xl font-extrabold tracking-widest px-10 py-8
+                  className="w-full text-center text-2xl font-bold px-6 py-6
                             rounded-3xl border-4 border-green-500 shadow-xl bg-gradient-to-r from-white to-gray-50
                             focus:outline-none focus:ring-4 focus:ring-green-400 focus:border-green-500
-                            placeholder-gray-400 transition duration-300 ease-in-out animate-pulse"
+                            placeholder-gray-400 transition duration-300 ease-in-out"
                   autoFocus
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && e.currentTarget.value.trim() !== "") {
+                    if (e.key === 'Enter' && e.currentTarget.value.trim() !== '') {
                       const codigo = e.currentTarget.value.trim();
                       handleCodigoDetectado(codigo);
-                      e.currentTarget.value = "";
+                      e.currentTarget.value = '';
                     }
                   }}
                 />
+
               </div>
 
               {/* Historial de últimos escaneos */}
