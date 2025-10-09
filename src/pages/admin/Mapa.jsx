@@ -244,6 +244,14 @@ export default function Mapa() {
     saveAs(blob, `mapa_${almacenSeleccionado || "almacen"}_${fecha}.xlsx`);
   };
 
+  const grupos = {
+      0: almacenes.filter(a => a.estatus === 0),
+      1: almacenes.filter(a => a.estatus === 1),
+      2: almacenes.filter(a => a.estatus === 2),
+      3: almacenes.filter(a => a.estatus === 3),
+      4: almacenes.filter(a => a.estatus === 4),
+    };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-3xl font-extrabold text-gray-900 mb-6">
@@ -360,28 +368,51 @@ export default function Mapa() {
       {/* Grid de almacenes */}
       {!almacenSeleccionado ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-          {almacenes.map((a, i) => {
-            const estado = coloresEstatus[a.estatus] || coloresEstatus[0];
 
-            return (
-              <div
-                key={i}
-                onClick={() => setAlmacenSeleccionado(a.almacen)}
-                className="cursor-pointer rounded-2xl overflow-hidden shadow-lg transition-all hover:scale-105 hover:shadow-2xl bg-white"
-              >
-                <div className={`h-20 flex items-center justify-between px-4 text-white ${estado.color}`}>
-                  <span className="text-lg font-bold">{a.almacen}</span>
-                  <span className="text-2xl">{estado.icono}</span>
-                </div>
-                <div className="p-4 text-center">
-                  <div className="text-sm font-medium text-gray-700">{estado.label}</div>
-                  <span className="inline-block mt-2 px-4 py-1 text-xs rounded-full bg-gray-100 text-gray-600">
-                    Ver detalle
-                  </span>
+          {Object.entries(grupos).map(([estatus, lista]) => (
+            lista.length > 0 && (
+              <div key={estatus} className="mb-10 animar-grupo">
+                {/* Encabezado del grupo */}
+                <h3
+                  className={`grupo-header ${
+                    coloresEstatus[estatus]?.color || "bg-gray-400"
+                  } bg-gradient-to-r from-white/10 to-black/10`}
+                >
+                  {coloresEstatus[estatus]?.icono} {coloresEstatus[estatus]?.label}
+                </h3>
+
+
+                {/* Contenedor horizontal con scroll */}
+                <div className="flex gap-6 overflow-x-auto pb-4 px-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+                  {lista.map((a, i) => {
+                    const estado = coloresEstatus[a.estatus] || coloresEstatus[0];
+                    return (
+                      <div
+                        key={i}
+                        onClick={() => setAlmacenSeleccionado(a.almacen)}
+                        className="min-w-[180px] flex-shrink-0 cursor-pointer rounded-2xl overflow-hidden shadow-lg bg-white transform transition-transform duration-300 hover:scale-105 hover:shadow-2xl"
+                      >
+                        <div
+                          className={`h-20 flex items-center justify-between px-4 text-white ${estado.color}`}
+                        >
+                          <span className="text-lg font-bold truncate">{a.almacen}</span>
+                          <span className="text-2xl">{estado.icono}</span>
+                        </div>
+                        <div className="p-4 text-center">
+                          <div className="text-sm font-medium text-gray-700">
+                            {estado.label}
+                          </div>
+                          <span className="inline-block mt-2 px-4 py-1 text-xs rounded-full bg-gray-100 text-gray-600">
+                            Ver detalle
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            );
-          })}
+            )
+          ))}
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-lg p-6">

@@ -46,6 +46,11 @@ export default function CapturaInventario() {
   const [ciasPermitidas, setCiasPermitidas] = useState([]);
 
   const [historial, setHistorial] = useState([]);
+  const [mostrarModoRapido, setMostrarModoRapido] = useState(false);
+  const temporizadorLectura = useRef(null);
+  const UMBRAL_SCANNER = 8; // 
+
+
 
 
   useEffect(() => {
@@ -836,9 +841,24 @@ export default function CapturaInventario() {
 
           </p>
 
+          {/* Botón Modo Rápido - solo visible en móvil */}
+          {esMovil && (
+            <div className="flex justify-center mb-6">
+              <button
+                onClick={() => setMostrarModoRapido((prev) => !prev)}
+                className={`px-5 py-3 rounded-full font-semibold text-sm shadow-md transition
+                  ${mostrarModoRapido
+                    ? "bg-green-600 text-white hover:bg-green-700"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+              >
+                ⚡ {mostrarModoRapido ? "Ocultar modo rápido" : "Modo rápido"}
+              </button>
+            </div>
+          )}
+
 
           {/* Input de captura universal - solo visible en escritorio */}
-          {!esMovil && (
+          {(!esMovil || mostrarModoRapido) && (
             <div className="relative bg-gradient-to-br from-white via-gray-50 to-white border border-gray-200 rounded-3xl shadow-2xl p-10 mb-10">
               {/* Encabezado */}
               <h2 className="text-center text-3xl font-extrabold text-gray-800 mb-10 tracking-tight flex items-center justify-center gap-3">
@@ -853,20 +873,33 @@ export default function CapturaInventario() {
                 <input
                   id="inputCaptura"
                   type="text"
+                  inputMode="numeric"
                   placeholder="🔍 Escanea con el lector o escribe un código y presiona Enter..."
                   className="w-full text-center text-2xl font-bold px-6 py-6
                             rounded-3xl border-4 border-green-500 shadow-xl bg-gradient-to-r from-white to-gray-50
                             focus:outline-none focus:ring-4 focus:ring-green-400 focus:border-green-500
                             placeholder-gray-400 transition duration-300 ease-in-out"
                   autoFocus
+                  onChange={(e) => {
+                    clearTimeout(temporizadorLectura.current);
+                    const valor = e.target.value.trim();
+                    temporizadorLectura.current = setTimeout(() => {
+                      // Autodisparo SOLO en móvil y con códigos numéricos largos
+                      if (esMovil && /^\d{8,}$/.test(valor)) {
+                        handleCodigoDetectado(valor);
+                        e.target.value = "";
+                      }
+                    }, 280);
+                  }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && e.currentTarget.value.trim() !== '') {
+                    if (e.key === "Enter" && e.currentTarget.value.trim() !== "") {
                       const codigo = e.currentTarget.value.trim();
                       handleCodigoDetectado(codigo);
-                      e.currentTarget.value = '';
+                      e.currentTarget.value = "";
                     }
                   }}
                 />
+
 
               </div>
 

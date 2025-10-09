@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Personalización opcional del sistema */
+/* === Personalización opcional del sistema === */
 body {
   @apply bg-gray-100 text-gray-800;
   font-family: 'Segoe UI', sans-serif;
@@ -13,5 +13,42 @@ body {
 
 code {
   font-family: 'Courier New', Courier, monospace;
-  color: #1a202c; /* gris oscuro */
+  color: #1a202c;
+}
+
+/* === Estilo de encabezados de grupo === */
+.grupo-header {
+  @apply text-white text-lg font-bold px-5 py-2 rounded-lg shadow-md mb-4 inline-flex items-center gap-2;
+}
+
+.grupo-header::before {
+  content: "📦";
+}
+
+/* === Animaciones suaves de entrada === */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animar-grupo {
+  animation: fadeUp 0.6s ease both;
+}
+
+/* === Scrollbar horizontal limpio === */
+.scrollbar-thin::-webkit-scrollbar {
+  height: 8px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: #a0aec0;
+  border-radius: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: #718096;
 }
