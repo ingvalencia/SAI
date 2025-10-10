@@ -48,7 +48,7 @@ export default function CapturaInventario() {
   const [historial, setHistorial] = useState([]);
   const [mostrarModoRapido, setMostrarModoRapido] = useState(false);
   const temporizadorLectura = useRef(null);
-  const UMBRAL_SCANNER = 8; // 
+  const UMBRAL_SCANNER = 8; //
 
 
 
@@ -473,7 +473,11 @@ export default function CapturaInventario() {
   //
 
 
- const handleCodigoDetectado = async (codigo) => {
+ // === Detección automática de escáner o entrada manual ===
+let tiempoUltimo = 0;
+let bufferCodigo = "";
+
+const handleCodigoDetectado = async (codigo) => {
   if (modalActivo) return; // evita múltiples ejecuciones mientras hay modal
   setModalActivo(true);
 
@@ -522,6 +526,24 @@ export default function CapturaInventario() {
         if (input) {
           input.focus();
           input.addEventListener("keydown", (e) => {
+            // Si la entrada es manual, se usa Enter
+            const ahora = Date.now();
+            const delta = ahora - tiempoUltimo;
+            tiempoUltimo = ahora;
+
+            // Escáner: entrada muy rápida → autoguarda
+            if (delta < 35 && /^[0-9]$/.test(e.key)) {
+              bufferCodigo += e.key;
+              clearTimeout(window.timerScanner);
+              window.timerScanner = setTimeout(() => {
+                if (bufferCodigo.length >= 6) {
+                  document.querySelector(".swal2-confirm").click();
+                }
+                bufferCodigo = "";
+              }, 80);
+            }
+
+            // Manual: Enter explícito
             if (e.key === "Enter") {
               e.preventDefault();
               document.querySelector(".swal2-confirm").click();
@@ -591,7 +613,8 @@ export default function CapturaInventario() {
   }
 
   setModalActivo(false); // desbloquea al terminar
-  };
+};
+
 
 
   const datosFiltrados = useMemo(() => {
@@ -869,35 +892,55 @@ export default function CapturaInventario() {
               </h2>
 
               {/* Input central con estilo llamativo */}
+              
               <div className="flex items-center justify-center mb-8">
                 <input
                   id="inputCaptura"
                   type="text"
-                  inputMode="numeric"
                   placeholder="🔍 Escanea con el lector o escribe un código y presiona Enter..."
                   className="w-full text-center text-2xl font-bold px-6 py-6
                             rounded-3xl border-4 border-green-500 shadow-xl bg-gradient-to-r from-white to-gray-50
                             focus:outline-none focus:ring-4 focus:ring-green-400 focus:border-green-500
                             placeholder-gray-400 transition duration-300 ease-in-out"
                   autoFocus
-                  onChange={(e) => {
-                    clearTimeout(temporizadorLectura.current);
-                    const valor = e.target.value.trim();
-                    temporizadorLectura.current = setTimeout(() => {
-                      // Autodisparo SOLO en móvil y con códigos numéricos largos
-                      if (esMovil && /^\d{8,}$/.test(valor)) {
-                        handleCodigoDetectado(valor);
-                        e.target.value = "";
-                      }
-                    }, 280);
-                  }}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && e.currentTarget.value.trim() !== "") {
-                      const codigo = e.currentTarget.value.trim();
-                      handleCodigoDetectado(codigo);
-                      e.currentTarget.value = "";
+                    const ahora = Date.now();
+                    const delta = ahora - tiempoUltimo;
+                    tiempoUltimo = ahora;
+
+                    // Caso: entrada manual (espera Enter)
+                    if (e.key === "Enter") {
+                      const codigo = e.currentTarget?.value?.trim() || "";
+                      if (codigo !== "") handleCodigoDetectado(codigo);
+
+                      // ✅ Verificación de existencia antes de limpiar
+                      const inputEl = e.currentTarget;
+                      if (inputEl && document.body.contains(inputEl)) inputEl.value = "";
+
+                      bufferCodigo = "";
+                      return;
+                    }
+
+                    // Caso: lector de código (entrada muy rápida)
+                    if (delta < 40 && e.key.length === 1) {
+                      bufferCodigo += e.key;
+                      clearTimeout(window.timerScanner);
+                      window.timerScanner = setTimeout(() => {
+                        if (bufferCodigo.length >= 6) {
+                          handleCodigoDetectado(bufferCodigo);
+
+                          // ✅ Protección antes de limpiar el valor
+                          const campo = document.getElementById("inputCaptura");
+                          if (campo) campo.value = "";
+                        }
+                        bufferCodigo = "";
+                      }, 60);
+                    } else {
+                      // reinicia si el intervalo es lento (tecleo manual)
+                      bufferCodigo = e.key.length === 1 ? e.key : "";
                     }
                   }}
+
                 />
 
 
