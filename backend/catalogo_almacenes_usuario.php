@@ -73,9 +73,7 @@ $data = [];
 // ==============================
 // Por cada almacén permitido
 // ==============================
-// ==============================
-// Por cada almacén permitido
-// ==============================
+
 while ($row = mssql_fetch_assoc($resSP)) {
   $codigo = trim($row['Codigo Almacen']);
 

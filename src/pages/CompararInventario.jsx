@@ -11,8 +11,6 @@ import pdfFonts from "pdfmake/build/vfs_fonts";
 pdfMake.vfs = pdfFonts.vfs;
 
 
-
-
 export default function CompararInventario() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -146,7 +144,7 @@ export default function CompararInventario() {
     pageMargins: [20, 60, 20, 80],
 
     defaultStyle: {
-      font: "Roboto"  // ✅ Roboto ya está disponible por defecto
+      font: "Roboto"  // 
     },
 
     header: {

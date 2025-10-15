@@ -51,8 +51,6 @@ export default function CapturaInventario() {
   const UMBRAL_SCANNER = 8; //
 
 
-
-
   useEffect(() => {
     const cargarCiasPermitidas = async () => {
       try {
@@ -170,7 +168,7 @@ export default function CapturaInventario() {
   }
 
   try {
-    // ✅ 1. Obtener el estatus real desde la BD
+    // 1. Obtener el estatus real desde la BD
     const estatusRes = await axios.get(
       "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/verifica_estatus.php",
       { params: { almacen, fecha, empleado, cia: ciaSeleccionada } }
@@ -182,7 +180,7 @@ export default function CapturaInventario() {
     setEstatus(estatusReal);
     console.log("📌 Estatus detectado desde BD:", estatusReal);
 
-    // ✅ 2. Consultar el modo de captura
+    // 2. Consultar el modo de captura
     const r1 = await axios.get("https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/control_carga_inventario.php", {
       params: { almacen, fecha, empleado, cia: ciaSeleccionada },
     });
@@ -195,7 +193,7 @@ export default function CapturaInventario() {
 
     setModo(modo);
 
-    // ✅ 3. Reglas de bloqueo dinámico
+    // 3. Reglas de bloqueo dinámico
     const debeBloquear = modo === "solo lectura" && estatusReal === 1;
     setBloqueado(debeBloquear);
 
@@ -213,7 +211,7 @@ export default function CapturaInventario() {
 
     setLoadingInventario(true);
 
-    // ✅ 4. Cargar datos de inventario usando el estatus real
+    // 4. Cargar datos de inventario usando el estatus real
     const r2 = await axios.get(
       "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/obtener_inventario.php",
       { params: { almacen, fecha, empleado, estatus: estatusReal, cia: ciaSeleccionada } }
@@ -238,8 +236,6 @@ export default function CapturaInventario() {
       setDatos(nuevo);
     }
   };
-
-
 
 
  const autoGuardar = async (item, cantidad) => {
@@ -566,7 +562,7 @@ const handleCodigoDetectado = async (codigo) => {
       nuevo[index].cant_invfis = cantidad;
       setDatos(nuevo);
 
-      // 🔑 Guarda en backend inmediato igual que desde la tabla
+      // Guarda en backend inmediato igual que desde la tabla
       await autoGuardar(producto, cantidad);
 
       setBusqueda("");
@@ -700,8 +696,6 @@ const handleCodigoDetectado = async (codigo) => {
           🎥 Escanear código
         </button>
       )}
-
-
 
       {/* BLOQUE DE SELECCIÓN PRINCIPAL EN ESTILO TARJETA */}
       <div className="bg-white border border-gray-300 rounded-lg shadow-sm p-4 mb-6">
@@ -892,7 +886,7 @@ const handleCodigoDetectado = async (codigo) => {
               </h2>
 
               {/* Input central con estilo llamativo */}
-              
+
               <div className="flex items-center justify-center mb-8">
                 <input
                   id="inputCaptura"
@@ -913,7 +907,7 @@ const handleCodigoDetectado = async (codigo) => {
                       const codigo = e.currentTarget?.value?.trim() || "";
                       if (codigo !== "") handleCodigoDetectado(codigo);
 
-                      // ✅ Verificación de existencia antes de limpiar
+                      // Verificación de existencia antes de limpiar
                       const inputEl = e.currentTarget;
                       if (inputEl && document.body.contains(inputEl)) inputEl.value = "";
 
@@ -929,7 +923,7 @@ const handleCodigoDetectado = async (codigo) => {
                         if (bufferCodigo.length >= 6) {
                           handleCodigoDetectado(bufferCodigo);
 
-                          // ✅ Protección antes de limpiar el valor
+                          // Protección antes de limpiar el valor
                           const campo = document.getElementById("inputCaptura");
                           if (campo) campo.value = "";
                         }
@@ -1109,63 +1103,63 @@ const handleCodigoDetectado = async (codigo) => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-  {datosPaginados.map((item, i) => {
-    const k = `${item.ItemCode}-${item.almacen}`;
-    const valor = item.cant_invfis ?? ""; // siempre string
-    const editado = parseFloat(valor) > 0;
-    const invalido =
-      valor === "" || isNaN(Number(valor)) || parseFloat(valor) <= 0;
+        {datosPaginados.map((item, i) => {
+          const k = `${item.ItemCode}-${item.almacen}`;
+          const valor = item.cant_invfis ?? ""; // siempre string
+          const editado = parseFloat(valor) > 0;
+          const invalido =
+            valor === "" || isNaN(Number(valor)) || parseFloat(valor) <= 0;
 
-    return (
-      <tr
-        key={k}
-        id={`fila-${item.id}`}
-        className="hover:bg-red-50 transition duration-150 ease-in-out"
-      >
-        <td className="p-3 text-sm text-gray-500 font-semibold whitespace-nowrap">
-          {indiceInicial + i + 1}
-        </td>
-        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-          {item.cias}
-        </td>
-        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-          {item.almacen}
-        </td>
-        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-          {item.nom_fam}
-        </td>
-        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-          {item.nom_subfam}
-        </td>
-        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-          {item.ItemCode}
-        </td>
-        <td className="p-3 text-sm text-gray-700 whitespace-nowrap truncate max-w-[16rem]">
-          {item.Itemname}
-        </td>
-        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-          {item.codebars}
-        </td>
-        <td className="p-3">
-          {(bloqueado || estatus === 4) ? (
-            <span className="text-gray-600 text-sm font-medium">{valor}</span>
-          ) : (
-            <input
-              type="text"
-              inputMode="numeric"
-              value={valor}
-              onChange={(e) => cambiarCantidad(item.id, e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  e.currentTarget.blur(); // dispara onBlur -> 1 solo guardado
-                }
-              }}
-              onBlur={(e) => {
-                setTimeout(() => setLectorActivo(true), 200);
-                autoGuardar(item, e.target.value); // <— ÚNICO lugar donde se llama
-              }}
-            />
+          return (
+            <tr
+              key={k}
+              id={`fila-${item.id}`}
+              className="hover:bg-red-50 transition duration-150 ease-in-out"
+            >
+              <td className="p-3 text-sm text-gray-500 font-semibold whitespace-nowrap">
+                {indiceInicial + i + 1}
+              </td>
+              <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+                {item.cias}
+              </td>
+              <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+                {item.almacen}
+              </td>
+              <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+                {item.nom_fam}
+              </td>
+              <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+                {item.nom_subfam}
+              </td>
+              <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+                {item.ItemCode}
+              </td>
+              <td className="p-3 text-sm text-gray-700 whitespace-nowrap truncate max-w-[16rem]">
+                {item.Itemname}
+              </td>
+              <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+                {item.codebars}
+              </td>
+              <td className="p-3">
+                {(bloqueado || estatus === 4) ? (
+                  <span className="text-gray-600 text-sm font-medium">{valor}</span>
+                ) : (
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={valor}
+                    onChange={(e) => cambiarCantidad(item.id, e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        e.currentTarget.blur(); // dispara onBlur -> 1 solo guardado
+                      }
+                    }}
+                    onBlur={(e) => {
+                      setTimeout(() => setLectorActivo(true), 200);
+                      autoGuardar(item, e.target.value); // <— ÚNICO lugar donde se llama
+                    }}
+                  />
 
 
 
@@ -1257,10 +1251,6 @@ const handleCodigoDetectado = async (codigo) => {
       )}
 
     </div>
-
-
-
-
 
 );
 }
