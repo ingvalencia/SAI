@@ -18,11 +18,19 @@ $almacen  = isset($_GET['almacen'])  ? $_GET['almacen']  : null;
 $fecha    = isset($_GET['fecha'])    ? $_GET['fecha']    : null;
 $empleado = isset($_GET['empleado']) ? intval($_GET['empleado']) : null;
 $cia      = isset($_GET['cia'])      ? $_GET['cia']      : null;
+$nro_conteo = isset($_GET['nro_conteo']) ? intval($_GET['nro_conteo']) : 1;
+
 
 if (!$almacen || !$fecha || !$empleado || !$cia) {
   echo json_encode(['success' => false, 'error' => 'Faltan parámetros requeridos']);
   exit;
 }
+
+if ($nro_conteo < 1 || $nro_conteo > 3) {
+  echo json_encode(['success' => false, 'error' => 'Número de conteo inválido']);
+  exit;
+}
+
 
 // Conexión
 $server = "192.168.0.174";
@@ -96,9 +104,10 @@ if ($resEstatus && $row = mssql_fetch_assoc($resEstatus)) {
    ============================ */
 $sql = "
   DECLARE @modo NVARCHAR(20);
-  EXEC USP_CONTROL_CARGA_INVENTARIO '$almacen_safe', '$fecha', $empleado, '$cia_safe', @modo OUTPUT;
+  EXEC USP_CONTROL_CARGA_INVENTARIO '$almacen_safe', '$fecha', $empleado, '$cia_safe', $nro_conteo, @modo OUTPUT;
   SELECT @modo as modo_resultado;
 ";
+
 $resSP = mssql_query($sql, $conn);
 if (!$resSP) {
   error_log("Error SQL SP: " . mssql_get_last_message());

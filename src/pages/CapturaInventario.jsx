@@ -34,6 +34,8 @@ export default function CapturaInventario() {
   const [mostrarEscanerCamara, setMostrarEscanerCamara] = useState(false);
   const [paginaActual, setPaginaActual] = useState(1);
   const registrosPorPagina = 100;
+  const [capturaActiva, setCapturaActiva] = useState(false);
+  const ultimaFirma = useRef(null);
 
   const nombre = sessionStorage.getItem("nombre") || "";
   const empleadoSesion = sessionStorage.getItem("empleado") || "";
@@ -49,6 +51,59 @@ export default function CapturaInventario() {
   const [mostrarModoRapido, setMostrarModoRapido] = useState(false);
   const temporizadorLectura = useRef(null);
   const UMBRAL_SCANNER = 8; //
+
+  //
+  const [asignacionCargada, setAsignacionCargada] = useState(false);
+  const [idConfig, setIdConfig] = useState(null);
+  const [tipoConteo, setTipoConteo] = useState("");
+  const [nroConteo, setNroConteo] = useState(null);
+  const [ciaAsignada, setCiaAsignada] = useState("");
+  const [almacenAsignado, setAlmacenAsignado] = useState("");
+  const [fechaAsignada, setFechaAsignada] = useState("");
+  const [esBrigada, setEsBrigada] = useState(false);
+  const [compaListo, setCompaListo] = useState(false);
+  const [bloquearSeleccion, setBloquearSeleccion] = useState(false);
+
+ useEffect(() => {
+    const empleado = sessionStorage.getItem("empleado");
+    if (!empleado) return;
+
+    const fetchAsignacion = async () => {
+      try {
+        const res = await axios.get(
+          `https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/verificar_asignacion.php?empleado=${empleado}`
+        );
+
+        if (res.data?.success && res.data.asignacion) {
+          const a = res.data.asignacion;
+          setAsignacionCargada(true);
+          setIdConfig(a.id_config);
+          setTipoConteo(a.tipo_conteo);
+          setNroConteo(a.nro_conteo);
+          setCiaAsignada(a.cia);
+          setAlmacenAsignado(a.almacen);
+          setFechaAsignada(a.fecha);
+          setEsBrigada(a.tipo_conteo === "Brigada");
+          setBloquearSeleccion(true);
+          setEstatus(a.nro_conteo || 1);
+        } else {
+          setAsignacionCargada(false);
+          setBloquearSeleccion(false);
+          MySwal.fire({
+            icon: "info",
+            title: "Sin asignación activa",
+            text: "No tienes conteos asignados. Contacta al administrador.",
+            confirmButtonText: "Aceptar"
+          });
+        }
+      } catch (err) {
+        console.error("Error al verificar asignación:", err);
+      }
+    };
+
+    fetchAsignacion();
+  }, []);
+
 
 
   useEffect(() => {
@@ -148,84 +203,166 @@ export default function CapturaInventario() {
   };
 
   useEffect(() => {
-      setModo(null);
-      setDatos([]);
-      setBloqueado(false);
-  }, [almacen, fecha]);
+    setModo(null);
+    setDatos([]);
+    setBloqueado(false);
+    setCapturaActiva(false);
+    ultimaFirma.current = null;
+  }, [almacen, fecha, ciaSeleccionada]);
 
 
 
   const esMovil = navigator.userAgentData?.mobile ??
                 /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  const getParametrosEfectivos = () => {
+    const emp = sessionStorage.getItem("empleado") || empleado;
+    return {
+      cia: asignacionCargada ? ciaAsignada : ciaSeleccionada,
+      almacen: asignacionCargada ? almacenAsignado : almacen,
+      fecha: asignacionCargada ? fechaAsignada : fecha,
+      empleado: emp,
+      estatus: estatus || 0,
+    };
+  };
+
+  const getFirmaParametros = (p = null) => {
+    const { cia, almacen, fecha, empleado, estatus } = p || getParametrosEfectivos();
+    return JSON.stringify({ cia, almacen, fecha, empleado, estatus });
+  };
+
+
+
   const soportaCamara = !!(navigator.mediaDevices?.getUserMedia) && window.isSecureContext;
 
 
 
   const iniciarCaptura = async () => {
-  if (!almacen || !fecha || !empleado) {
-    MySwal.fire("Faltan datos", "Completa todos los campos", "warning");
-    return;
-  }
+    // ==========================
+    // 1. Validación inicial
+    // ==========================
+    // Si hay asignación cargada, se usan esos datos; si no, se usan los manuales.
+    const cia = asignacionCargada ? ciaAsignada : ciaSeleccionada;
+    const alm = asignacionCargada ? almacenAsignado : almacen;
+    const fec = asignacionCargada ? fechaAsignada : fecha;
+    const nro = asignacionCargada ? nroConteo : estatus;
+    const emp = sessionStorage.getItem("empleado") || empleado;
 
-  try {
-    // 1. Obtener el estatus real desde la BD
-    const estatusRes = await axios.get(
-      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/verifica_estatus.php",
-      { params: { almacen, fecha, empleado, cia: ciaSeleccionada } }
-    );
 
-    if (!estatusRes.data.success) throw new Error(estatusRes.data.error);
-
-    const estatusReal = estatusRes.data.estatus || 0;
-    setEstatus(estatusReal);
-    console.log("📌 Estatus detectado desde BD:", estatusReal);
-
-    // 2. Consultar el modo de captura
-    const r1 = await axios.get("https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/control_carga_inventario.php", {
-      params: { almacen, fecha, empleado, cia: ciaSeleccionada },
-    });
-
-    if (!r1.data.success) throw new Error(r1.data.error);
-
-    const modo = r1.data.modo;
-    const mensaje = r1.data.mensaje || "";
-    const capturista = r1.data.capturista || null;
-
-    setModo(modo);
-
-    // 3. Reglas de bloqueo dinámico
-    const debeBloquear = modo === "solo lectura" && estatusReal === 1;
-    setBloqueado(debeBloquear);
-
-    let mensajeFinal = mensaje;
-
-    if (modo === "solo lectura") {
-      if (estatusReal === 2) mensajeFinal = "📝 Modo: Segundo conteo";
-      else if (estatusReal === 3) mensajeFinal = "📝 Modo: Tercer conteo";
+    if (!alm || !fec || !emp || !cia) {
+      MySwal.fire("Faltan datos", "Completa todos los campos", "warning");
+      return;
     }
 
-    setMensajeModo(mensajeFinal);
+    // Evitar recarga si ya está activa con mismos parámetros
+    const firmaActual = getFirmaParametros({ cia, almacen: alm, fecha: fec, empleado: emp, estatus: nro });
+    if (capturaActiva && ultimaFirma.current === firmaActual) {
+      MySwal.fire({
+        icon: "info",
+        title: "Captura ya activa",
+        text: `CIA ${cia} | ${alm} | ${fec} | Conteo ${nro}`,
+        timer: 1400,
+        showConfirmButton: false,
+      });
+      return;
+    }
 
-    const esCapturista = capturista === null || parseInt(capturista) === parseInt(empleado);
-    setMostrarComparar(modo === "solo lectura" && esCapturista);
 
-    setLoadingInventario(true);
 
-    // 4. Cargar datos de inventario usando el estatus real
-    const r2 = await axios.get(
-      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/obtener_inventario.php",
-      { params: { almacen, fecha, empleado, estatus: estatusReal, cia: ciaSeleccionada } }
-    );
+    try {
+      // ==========================
+      // 2. Obtener el estatus real desde BD
+      // ==========================
+      const estatusRes = await axios.get(
+        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/verifica_estatus.php",
+        { params: { almacen: alm, fecha: fec, empleado: emp, cia } }
+      );
 
-    if (!r2.data.success) throw new Error(r2.data.error);
-    setDatos(r2.data.data || []);
-    setLoadingInventario(false);
+      if (!estatusRes.data.success) throw new Error(estatusRes.data.error);
 
-  } catch (error) {
-    MySwal.fire("Error", error.message, "error");
-    setLoadingInventario(false);
-  }
-};
+      const estatusReal = estatusRes.data.estatus || nro || 0;
+
+      if (!estatusReal) {
+        MySwal.fire("Error", "No se pudo determinar el número de conteo.", "error");
+        return;
+      }
+
+      setEstatus(estatusReal);
+      console.log("📌 Estatus detectado desde BD:", estatusReal);
+
+      // ==========================
+      // 3. Consultar el modo de captura
+      // ==========================
+      const r1 = await axios.get(
+        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/control_carga_inventario.php",
+        { params: { almacen: alm, fecha: fec, empleado: emp, cia, nro_conteo: estatusReal } }
+      );
+
+
+      if (!r1.data.success) throw new Error(r1.data.error);
+
+      const modo = r1.data.modo;
+      const mensaje = r1.data.mensaje || "";
+      const capturista = r1.data.capturista || null;
+
+      setModo(modo);
+
+      // ==========================
+      // 4. Reglas de bloqueo dinámico
+      // ==========================
+      const debeBloquear = modo === "solo lectura" && estatusReal === 1;
+      setBloqueado(debeBloquear);
+
+      let mensajeFinal = mensaje;
+
+      if (modo === "solo lectura") {
+        if (estatusReal === 2) mensajeFinal = "📝 Modo: Segundo conteo";
+        else if (estatusReal === 3) mensajeFinal = "📝 Modo: Tercer conteo";
+      }
+
+      setMensajeModo(mensajeFinal);
+
+      const esCapturista =
+        capturista === null || parseInt(capturista) === parseInt(emp);
+      setMostrarComparar(modo === "solo lectura" && esCapturista);
+
+      setLoadingInventario(true);
+
+      // ==========================
+      // 5. Cargar datos de inventario
+      // ==========================
+      const r2 = await axios.get(
+        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/obtener_inventario.php",
+        { params: { almacen: alm, fecha: fec, empleado: emp, estatus: estatusReal, cia } }
+      );
+
+      if (!r2.data.success) throw new Error(r2.data.error);
+      setDatos(r2.data.data || []);
+      setLoadingInventario(false);
+
+      ultimaFirma.current = getFirmaParametros({ cia, almacen: alm, fecha: fec, empleado: emp, estatus: estatusReal });
+      setCapturaActiva(true);
+
+
+
+      // ==========================
+      // 6. Mensaje de inicio exitoso
+      // ==========================
+      MySwal.fire({
+        icon: "success",
+        title: "Captura iniciada",
+        text: `Modo: ${tipoConteo || "Manual"} | CIA: ${cia} | Almacén: ${alm} | Fecha: ${fec}`,
+        timer: 1800,
+        showConfirmButton: false,
+      });
+    } catch (error) {
+      MySwal.fire("Error", error.message, "error");
+      setLoadingInventario(false);
+      setCapturaActiva(false);
+
+    }
+  };
+
 
 
   const cambiarCantidad = (id, valor) => {
@@ -262,132 +399,140 @@ export default function CapturaInventario() {
 };
 
   const confirmarInventario = async () => {
-    // 1 Validar captura
-    const hayCaptura = datos.some(
-      (item) =>
-        item.cant_invfis !== "" &&
-        item.cant_invfis !== null &&
-        !isNaN(parseFloat(item.cant_invfis)) &&
-        parseFloat(item.cant_invfis) > 0
+  // 1️ Validar captura
+  const hayCaptura = datos.some(
+    (item) =>
+      item.cant_invfis !== "" &&
+      item.cant_invfis !== null &&
+      !isNaN(parseFloat(item.cant_invfis)) &&
+      parseFloat(item.cant_invfis) > 0
+  );
+  if (!hayCaptura) {
+    await MySwal.fire(
+      "Sin captura",
+      "Debes ingresar al menos un inventario físico antes de confirmar.",
+      "warning"
     );
-    if (!hayCaptura) {
-      await MySwal.fire(
-        "Sin captura",
-        "Debes ingresar al menos un inventario físico antes de confirmar.",
-        "warning"
-      );
-      return;
-    }
+    return;
+  }
 
-    // 2️Confirmación del usuario
-    const confirmacion = await MySwal.fire({
-      title: "¿Confirmar inventario?",
-      text: "Esta acción es irreversible. ¿Estás seguro?",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Sí, confirmar",
-      cancelButtonText: "Cancelar",
-    });
-    if (!confirmacion.isConfirmed) return;
+  // 2️ Confirmación del usuario
+  const confirmacion = await MySwal.fire({
+    title: "¿Confirmar inventario?",
+    text: "Esta acción es irreversible. ¿Estás seguro?",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Sí, confirmar",
+    cancelButtonText: "Cancelar",
+  });
+  if (!confirmacion.isConfirmed) return;
 
-    // 3️Configuración inicial
-    const estatusFinal = estatus === 0 ? 1 : estatus;
-    const loteTamaño = 200; // 🔹 Ajuste: lotes más pequeños para rendimiento estable
-    const lotes = [];
-    for (let i = 0; i < datos.length; i += loteTamaño) {
-      lotes.push(datos.slice(i, i + loteTamaño));
-    }
+  // 3️ Configuración inicial
+  const estatusFinal = estatus === 0 ? 1 : estatus;
+  const loteTamaño = 200; // 🔹 Lotes pequeños para estabilidad
+  const lotes = [];
+  for (let i = 0; i < datos.length; i += loteTamaño) {
+    lotes.push(datos.slice(i, i + loteTamaño));
+  }
 
-    // 4️Modal persistente de progreso
-    Swal.fire({
-      title: "Procesando Registros...",
-      html: `
-        <div id="progresoWrap" style="width:100%; text-align:left; margin-top:10px;">
-          <div id="barraProgreso" style="width:100%; background:#eee; border-radius:8px; overflow:hidden; height:26px; position:relative;">
-            <div id="progresoInterno" style="width:0%; background:linear-gradient(90deg, #4caf50, #43a047); height:26px; transition:width 0.3s ease;"></div>
-            <div id="spinner" style="position:absolute; right:10px; top:50%; transform:translateY(-50%);">
-              <svg width="16" height="16" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="35" stroke="#fff" stroke-width="8" fill="none" stroke-linecap="round">
-                  <animateTransform attributeName="transform" type="rotate" dur="1s" from="0 50 50" to="360 50 50" repeatCount="indefinite"/>
-                </circle>
-              </svg>
-            </div>
+  // 4️ Modal persistente de progreso
+  Swal.fire({
+    title: "Procesando Registros...",
+    html: `
+      <div id="progresoWrap" style="width:100%; text-align:left; margin-top:10px;">
+        <div id="barraProgreso" style="width:100%; background:#eee; border-radius:8px; overflow:hidden; height:26px; position:relative;">
+          <div id="progresoInterno" style="width:0%; background:linear-gradient(90deg, #4caf50, #43a047); height:26px; transition:width 0.3s ease;"></div>
+          <div id="spinner" style="position:absolute; right:10px; top:50%; transform:translateY(-50%);">
+            <svg width="16" height="16" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="35" stroke="#fff" stroke-width="8" fill="none" stroke-linecap="round">
+                <animateTransform attributeName="transform" type="rotate" dur="1s" from="0 50 50" to="360 50 50" repeatCount="indefinite"/>
+              </circle>
+            </svg>
           </div>
-          <p id="porcentajeTexto" style="margin-top:6px; font-weight:bold; font-size:14px; color:#222;">0%</p>
-          <p id="mensajeLote" style="margin-top:4px; font-size:13px; color:#555;">Iniciando...</p>
         </div>
-      `,
+        <p id="porcentajeTexto" style="margin-top:6px; font-weight:bold; font-size:14px; color:#222;">0%</p>
+        <p id="mensajeLote" style="margin-top:4px; font-size:13px; color:#555;">Iniciando...</p>
+      </div>
+    `,
+    allowOutsideClick: false,
+    showConfirmButton: false,
+    didOpen: () => {
+      const progreso = document.getElementById("progresoInterno");
+      const porcentajeTexto = document.getElementById("porcentajeTexto");
+      const mensaje = document.getElementById("mensajeLote");
+      progreso.style.width = "0%";
+      porcentajeTexto.textContent = "0%";
+      mensaje.textContent = "Preparando confirmación...";
+    },
+  });
+
+  try {
+    // 5️ Obtener parámetros efectivos
+    const { cia, almacen: almEf, fecha: fecEf, empleado: empEf } = getParametrosEfectivos();
+
+    // 6️ Procesar cada lote secuencialmente
+    for (let i = 0; i < lotes.length; i++) {
+      const payload = new FormData();
+      payload.append("almacen", almEf);
+      payload.append("fecha", fecEf);
+      payload.append("empleado", empEf);
+      payload.append("cia", cia);
+      payload.append("estatus", estatusFinal);
+      payload.append("datos", JSON.stringify(lotes[i]));
+
+      const res = await axios.post(
+        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/confirmar_inventario.php",
+        payload
+      );
+
+      if (!res.data.success) throw new Error(res.data.error);
+
+      // 7️ Actualizar barra de progreso
+      const progreso = document.getElementById("progresoInterno");
+      const porcentajeTexto = document.getElementById("porcentajeTexto");
+      const mensaje = document.getElementById("mensajeLote");
+
+      const porcentaje = Math.round(((i + 1) / lotes.length) * 100);
+      if (progreso) progreso.style.width = `${porcentaje}%`;
+      if (porcentajeTexto) porcentajeTexto.textContent = `${porcentaje}%`;
+      if (mensaje)
+        mensaje.textContent = `Lote ${i + 1} de ${lotes.length} confirmado (${lotes[i].length} registros)...`;
+
+      await new Promise((r) => setTimeout(r, 150));
+    }
+
+    // 8️ Finalización
+    Swal.close();
+    setBloqueado(true);
+
+    await MySwal.fire({
+      title: "Confirmado ✅",
+      text: `Todos los ${datos.length} registros fueron confirmados exitosamente.`,
+      icon: "success",
+      confirmButtonText: "OK",
       allowOutsideClick: false,
-      showConfirmButton: false,
-      didOpen: () => {
-        const progreso = document.getElementById("progresoInterno");
-        const porcentajeTexto = document.getElementById("porcentajeTexto");
-        const mensaje = document.getElementById("mensajeLote");
-        progreso.style.width = "0%";
-        porcentajeTexto.textContent = "0%";
-        mensaje.textContent = "Preparando confirmación...";
-      },
     });
 
-    try {
-      // 5️ Procesar cada lote secuencialmente
-      for (let i = 0; i < lotes.length; i++) {
-        const payload = new FormData();
-        payload.append("almacen", almacen);
-        payload.append("fecha", fecha);
-        payload.append("empleado", empleado);
-        payload.append("cia", ciaSeleccionada);
-        payload.append("estatus", estatusFinal);
-        payload.append("datos", JSON.stringify(lotes[i]));
+    // 9️ Navegar con parámetros efectivos
+    navigate("/comparar", {
+    state: (() => {
+      const p = getParametrosEfectivos();
+      return {
+        almacen: p.almacen,
+        fecha: p.fecha,
+        empleado: p.empleado,
+        cia: p.cia,
+        estatus: estatusFinal,
+      };
+    })(),
+  });
 
-        const res = await axios.post(
-          "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/confirmar_inventario.php",
-          payload
-        );
-
-        if (!res.data.success) throw new Error(res.data.error);
-
-        //
-        const progreso = document.getElementById("progresoInterno");
-        const porcentajeTexto = document.getElementById("porcentajeTexto");
-        const mensaje = document.getElementById("mensajeLote");
-
-        const porcentaje = Math.round(((i + 1) / lotes.length) * 100);
-        if (progreso) progreso.style.width = `${porcentaje}%`;
-        if (porcentajeTexto) porcentajeTexto.textContent = `${porcentaje}%`;
-        if (mensaje)
-          mensaje.textContent = `Lote ${i + 1} de ${lotes.length} confirmado (${lotes[i].length} registros)...`;
-
-        //
-        await new Promise((r) => setTimeout(r, 150));
-      }
-
-      //
-      Swal.close();
-      setBloqueado(true);
-
-      await MySwal.fire({
-        title: "Confirmado ✅",
-        text: `Todos los ${datos.length} fueron confirmados exitosamente.`,
-        icon: "success",
-        confirmButtonText: "OK",
-        allowOutsideClick: false,
-      });
-
-      navigate("/comparar", {
-        state: {
-          almacen,
-          fecha,
-          empleado,
-          cia: ciaSeleccionada,
-          estatus: estatusFinal,
-        },
-      });
-    } catch (error) {
-      Swal.close();
-      await MySwal.fire("Error", error.message, "error");
-    }
+  } catch (error) {
+    Swal.close();
+    await MySwal.fire("Error", error.message, "error");
+  }
   };
+
 
   const exportarExcel = async () => {
     const datosFiltrados = datos.filter((item) =>
@@ -447,7 +592,9 @@ export default function CapturaInventario() {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
 
-    saveAs(blob, `captura_${almacen}_${fecha}.xlsx`);
+    const p = getParametrosEfectivos();
+    saveAs(blob, `captura_${p.almacen}_${p.fecha}.xlsx`);
+
   };
 
 
@@ -701,155 +848,191 @@ const handleCodigoDetectado = async (codigo) => {
       <div className="bg-white border border-gray-300 rounded-lg shadow-sm p-4 mb-6">
         <h2 className="text-sm font-semibold text-gray-700 mb-4">📌 Selección de captura</h2>
 
-        {/* Select de CIA */}
-        <div className="mb-4">
-          <label className="block text-xs font-bold text-gray-700 mb-1 uppercase">CIA a Capturar</label>
-          <select
-            value={ciaSeleccionada}
-            onChange={(e) => {
-              setCiaSeleccionada(e.target.value);
-              setAlmacen("");
-              setFecha("");
-              setCatalogoAlmacenes([]);
-              setMostrarCatalogo(false);
-            }}
-            className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
-          >
-            <option value="">-- Selecciona una CIA --</option>
-            {ciasPermitidas.map((cia) => (
-              <option key={cia} value={cia}>{cia.toUpperCase()}</option>
-            ))}
+        {/* Si hay asignación cargada */}
+        {asignacionCargada ? (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <p className="text-sm text-gray-700">
+              <strong>Tipo de captura:</strong> {tipoConteo}
+            </p>
+            <p className="text-sm text-gray-700">
+              <strong>Conteo asignado:</strong> {nroConteo}
+            </p>
+            <p className="text-sm text-gray-700">
+              <strong>CIA:</strong> {ciaAsignada}
+            </p>
+            <p className="text-sm text-gray-700">
+              <strong>Almacén:</strong> {almacenAsignado}
+            </p>
+            <p className="text-sm text-gray-700">
+              <strong>Fecha:</strong> {fechaAsignada}
+            </p>
 
-          </select>
-        </div>
+            {/* Botón para iniciar captura */}
+            <div className="mt-4">
+              <button
+                onClick={iniciarCaptura}
+                disabled={capturaActiva}
+                className={`w-full px-4 py-2 text-white font-semibold rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition
+                  ${capturaActiva ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
+              >
+                {capturaActiva ? "Captura activa" : "Iniciar captura"}
+              </button>
 
-        {/* Grid: almacén, fecha, empleado, botón */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-          {/* Almacén */}
-          <div className="w-full">
-            <Select
-              options={catalogoAlmacenes.map((alm) => ({
-                value: alm.codigo,
-                label: `${alm.codigo} - ${alm.nombre}`,
-              }))}
-              placeholder="Escribe o selecciona un almacén (ej: AAA-G)"
-              isDisabled={ciaSeleccionada === ""}
-              onMenuOpen={async () => {
-                if (ciaSeleccionada === "") {
-                  setMensajeValidacion("⚠ Debes seleccionar una CIA primero.");
-                  return;
-                }
-                if (catalogoAlmacenes.length === 0) {
-                  try {
-                    const res = await axios.get(
-                      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/catalogo_almacenes_usuario.php",
-                      { params: { cia: ciaSeleccionada, empleado: sessionStorage.getItem("empleado") } }
-                    );
 
-                    if (res.data.success && res.data.data) {
-                      setCatalogoAlmacenes(res.data.data);
-                      setMensajeValidacion("");
-                    } else {
-                      setMensajeValidacion("⚠ No se encontraron almacenes para esa CIA.");
-                    }
-                  } catch (error) {
-                    console.error("Error al obtener almacenes:", error.message);
-                    setMensajeValidacion("❌ Error al consultar el catálogo.");
-                  }
-                }
-              }}
-              value={
-                almacen
-                  ? {
-                      value: almacen,
-                      label:
-                        catalogoAlmacenes.find((a) => a.codigo === almacen)?.codigo +
-                        " - " +
-                        catalogoAlmacenes.find((a) => a.codigo === almacen)?.nombre,
-                    }
-                  : null
-              }
-              onChange={async (opcion) => {
-                const valor = opcion?.value || "";
-                setAlmacen(valor);
-                setMensajeValidacion("");
-
-                try {
-                  const res = await axios.get(
-                    "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/catalogo_almacenes_usuario.php",
-                    { params: { cia: ciaSeleccionada, empleado: sessionStorage.getItem("empleado") } }
-                  );
-
-                  if (res.data.success && Array.isArray(res.data.data)) {
-                    setCatalogoAlmacenes(res.data.data);
-
-                    // Buscar la fecha correspondiente al almacén seleccionado
-                    const almacénSeleccionado = res.data.data.find(a => a.codigo === valor);
-                    if (almacénSeleccionado && almacénSeleccionado.fecha_gestion) {
-                      const partes = almacénSeleccionado.fecha_gestion.split("/");
-                      if (partes.length === 3) {
-                        const yyyy_mm_dd = `${partes[2]}-${partes[1].padStart(2, '0')}-${partes[0].padStart(2, '0')}`;
-                        setFecha(yyyy_mm_dd); // <-- formato que acepta el input type="date"
-                      }
-                    } else {
-                      setFecha("");
-                    }
-                  }
-                } catch (error) {
-                  console.error("Error al obtener almacenes:", error.message);
-                }
-              }}
-
-              isClearable
-              noOptionsMessage={() => "No encontrado"}
-              filterOption={(option, inputValue) =>
-                option.label.toLowerCase().includes(inputValue.toLowerCase())
-              }
-              styles={{
-                control: (base) => ({
-                  ...base,
-                  borderColor: mensajeValidacion ? "#f87171" : base.borderColor,
-                  boxShadow: mensajeValidacion ? "0 0 0 1px #f87171" : base.boxShadow,
-                  minHeight: "42px",
-                }),
-              }}
-            />
-            {mensajeValidacion && (
-              <div className="mt-1 text-xs text-red-600 font-mono whitespace-nowrap">
-                {mensajeValidacion}
-              </div>
-            )}
+            </div>
           </div>
+        ) : (
+          /* Bloque normal (modo manual si no hay asignación) */
+          <>
+            {/* Select de CIA */}
+            <div className="mb-4">
+              <label className="block text-xs font-bold text-gray-700 mb-1 uppercase">CIA a Capturar</label>
+              <select
+                value={ciaSeleccionada}
+                onChange={(e) => {
+                  setCiaSeleccionada(e.target.value);
+                  setAlmacen("");
+                  setFecha("");
+                  setCatalogoAlmacenes([]);
+                  setMostrarCatalogo(false);
+                }}
+                className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+              >
+                <option value="">-- Selecciona una CIA --</option>
+                {ciasPermitidas.map((cia) => (
+                  <option key={cia} value={cia}>{cia.toUpperCase()}</option>
+                ))}
+              </select>
+            </div>
 
-          {/* Fecha */}
-          <input
-            type="date"
-            value={fecha}
-            readOnly
-            disabled
-            className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm bg-gray-100 text-gray-500 cursor-not-allowed"
-          />
+            {/* Grid: almacén, fecha, empleado, botón */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+              {/* Almacén */}
+              <div className="w-full">
+                <Select
+                  options={catalogoAlmacenes.map((alm) => ({
+                    value: alm.codigo,
+                    label: `${alm.codigo} - ${alm.nombre}`,
+                  }))}
+                  placeholder="Escribe o selecciona un almacén (ej: AAA-G)"
+                  isDisabled={ciaSeleccionada === ""}
+                  onMenuOpen={async () => {
+                    if (ciaSeleccionada === "") {
+                      setMensajeValidacion("⚠ Debes seleccionar una CIA primero.");
+                      return;
+                    }
+                    if (catalogoAlmacenes.length === 0) {
+                      try {
+                        const res = await axios.get(
+                          "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/catalogo_almacenes_usuario.php",
+                          { params: { cia: ciaSeleccionada, empleado: sessionStorage.getItem("empleado") } }
+                        );
 
-          {/* Empleado */}
-          <input
-            type="number"
-            placeholder="Empleado"
-            value={empleado}
-            readOnly
-            disabled
-            className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm bg-gray-100 text-gray-500 cursor-not-allowed"
-          />
+                        if (res.data.success && res.data.data) {
+                          setCatalogoAlmacenes(res.data.data);
+                          setMensajeValidacion("");
+                        } else {
+                          setMensajeValidacion("⚠ No se encontraron almacenes para esa CIA.");
+                        }
+                      } catch (error) {
+                        console.error("Error al obtener almacenes:", error.message);
+                        setMensajeValidacion("❌ Error al consultar el catálogo.");
+                      }
+                    }
+                  }}
+                  value={
+                    almacen
+                      ? {
+                          value: almacen,
+                          label:
+                            catalogoAlmacenes.find((a) => a.codigo === almacen)?.codigo +
+                            " - " +
+                            catalogoAlmacenes.find((a) => a.codigo === almacen)?.nombre,
+                        }
+                      : null
+                  }
+                  onChange={async (opcion) => {
+                    const valor = opcion?.value || "";
+                    setAlmacen(valor);
+                    setMensajeValidacion("");
 
-          {/* Botón */}
-          <button
-            onClick={iniciarCaptura}
-            className="w-full px-4 py-2 bg-red-800 hover:bg-red-800 text-white font-semibold rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-red-400 transition"
-          >
-            Iniciar captura
-          </button>
+                    try {
+                      const res = await axios.get(
+                        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/catalogo_almacenes_usuario.php",
+                        { params: { cia: ciaSeleccionada, empleado: sessionStorage.getItem("empleado") } }
+                      );
 
-        </div>
+                      if (res.data.success && Array.isArray(res.data.data)) {
+                        setCatalogoAlmacenes(res.data.data);
+
+                        // Buscar la fecha correspondiente al almacén seleccionado
+                        const almacénSeleccionado = res.data.data.find(a => a.codigo === valor);
+                        if (almacénSeleccionado && almacénSeleccionado.fecha_gestion) {
+                          const partes = almacénSeleccionado.fecha_gestion.split("/");
+                          if (partes.length === 3) {
+                            const yyyy_mm_dd = `${partes[2]}-${partes[1].padStart(2, '0')}-${partes[0].padStart(2, '0')}`;
+                            setFecha(yyyy_mm_dd); // formato aceptado por input type="date"
+                          }
+                        } else {
+                          setFecha("");
+                        }
+                      }
+                    } catch (error) {
+                      console.error("Error al obtener almacenes:", error.message);
+                    }
+                  }}
+                  isClearable
+                  noOptionsMessage={() => "No encontrado"}
+                  filterOption={(option, inputValue) =>
+                    option.label.toLowerCase().includes(inputValue.toLowerCase())
+                  }
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      borderColor: mensajeValidacion ? "#f87171" : base.borderColor,
+                      boxShadow: mensajeValidacion ? "0 0 0 1px #f87171" : base.boxShadow,
+                      minHeight: "42px",
+                    }),
+                  }}
+                />
+                {mensajeValidacion && (
+                  <div className="mt-1 text-xs text-red-600 font-mono whitespace-nowrap">
+                    {mensajeValidacion}
+                  </div>
+                )}
+              </div>
+
+              {/* Fecha */}
+              <input
+                type="date"
+                value={fecha}
+                readOnly
+                disabled
+                className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm bg-gray-100 text-gray-500 cursor-not-allowed"
+              />
+
+              {/* Empleado */}
+              <input
+                type="number"
+                placeholder="Empleado"
+                value={empleado}
+                readOnly
+                disabled
+                className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm bg-gray-100 text-gray-500 cursor-not-allowed"
+              />
+
+              {/* Botón */}
+              <button
+                onClick={iniciarCaptura}
+                className="w-full px-4 py-2 bg-red-800 hover:bg-red-900 text-white font-semibold rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-red-400 transition"
+              >
+                Iniciar captura
+              </button>
+            </div>
+          </>
+        )}
       </div>
+
 
       {modo && (
         <div className="mt-8">
@@ -1064,15 +1247,24 @@ const handleCodigoDetectado = async (codigo) => {
                 <button
                   onClick={() =>
                     navigate("/comparar", {
-                       state: { almacen, fecha, empleado, cia: ciaSeleccionada, estatus },
+                      state: (() => {
+                        const p = getParametrosEfectivos();
+                        return {
+                          almacen: p.almacen,
+                          fecha: p.fecha,
+                          empleado: p.empleado,
+                          cia: p.cia,
+                          estatus: p.estatus,
+                        };
+                      })(),
                     })
                   }
                   className="px-4 py-2 bg-red-200 hover:bg-red-300 text-red-900 font-semibold rounded-lg shadow-md text-sm transition-all duration-200 whitespace-nowrap"
                 >
                   📊 Ver inventario (Conteos)
                 </button>
-
               )}
+
             </div>
           </div>
 

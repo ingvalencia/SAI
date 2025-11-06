@@ -16,11 +16,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // ====================
 // Parámetros requeridos
 // ====================
-$almacen  = isset($_GET['almacen'])  ? $_GET['almacen']  : null;
-$fecha    = isset($_GET['fecha'])    ? $_GET['fecha']    : null;
-$empleado = isset($_GET['empleado']) ? $_GET['empleado'] : null;
-$estatus  = isset($_GET['estatus'])  ? intval($_GET['estatus']) : 1;  // ✅ importante
-$cia      = isset($_GET['cia'])      ? $_GET['cia'] : null;
+$almacen  = isset($_GET['almacen'])  ? trim(addslashes($_GET['almacen']))  : null;
+$fecha    = isset($_GET['fecha'])    ? trim(addslashes($_GET['fecha']))    : null;
+$empleado = isset($_GET['empleado']) ? intval($_GET['empleado'])           : null;
+$estatus  = isset($_GET['estatus'])  ? intval($_GET['estatus'])            : 1;
+$cia      = isset($_GET['cia'])      ? trim(addslashes($_GET['cia']))      : null;
 
 if (!$almacen || !$fecha || !$empleado || !$cia) {
   echo json_encode(['success' => false, 'error' => 'Faltan parámetros requeridos']);
