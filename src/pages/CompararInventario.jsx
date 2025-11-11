@@ -144,7 +144,7 @@ export default function CompararInventario() {
     pageMargins: [20, 60, 20, 80],
 
     defaultStyle: {
-      font: "Roboto"  // 
+      font: "Roboto"  //
     },
 
     header: {
@@ -271,35 +271,51 @@ export default function CompararInventario() {
     }
 
     try {
-      // Mostrar modal de cargando
-      Swal.fire({
-        title: "Procesando...",
-        text: "Por favor espera",
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading(),
+    Swal.fire({
+      title: "Procesando...",
+      text: "Por favor espera",
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+    });
+
+    const formData = new FormData();
+    formData.append("almacen", almacen);
+    formData.append("fecha", fecha);
+    formData.append("empleado", empleado);
+    formData.append("cia", cia);
+    formData.append("estatus", estatus);
+
+    const res = await axios.post(
+      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/confirmar_inventario.php",
+      formData
+    );
+
+    Swal.close();
+
+    if (!res.data.success) throw new Error(res.data.error);
+
+    const { mensaje, next_status, hay_diferencias } = res.data;
+
+    await Swal.fire({
+      title: "Confirmado",
+      text: mensaje,
+      icon: "success",
+      confirmButtonText: "Continuar",
+    });
+
+    if (next_status < 4) {
+      navigate("/captura", {
+        state: { almacen, fecha, cia, empleado, estatus: next_status },
       });
-
-      const formData = new FormData();
-      formData.append("almacen", almacen);
-      formData.append("fecha", fecha);
-      formData.append("empleado", empleado);
-
-      const res = await axios.post(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/confirmar_diferencia.php",
-        formData
-      );
-
-      Swal.close(); // cerrar el loading
-
-      if (!res.data.success) throw new Error(res.data.error);
-
-      await Swal.fire("¡Hecho!", "Las diferencias han sido confirmadas.", "success");
+    } else {
       setDiferenciaConfirmada(true);
-      setEstatus(4); // reflejar estatus final
+      setEstatus(4);
+    }
     } catch (error) {
       Swal.close();
       Swal.fire("Error", error.message, "error");
     }
+
   };
 
 
