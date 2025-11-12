@@ -1,7 +1,9 @@
 <?php
 header('Content-Type: application/json');
 
+// ====================
 // CORS
+// ====================
 $origenPermitido = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
 header("Access-Control-Allow-Origin: $origenPermitido");
 header("Access-Control-Allow-Credentials: true");
@@ -40,20 +42,29 @@ if (!$conn) {
   echo json_encode(['success' => false, 'error' => 'No se pudo conectar a la base de datos']);
   exit;
 }
-
 mssql_select_db($db, $conn);
 
 // ====================
-// Consulta usando estatus del GET
+// Obtener ID interno del usuario (para brigada)
+// ====================
+$sqlUser = "SELECT TOP 1 id FROM usuarios WHERE empleado = $empleado";
+$resUser = mssql_query($sqlUser, $conn);
+$usuario_id = null;
+if ($resUser && $rowUser = mssql_fetch_assoc($resUser)) {
+  $usuario_id = intval($rowUser['id']);
+}
+
+// ====================
+// Consulta principal (compatible con individual y brigada)
 // ====================
 $sql = "
   SELECT *
   FROM CAP_INVENTARIO
   WHERE almacen = '$almacen'
     AND fecha_inv = '$fecha'
-    AND usuario = '$empleado'
-    AND estatus = $estatus
     AND cias = '$cia'
+    AND estatus = $estatus
+    AND (usuario = '$empleado' OR usuario = '$usuario_id')
 ";
 
 $res = mssql_query($sql, $conn);
@@ -63,13 +74,20 @@ if (!$res) {
   exit;
 }
 
+// ====================
+// Procesar resultados
+// ====================
 $data = [];
 while ($row = mssql_fetch_assoc($res)) {
   $data[] = array_map('utf8_encode', $row);
 }
 
+// ====================
+// Respuesta final
+// ====================
 echo json_encode([
   'success' => true,
   'data'    => $data
 ]);
 exit;
+?>

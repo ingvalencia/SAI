@@ -18,16 +18,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 /* ============================
    LECTURA DE PARÁMETROS
    ============================ */
-$input = file_get_contents("php://input");
-$data = json_decode($input, true);
-if (!$data) $data = $_POST;
-
-$usuario_id = isset($data['usuario_id']) ? intval($data['usuario_id']) : null;
+// Acepta parámetro desde GET o POST
+$usuario_id = null;
+if (isset($_GET['empleado'])) {
+  $usuario_id = intval($_GET['empleado']);
+} elseif (isset($_POST['usuario_id'])) {
+  $usuario_id = intval($_POST['usuario_id']);
+}
 
 if (!$usuario_id) {
-  echo json_encode(['success' => false, 'error' => 'Falta el parámetro usuario_id']);
+  echo json_encode(['success' => false, 'error' => 'Falta el parámetro empleado o usuario_id']);
   exit;
 }
+
 
 /* ============================
    CONEXIÓN MSSQL

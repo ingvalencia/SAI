@@ -235,133 +235,187 @@ export default function CapturaInventario() {
 
   const soportaCamara = !!(navigator.mediaDevices?.getUserMedia) && window.isSecureContext;
 
+  //
+  const toISODate = (v) => {
+    if (!v) return "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v; // ya es yyyy-mm-dd
+    const d = new Date(v);
+    if (isNaN(d)) return "";
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
 
 
   const iniciarCaptura = async () => {
-    // ==========================
-    // 1. Validación inicial
-    // ==========================
-    // Si hay asignación cargada, se usan esos datos; si no, se usan los manuales.
-    const cia = asignacionCargada ? ciaAsignada : ciaSeleccionada;
-    const alm = asignacionCargada ? almacenAsignado : almacen;
-    const fec = asignacionCargada ? fechaAsignada : fecha;
-    const nro = asignacionCargada ? nroConteo : estatus;
-    const emp = sessionStorage.getItem("empleado") || empleado;
+  const cia = asignacionCargada ? ciaAsignada : ciaSeleccionada;
+  const alm = asignacionCargada ? almacenAsignado : almacen;
+  const fec = asignacionCargada ? fechaAsignada : fecha;
+  const nroAsignado = asignacionCargada ? nroConteo : estatus;
+  const emp =
+    sessionStorage.getItem("empleado") ||
+    localStorage.getItem("empleado") ||
+    empleado;
 
+  if (!alm || !fec || !emp || !cia) {
+    MySwal.fire("Faltan datos", "Completa todos los campos", "warning");
+    return;
+  }
 
-    if (!alm || !fec || !emp || !cia) {
-      MySwal.fire("Faltan datos", "Completa todos los campos", "warning");
-      return;
+  const fecISO = toISODate(fec);
+
+  const firmaActual = getFirmaParametros({
+    cia,
+    almacen: alm,
+    fecha: fecISO,
+    empleado: emp,
+    estatus: nroAsignado,
+  });
+
+  if (capturaActiva && ultimaFirma.current === firmaActual) {
+    MySwal.fire({
+      icon: "info",
+      title: "Captura ya activa",
+      text: `CIA ${cia} | ${alm} | ${fecISO} | Conteo ${nroAsignado}`,
+      timer: 1400,
+      showConfirmButton: false,
+    });
+    return;
+  }
+
+  try {
+    // =======================
+    //  Modal de carga
+    // =======================
+    MySwal.fire({
+      title: "Procesando...",
+      text: "Contactando con servidor, por favor espera",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
+      didOpen: () => Swal.showLoading(),
+    });
+
+    // =======================
+    // 1️Obtener estatus real (SOLO para modo manual)
+    // =======================
+    const estatusRes = await axios.get(
+      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/verifica_estatus.php",
+      { params: { almacen: alm, fecha: fecISO, empleado: emp, cia } }
+    );
+
+    if (!estatusRes.data.success)
+      throw new Error(estatusRes.data.error);
+
+    // 👇 ESTE ES EL CAMBIO CLAVE:
+    // Si hay asignación, NO usamos lo que diga la BD
+    let estatusReal = nroAsignado; // 1 o 2 según asignación
+
+    if (!asignacionCargada) {
+      // solo modo manual usa estatus de BD
+      estatusReal = estatusRes.data.estatus || nroAsignado || 1;
     }
 
-    // Evitar recarga si ya está activa con mismos parámetros
-    const firmaActual = getFirmaParametros({ cia, almacen: alm, fecha: fec, empleado: emp, estatus: nro });
-    if (capturaActiva && ultimaFirma.current === firmaActual) {
-      MySwal.fire({
-        icon: "info",
-        title: "Captura ya activa",
-        text: `CIA ${cia} | ${alm} | ${fec} | Conteo ${nro}`,
-        timer: 1400,
-        showConfirmButton: false,
-      });
-      return;
-    }
+    setEstatus(estatusReal);
+    console.log("📌 Estatus/nro_conteo que se usará:", estatusReal);
 
+    // =======================
+    // 2️ Consultar modo de captura
+    // =======================
+    Swal.update({
+      title: "Procesando...",
+      text: "Verificando modo de captura",
+    });
 
-
-    try {
-      // ==========================
-      // 2. Obtener el estatus real desde BD
-      // ==========================
-      const estatusRes = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/verifica_estatus.php",
-        { params: { almacen: alm, fecha: fec, empleado: emp, cia } }
-      );
-
-      if (!estatusRes.data.success) throw new Error(estatusRes.data.error);
-
-      const estatusReal = estatusRes.data.estatus || nro || 0;
-
-      if (!estatusReal) {
-        MySwal.fire("Error", "No se pudo determinar el número de conteo.", "error");
-        return;
+    const r1 = await axios.get(
+      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/control_carga_inventario.php",
+      {
+        params: {
+          almacen: alm,
+          fecha: fecISO,
+          empleado: emp,
+          cia,
+          nro_conteo: estatusReal, // 👈 AHORA SIEMPRE MANDA 1 o 2 correcto
+        },
       }
+    );
 
-      setEstatus(estatusReal);
-      console.log("📌 Estatus detectado desde BD:", estatusReal);
+    if (!r1.data.success) throw new Error(r1.data.error);
 
-      // ==========================
-      // 3. Consultar el modo de captura
-      // ==========================
-      const r1 = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/control_carga_inventario.php",
-        { params: { almacen: alm, fecha: fec, empleado: emp, cia, nro_conteo: estatusReal } }
-      );
+    const modo = r1.data.modo;
+    const mensaje = r1.data.mensaje || "";
+    const capturista = r1.data.capturista || null;
 
+    setModo(modo);
 
-      if (!r1.data.success) throw new Error(r1.data.error);
+    const debeBloquear =
+      modo === "solo lectura" && estatusReal === 1;
+    setBloqueado(debeBloquear);
 
-      const modo = r1.data.modo;
-      const mensaje = r1.data.mensaje || "";
-      const capturista = r1.data.capturista || null;
-
-      setModo(modo);
-
-      // ==========================
-      // 4. Reglas de bloqueo dinámico
-      // ==========================
-      const debeBloquear = modo === "solo lectura" && estatusReal === 1;
-      setBloqueado(debeBloquear);
-
-      let mensajeFinal = mensaje;
-
-      if (modo === "solo lectura") {
-        if (estatusReal === 2) mensajeFinal = "📝 Modo: Segundo conteo";
-        else if (estatusReal === 3) mensajeFinal = "📝 Modo: Tercer conteo";
-      }
-
-      setMensajeModo(mensajeFinal);
-
-      const esCapturista =
-        capturista === null || parseInt(capturista) === parseInt(emp);
-      setMostrarComparar(modo === "solo lectura" && esCapturista);
-
-      setLoadingInventario(true);
-
-      // ==========================
-      // 5. Cargar datos de inventario
-      // ==========================
-      const r2 = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/obtener_inventario.php",
-        { params: { almacen: alm, fecha: fec, empleado: emp, estatus: estatusReal, cia } }
-      );
-
-      if (!r2.data.success) throw new Error(r2.data.error);
-      setDatos(r2.data.data || []);
-      setLoadingInventario(false);
-
-      ultimaFirma.current = getFirmaParametros({ cia, almacen: alm, fecha: fec, empleado: emp, estatus: estatusReal });
-      setCapturaActiva(true);
-
-
-
-      // ==========================
-      // 6. Mensaje de inicio exitoso
-      // ==========================
-      MySwal.fire({
-        icon: "success",
-        title: "Captura iniciada",
-        text: `Modo: ${tipoConteo || "Manual"} | CIA: ${cia} | Almacén: ${alm} | Fecha: ${fec}`,
-        timer: 1800,
-        showConfirmButton: false,
-      });
-    } catch (error) {
-      MySwal.fire("Error", error.message, "error");
-      setLoadingInventario(false);
-      setCapturaActiva(false);
-
+    let mensajeFinal = mensaje;
+    if (modo === "solo lectura") {
+      if (estatusReal === 2) mensajeFinal = "📝 Modo: Segundo conteo";
+      else if (estatusReal === 3) mensajeFinal = "📝 Modo: Tercer conteo";
     }
-  };
+    setMensajeModo(mensajeFinal);
+
+    const esCapturista =
+      capturista === null || parseInt(capturista) === parseInt(emp);
+    setMostrarComparar(modo === "solo lectura" && esCapturista);
+
+    // =======================
+    // 3️Cargar inventario
+    // =======================
+    Swal.update({
+      title: "Procesando...",
+      text: "Cargando inventario físico desde base de datos",
+    });
+
+    const r2 = await axios.get(
+      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/obtener_inventario.php",
+      {
+        params: {
+          almacen: alm,
+          fecha: fecISO,
+          empleado: emp,
+          estatus: estatusReal, // 👈 YA COINCIDE
+          cia,
+        },
+      }
+    );
+
+    if (!r2.data.success) throw new Error(r2.data.error);
+
+    setDatos(r2.data.data || []);
+
+    Swal.close();
+
+    // Guardar firma
+    ultimaFirma.current = getFirmaParametros({
+      cia,
+      almacen: alm,
+      fecha: fecISO,
+      empleado: emp,
+      estatus: estatusReal,
+    });
+
+    setCapturaActiva(true);
+
+    MySwal.fire({
+      icon: "success",
+      title: "Captura iniciada",
+      text: `Modo: ${tipoConteo || "Manual"} | CIA: ${cia} | Almacén: ${alm} | Fecha: ${fecISO}`,
+      timer: 1800,
+      showConfirmButton: false,
+    });
+
+  } catch (error) {
+    Swal.close();
+    MySwal.fire("Error", error.message, "error");
+    setLoadingInventario(false);
+    setCapturaActiva(false);
+  }
+};
+
 
 
 

@@ -52,28 +52,63 @@ $cia_safe     = addslashes($cia);
 /* ============================
    VALIDACIÓN DE PERMISOS
    ============================ */
-$sqlPermiso = "
-  SELECT 1
-  FROM usuario_local ul
-  JOIN usuarios u ON u.id = ul.usuario_id
-  WHERE ul.local_codigo = '$almacen_safe'
-    AND u.empleado = $empleado
-    AND ul.cia = '$cia_safe'
-    AND ul.activo = 1
-";
-$resPermiso = mssql_query($sqlPermiso, $conn);
-if (!$resPermiso) {
-  error_log("Error SQL Permiso: " . mssql_get_last_message());
-  echo json_encode(['success' => false, 'error' => 'Error al validar permisos']);
-  exit;
-}
-if (mssql_num_rows($resPermiso) === 0) {
+
+// Buscar ID del usuario a partir del número de empleado
+$sqlUser = "SELECT TOP 1 id FROM usuarios WHERE empleado = $empleado";
+$resUser = mssql_query($sqlUser, $conn);
+
+if (!$resUser || mssql_num_rows($resUser) === 0) {
   echo json_encode([
     'success' => false,
-    'error'   => 'El usuario no tiene permiso para trabajar con el local solicitado.'
+    'error' => 'Empleado no encontrado en tabla de usuarios.'
   ]);
   exit;
 }
+
+$rowUser = mssql_fetch_assoc($resUser);
+$usuario_id = intval($rowUser['id']);
+
+// Validar asignación en CAP_CONTEO_CONFIG
+$sqlPermiso = "
+  SELECT TOP 1 id, tipo_conteo, nro_conteo
+  FROM CAP_CONTEO_CONFIG
+  WHERE cia = '$cia_safe'
+    AND almacen = '$almacen_safe'
+    AND estatus = 0
+    AND (
+         CHARINDEX('[' + CAST($usuario_id AS NVARCHAR) + ']', usuarios_asignados) > 0
+      OR CHARINDEX(',' + CAST($usuario_id AS NVARCHAR) + ',', usuarios_asignados) > 0
+      OR CHARINDEX(CAST($usuario_id AS NVARCHAR), usuarios_asignados) > 0
+    )
+";
+
+
+$resPermiso = mssql_query($sqlPermiso, $conn);
+
+if (!$resPermiso) {
+  error_log('Error SQL Permiso: ' . mssql_get_last_message());
+  echo json_encode([
+    'success' => false,
+    'error' => 'Error al validar permisos (CAP_CONTEO_CONFIG) - ' . mssql_get_last_message()
+  ]);
+  exit;
+}
+
+if (mssql_num_rows($resPermiso) === 0) {
+  echo json_encode([
+    'success' => false,
+    'error' => 'El usuario no tiene asignación activa para este almacén o CIA.'
+  ]);
+  exit;
+}
+
+$rowPermiso = mssql_fetch_assoc($resPermiso);
+$tipo_conteo = $rowPermiso['tipo_conteo'];
+if ($nro_conteo <= 0) {
+    $nro_conteo = intval($rowPermiso['nro_conteo']);
+}
+
+
 
 /* ============================
    VALIDACIÓN DE BLOQUEO FINAL
@@ -126,23 +161,32 @@ $capturista = null;
 $mensaje    = "";
 
 if ($modo === 'solo lectura') {
+  // Verifica si el mismo usuario tiene los registros del conteo
   $sqlUsuario = "
     SELECT TOP 1 usuario
     FROM CAP_INVENTARIO
-    WHERE almacen = '$almacen_safe' AND fecha_inv = '$fecha' AND estatus = 0
+    WHERE almacen = '$almacen_safe'
+      AND fecha_inv = '$fecha'
+      AND usuario = $empleado
   ";
   $resUsuario = mssql_query($sqlUsuario, $conn);
+
   if ($resUsuario && $rowUsuario = mssql_fetch_assoc($resUsuario)) {
     $capturista = intval($rowUsuario['usuario']);
   }
 
-  $mensaje = ($capturista !== null && $capturista != $empleado)
-    ? "🔒 Modo: Solo lectura (otro usuario está capturando)"
-    : "🔒 Modo: Solo lectura (por confirmación previa)";
+  // ✅ Si es el mismo usuario, permite volver a modo edición
+  if ($capturista === $empleado) {
+    $modo = 'edicion';
+    $mensaje = "✍️ Modo: Edición reabierta para el mismo usuario";
+  } else {
+    $mensaje = "🔒 Modo: Solo lectura (otro usuario o proceso cerrado)";
+  }
 } else {
   $mensaje    = "✍️ Modo: Edición habilitada";
   $capturista = $empleado;
 }
+
 
 echo json_encode([
   'success'    => true,
