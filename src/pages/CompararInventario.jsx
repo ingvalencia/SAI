@@ -23,11 +23,14 @@ export default function CompararInventario() {
   const [diferenciaConfirmada, setDiferenciaConfirmada] = useState(false);
   const empleado = sessionStorage.getItem("empleado");
 
- const { estatus: estatusRuta } = location.state || {};
- const [estatus, setEstatus] = useState(estatusRuta || 1);
+  const { estatus: estatusRuta } = location.state || {};
+  const [estatus, setEstatus] = useState(estatusRuta || 1);
 
- const [paginaActual, setPaginaActual] = useState(1);
- const registrosPorPagina = 100;
+  const [paginaActual, setPaginaActual] = useState(1);
+  const registrosPorPagina = 100;
+
+  const [mostrarSoloDiferencias, setMostrarSoloDiferencias] = useState(false);
+
 
 
  const exportarExcel = async () => {
@@ -62,7 +65,7 @@ export default function CompararInventario() {
       const conteo1 = item.conteo1 ?? 0;
       const conteo2 = item.conteo2 ?? 0;
       const conteo3 = item.conteo3 ?? 0;
-      const sap = item.inventario_sap ?? 0;
+      const sap = item.cant_sap ?? 0;
 
       const conteoActual =
         estatus === 3 ? conteo3 :
@@ -76,8 +79,8 @@ export default function CompararInventario() {
         item.usuario,
         item.almacen,
         item.cias,
-        item.codigo,
-        item.nombre,
+        item.ItemCode,
+        item.Itemname ,
         item.codebars,
         sap,
         conteo1,
@@ -117,7 +120,7 @@ export default function CompararInventario() {
       const c1 = item.conteo1 ?? 0;
       const c2 = item.conteo2 ?? 0;
       const c3 = item.conteo3 ?? 0;
-      const sap = item.inventario_sap ?? item.sap ?? 0;
+      const sap = item.cant_sap ?? item.sap ?? 0;
       const conteoActual = estatus === 3 ? c3 : estatus === 2 ? c2 : c1;
       const dif = Number((sap - conteoActual).toFixed(2));
 
@@ -126,8 +129,8 @@ export default function CompararInventario() {
         item.usuario ?? "",
         item.almacen ?? "",
         item.cias ?? "",
-        item.codigo ?? "",
-        item.nombre ?? "",
+        item.ItemCode  ?? "",
+        item.Itemname  ?? "",
         item.codebars ?? "",
         sap.toFixed(2),
         c1.toFixed(2),
@@ -202,46 +205,47 @@ export default function CompararInventario() {
 
     // Solo hacer la llamada si los datos aún no han sido cargados
     if (datos.length === 0) {
-      const obtenerComparacion = async () => {
-        try {
-          const res = await axios.get(
-            "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/comparar_inventarios.php",
-            { params: { almacen, fecha, usuario: empleado, cia } }
-          );
 
-          if (!res.data.success) throw new Error(res.data.error);
-          const estatusActual = res.data.estatus || 1;
-          setEstatus(estatusActual);
+     const obtenerComparacion = async () => {
+      try {
+        const res = await axios.get(
+          "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/comparar_inventarios.php",
+          { params: { almacen, fecha, usuario: empleado, cia } }
+        );
 
-          // Calcula la diferencia según el conteo actual
-          const datosConDiferencias = res.data.data.map((item) => {
-            const conteo =
-              estatusActual === 1 ? item.conteo1 ?? 0 :
-              estatusActual === 2 ? item.conteo2 ?? 0 :
-              estatusActual === 3 ? item.conteo3 ?? 0 :
-              0;
-
-            return {
-              ...item,
-              diferencia: parseFloat((conteo - (item.inventario_sap ?? 0)).toFixed(2))
-            };
-          });
-
-          setDatos(datosConDiferencias);
-
-          setEstatus(res.data.estatus || 1);
+        console.log("DATOS DEL BACK:", res.data.data[0]);
 
 
-         if (res.data.estatus === 4) {
-            setDiferenciaConfirmada(true);
-          }
+        if (!res.data.success) throw new Error(res.data.error);
 
-        } catch (error) {
-          console.error("Error al obtener diferencias", error.message);
-        } finally {
-          setLoading(false);
-        }
-      };
+        const estatusActual = res.data.estatus || 1;
+        setEstatus(estatusActual);
+
+        // AQUI SE CONSERVAN TODOS LOS CAMPOS DEL BACKEND
+        const datosFinal = res.data.data.map(item => {
+          const conteo =
+            estatusActual === 1 ? (item.conteo1 ?? 0) :
+            estatusActual === 2 ? (item.conteo2 ?? 0) :
+            estatusActual === 3 ? (item.conteo3 ?? 0) :
+            0;
+
+          return {
+            ...item, // ¡RESPETA TODOS LOS NOMBRES ORIGINALES!
+            diferencia: parseFloat(((item.cant_sap ?? 0) - conteo).toFixed(2)),
+          };
+        });
+
+        setDatos(datosFinal);
+
+        if (estatusActual === 4) setDiferenciaConfirmada(true);
+
+      } catch (error) {
+        console.error("Error al obtener diferencias", error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
 
       obtenerComparacion();
     }
@@ -325,15 +329,23 @@ export default function CompararInventario() {
       return "green";
     }
 
-  // === PAGINACIÓN: filtrar, paginar y numerar ===
-    const datosFiltrados = datos.filter((item) => {
+      // === PAGINACIÓN: filtrar, paginar y numerar ===
+      let datosFiltrados = datos.filter((item) => {
       const texto = busqueda.toLowerCase();
       return (
-        item.codigo?.toLowerCase().includes(texto) ||
+        item.ItemCode?.toLowerCase().includes(texto) ||
         item.codebars?.toLowerCase().includes(texto) ||
-        item.nombre?.toLowerCase().includes(texto)
+        item.Itemname ?.toLowerCase().includes(texto)
       );
     });
+
+    // 🔥 Aplicar filtro de diferencias
+    if (mostrarSoloDiferencias) {
+      datosFiltrados = datosFiltrados.filter(
+        (row) => Number(row.diferencia) !== 0
+      );
+    }
+
 
     const totalPaginas = Math.max(1, Math.ceil(datosFiltrados.length / registrosPorPagina));
     const pagina = Math.min(paginaActual, totalPaginas); // evita quedar en una página inexistente
@@ -515,6 +527,14 @@ export default function CompararInventario() {
       </div>
 
       <div className="flex justify-end items-center mb-4 gap-3">
+
+        <button
+          className="btn btn-warning"
+          onClick={() => setMostrarSoloDiferencias(!mostrarSoloDiferencias)}
+        >
+          {mostrarSoloDiferencias ? "Mostrar todo" : "Mostrar solo diferencias"}
+        </button>
+
         <button
           onClick={exportarExcel}
           className="px-3 py-1 rounded-full text-sm font-semibold bg-green-300 text-green-900 hover:bg-green-400 flex items-center gap-2 transition"
@@ -574,10 +594,10 @@ export default function CompararInventario() {
                   {item.cias ?? "-"}
                 </td>
                 <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-                  {item.codigo ?? "-"}
+                  {item.ItemCode  ?? "-"}
                 </td>
                 <td className="p-3 text-sm text-gray-700 whitespace-nowrap truncate max-w-[16rem]">
-                  {item.nombre ?? "-"}
+                  {item.Itemname  ?? "-"}
                 </td>
                 <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
                   {item.codebars ?? "-"}
@@ -585,15 +605,18 @@ export default function CompararInventario() {
 
                 {/* Columna SAP */}
                 <td className="p-3 text-sm text-right text-gray-700">
-                  {item.inventario_sap?.toFixed(2) ?? "0.00"}
+                  {(item.cant_sap ?? 0).toFixed(2)}
+
                 </td>
 
                 {/* Conteos dinámicos */}
+
                 {estatus >= 1 && (
                   <td className="p-3 text-sm text-right bg-red-50 text-red-800 font-semibold">
                     {(item.conteo1 ?? 0).toFixed(2)}
                   </td>
                 )}
+
                 {estatus >= 2 && (
                   <td className="p-3 text-sm text-right bg-purple-50 text-purple-800 font-semibold">
                     {(item.conteo2 ?? 0).toFixed(2)}
@@ -608,23 +631,12 @@ export default function CompararInventario() {
                 {/* Diferencia */}
                 <td
                   className="p-3 text-sm text-right font-bold"
-                  style={{
-                    color:
-                      estatus === 3
-                        ? getColor((item.sap || 0) - (item.conteo3 || 0))
-                        : estatus === 2
-                        ? getColor((item.sap || 0) - (item.conteo2 || 0))
-                        : getColor((item.sap || 0) - (item.conteo1 || 0)),
-                  }}
+                  style={{ color: getColor(item.diferencia) }}
                 >
-                  {(
-                    estatus === 3
-                      ? (item.sap || 0) - (item.conteo3 || 0)
-                      : estatus === 2
-                      ? (item.sap || 0) - (item.conteo2 || 0)
-                      : (item.sap || 0) - (item.conteo1 || 0)
-                  ).toFixed(2)}
+                  {item.diferencia.toFixed(2)}
                 </td>
+
+
               </tr>
             ))}
           </tbody>

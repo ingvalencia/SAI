@@ -42,6 +42,22 @@ $almacen      = isset($data['almacen'])      ? trim($data['almacen'])      : nul
 $fecha        = isset($data['fecha'])        ? trim($data['fecha'])        : null;
 $usuario_crea = isset($data['usuario'])      ? trim($data['usuario'])      : null;
 
+
+if ($tipo_conteo === 'Brigada' && is_array($usuarios) && count($usuarios) >= 2) {
+
+    // Conteo 1 → primer usuario
+    if ($nro_conteo == 1) {
+        $usuarios = [ $usuarios[0] ];
+    }
+
+    // Conteo 2 → segundo usuario
+    else if ($nro_conteo == 2) {
+        $usuarios = [ $usuarios[1] ];
+    }
+}
+
+
+
 if (!$tipo_conteo || !$nro_conteo || !$usuarios || !$cia || !$almacen || !$fecha) {
   echo json_encode(['success' => false, 'error' => 'Faltan parámetros requeridos']);
   exit;
