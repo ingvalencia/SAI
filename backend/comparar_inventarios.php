@@ -1,204 +1,338 @@
 <?php
+header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
-header('Content-Type: application/json');
 
-$almacen = isset($_GET['almacen']) ? $_GET['almacen'] : null;
-$fecha   = isset($_GET['fecha']) ? $_GET['fecha'] : null;
-$usuario = isset($_GET['usuario']) ? $_GET['usuario'] : null;
-$cia     = isset($_GET['cia']) ? $_GET['cia'] : null;
-
-/* ---------------------------
-   NORMALIZAR FECHA SIEMPRE
------------------------------ */
-$fecha = date("Y-m-d", strtotime(str_replace("+", " ", $fecha)));
-
-if (!$almacen || !$fecha || !$usuario || !$cia) {
-  echo json_encode(["success" => false, "error" => "Faltan parámetros"]);
-  exit;
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
 }
 
-$server = "192.168.0.174";
-$user   = "sa";
-$pass   = "P@ssw0rd";
-$db     = "SAP_PROCESOS";
+/* ============================================================
+   FUNCIÓN PARA NORMALIZAR FECHA
+============================================================ */
+function normalizarFecha($f) {
+    if (!$f) return false;
 
-$conn = mssql_connect($server, $user, $pass);
+    $f = str_replace("+", " ", $f);
+    $f = str_replace(":AM", " AM", $f);
+    $f = str_replace(":PM", " PM", $f);
+
+    $ts = strtotime($f);
+    if ($ts === false) return false;
+
+    return date("Y-m-d", $ts);
+}
+
+/* ============================================================
+   PARÁMETROS
+============================================================ */
+$almacen = isset($_GET['almacen']) ? trim($_GET['almacen']) : null;
+$fecha   = isset($_GET['fecha'])   ? trim($_GET['fecha'])   : null;
+$usuario = isset($_GET['usuario']) ? trim($_GET['usuario']) : null; // Nº empleado
+$cia     = isset($_GET['cia'])     ? trim($_GET['cia'])     : null;
+
+$fecha = normalizarFecha($fecha);
+
+if (!$almacen || !$fecha || !$usuario || !$cia) {
+    echo json_encode(["success" => false, "error" => "Faltan parámetros"]);
+    exit;
+}
+
+if ($fecha === false) {
+    echo json_encode(["success" => false, "error" => "Fecha no válida"]);
+    exit;
+}
+
+/* ============================================================
+   CONEXIÓN BD
+============================================================ */
+$server  = "192.168.0.174";
+$userSQL = "sa";
+$passSQL = "P@ssw0rd";
+$db      = "SAP_PROCESOS";
+
+$conn = mssql_connect($server, $userSQL, $passSQL);
 if (!$conn) {
-  echo json_encode(["success" => false, "error" => "Error de conexión"]);
-  exit;
+    echo json_encode(["success" => false, "error" => "Error de conexión"]);
+    exit;
 }
 mssql_select_db($db, $conn);
 
-/* ---------------------------
-   CONSULTA SAP (BASE OFICIAL)
------------------------------ */
-$sp = mssql_query("EXEC USP_INVEN_SAP '$almacen', '$fecha', $usuario, '$cia'", $conn);
+/* Sanitizar básicos */
+$almacen_safe = addslashes($almacen);
+$cia_safe     = addslashes($cia);
 
-if (!$sp) {
-  echo json_encode(["success" => false, "error" => "Error ejecutando USP_INVEN_SAP"]);
-  exit;
+/* ============================================================
+   IDENTIFICAR ID DEL USUARIO (tabla usuarios)
+============================================================ */
+$sqlUID = "SELECT TOP 1 id FROM usuarios WHERE empleado = '$usuario'";
+$resUID = mssql_query($sqlUID, $conn);
+
+if (!$resUID || mssql_num_rows($resUID) === 0) {
+    echo json_encode([
+        "success" => false,
+        "error"   => "Empleado no encontrado en tabla de usuarios."
+    ]);
+    exit;
 }
+
+$rowUID     = mssql_fetch_assoc($resUID);
+$id_usuario = intval($rowUID['id']);
+
+/* ============================================================
+   DETECTAR BRIGADA, OBTENER COMPAÑERO Y NROS DE CONTEO
+   CAP_CONTEO_CONFIG (estatus = 0 => activo)
+============================================================ */
+$sqlBrig = "
+  SELECT id, nro_conteo, usuarios_asignados
+  FROM CAP_CONTEO_CONFIG
+  WHERE almacen = '$almacen_safe'
+    AND cia = '$cia_safe'
+    AND estatus = 0
+";
+$resBrig = mssql_query($sqlBrig, $conn);
+
+$nro_conteo_mio        = null;   // 1 ó 2
+$id_companero          = null;
+$empleado_companero    = null;
+$nro_conteo_companero  = null;
+
+$asignaciones = []; // [nro_conteo => string usuarios_asignados]
+
+if ($resBrig) {
+    while ($r = mssql_fetch_assoc($resBrig)) {
+        $lista = $r['usuarios_asignados']; // Ej: "[20]" o "[20,21]"
+        $nro_c = intval($r['nro_conteo']);
+
+        // Guardar la lista cruda por conteo
+        $asignaciones[$nro_c] = $lista;
+
+        // Ver si YO (id_usuario) estoy en esta lista
+        if (strpos($lista, "[$id_usuario]") !== false) {
+            $nro_conteo_mio = $nro_c; // 1 ó 2
+        }
+    }
+}
+
+/* Determinar compañero solo si yo tengo 1 o 2 y hay al menos otra asignación */
+if ($nro_conteo_mio && count($asignaciones) >= 2) {
+    $otroConteo = ($nro_conteo_mio == 1 ? 2 : 1);
+
+    if (isset($asignaciones[$otroConteo])) {
+        $listaOtro = $asignaciones[$otroConteo]; // ej "[21]" o "[21,22]"
+        $listaOtro = str_replace(["[", "]"], "", $listaOtro);
+        // Tomamos el primer id de la lista
+        $partes = array_filter(array_map('trim', explode(",", $listaOtro)));
+        if (count($partes) > 0) {
+            $id_companero         = intval($partes[0]);
+            $nro_conteo_companero = $otroConteo;
+
+            // Buscar empleado del compañero
+            $sqlEC = "SELECT TOP 1 empleado FROM usuarios WHERE id = $id_companero";
+            $resEC = mssql_query($sqlEC, $conn);
+            if ($resEC && $rowE = mssql_fetch_assoc($resEC)) {
+                $empleado_companero = $rowE['empleado'];
+            }
+        }
+    }
+}
+
+/* Es brigada si hay compañero identificado */
+$esBrigada = ($empleado_companero !== null);
+
+/* ============================================================
+   DETECTAR SI YA EXISTE CONFIG PARA TERCER CONTEO (nro_conteo = 3)
+============================================================ */
+$tercer_conteo_asignado = false;
+$empleado_tercer_conteo = null;
+$estatus_tercer_conteo  = null;
+
+$sqlTercero = "
+  SELECT TOP 1 usuarios_asignados, estatus
+  FROM CAP_CONTEO_CONFIG
+  WHERE almacen  = '$almacen_safe'
+    AND cia      = '$cia_safe'
+    AND nro_conteo = 3
+";
+$resTercero = mssql_query($sqlTercero, $conn);
+
+if ($resTercero && mssql_num_rows($resTercero) > 0) {
+    $rowT   = mssql_fetch_assoc($resTercero);
+    $listaT = $rowT['usuarios_asignados']; // ej "[30]"
+    $estatus_tercer_conteo = intval($rowT['estatus']);
+
+    $listaT = str_replace(["[", "]"], "", $listaT);
+    $partesT = array_filter(array_map('trim', explode(",", $listaT)));
+
+    if (count($partesT) > 0) {
+        $idTercero = intval($partesT[0]);
+
+        $sqlET = "SELECT TOP 1 empleado FROM usuarios WHERE id = $idTercero";
+        $resET = mssql_query($sqlET, $conn);
+        if ($resET && $rowET = mssql_fetch_assoc($resET)) {
+            $empleado_tercer_conteo = $rowET['empleado'];
+            $tercer_conteo_asignado = true;
+        }
+    }
+}
+
+/* ============================================================
+   ESTATUS GLOBAL DEL PROCESO (desde CAP_INVENTARIO)
+============================================================ */
+$estatus_global = null;
+$sqlEst = "
+  SELECT MAX(estatus) AS estatus_global
+  FROM CAP_INVENTARIO
+  WHERE almacen   = '$almacen_safe'
+    AND fecha_inv = '$fecha'
+    AND cias      = '$cia_safe'
+";
+$resEst = mssql_query($sqlEst, $conn);
+if ($resEst && $rowEst = mssql_fetch_assoc($resEst)) {
+    $estatus_global = $rowEst['estatus_global'] !== null
+        ? intval($rowEst['estatus_global'])
+        : null;
+}
+
+/* ============================================================
+   CARGAR BASE SAP
+============================================================ */
+$sp = mssql_query("EXEC USP_INVEN_SAP '$almacen_safe', '$fecha', $usuario, '$cia_safe'", $conn);
 
 $base = [];
-while ($r = mssql_fetch_assoc($sp)) {
-  $codigo = trim($r['Codigo sap']);
-  $base[$codigo] = [
-    'id'          =>  $r['id'],
-    'codfam'      => $r['Codfam'],
-    'nom_fam'     => $r['Familia'],
-    'cod_subfam'  => $r['Codsubfam'],
-    'nom_subfam'  => $r['Subfamilia'],
-    'ItemCode'    => $codigo,
-    'Itemname'    => $r['Nombre'],
-    'almacen'     => $r['Almacen'],
-    'cant_sap'    => floatval($r['Inventario_sap']),
-    'fecha_carga' => $r['fecha_carga'],
-    'fec_intrt'   => $r['FEC_INTRT'],
-    'codebars'    => $r['CodeBars'],
-    'cias'        => $r['CIA'],
-    'usuario'     => $r['Usuario'],
-    'conteo1'     => 0,
-    'conteo2'     => 0,
-    'conteo3'     => 0
-  ];
+if ($sp) {
+    while ($r = mssql_fetch_assoc($sp)) {
+        $codigo = trim($r['Codigo sap']);
+
+        $base[$codigo] = [
+            'ItemCode'   => $codigo,
+            'Itemname'   => $r['Nombre'],
+            'almacen'    => $r['Almacen'],
+            'cias'       => $r['CIA'],
+            'codebars'   => $r['CodeBars'],
+            'cant_sap'   => floatval($r['Inventario_sap']),
+            'conteo_mio' => 0,
+            'conteo_comp'=> 0,
+        ];
+    }
 }
 
-/* ---------------------------
-   TRAER CONTEOS del usuario
------------------------------ */
-$q = mssql_query("
-  SELECT
-      c.id, c.ItemCode, c.nom_fam, c.nom_subfam, c.cod_subfam,
-      c.Itemname, c.almacen, c.cias, c.cant_invfis,
-      ct.nro_conteo, ct.cantidad
-  FROM CAP_INVENTARIO c
-  LEFT JOIN CAP_INVENTARIO_CONTEOS ct
-         ON c.id = ct.id_inventario
-  WHERE c.almacen = '$almacen'
-    AND c.fecha_inv = '$fecha'
-    AND c.usuario = '$usuario'
-", $conn);
+/* ============================================================
+   CARGAR CONTEOS DEL USUARIO (MÍO)
+============================================================ */
+$sqlC1 = "
+    SELECT c.ItemCode, ct.nro_conteo, ct.cantidad
+    FROM CAP_INVENTARIO c
+    LEFT JOIN CAP_INVENTARIO_CONTEOS ct ON c.id = ct.id_inventario
+    WHERE c.almacen   = '$almacen_safe'
+      AND c.fecha_inv = '$fecha'
+      AND c.usuario   = '$usuario'
+";
+$resC1 = mssql_query($sqlC1, $conn);
 
+if ($resC1) {
+    while ($r = mssql_fetch_assoc($resC1)) {
+        $codigo = trim($r['ItemCode']);
+        $nro    = intval($r['nro_conteo']);
+        $cant   = floatval($r['cantidad']);
 
-/* ---------------------------
-   PROCESAR LOS CONTEOS
------------------------------ */
-while ($r = mssql_fetch_assoc($q)) {
+        if (!isset($base[$codigo])) continue;
 
-  $codigo = trim($r['ItemCode']);
-  $nro    = intval($r['nro_conteo']);
-  $cant   = floatval($r['cantidad']);
-  $fisico = floatval($r['cant_invfis']);  // <--- VALOR REAL CAPTURADO
-
-  // Si el SAP no lo tenía, creamos base mínima
-  if (!isset($base[$codigo])) {
-    $base[$codigo] = [
-      'id'          => $r['id'],
-      'codfam'      => $r['cod_subfam'],
-      'nom_fam'     => $r['nom_fam'],
-      'cod_subfam'  => $r['cod_subfam'],
-      'nom_subfam'  => $r['nom_subfam'],
-      'ItemCode'    => $codigo,
-      'Itemname'    => $r['Itemname'],
-      'almacen'     => $r['almacen'],
-      'cant_sap'    => $r['cant_sap'],
-      'fecha_carga' => '',
-      'fec_intrt'   => '',
-      'codebars'    => '',
-      'cias'        => $r['cias'],
-      'usuario'     => $usuario,
-      'conteo1'     => 0,
-      'conteo2'     => 0,
-      'conteo3'     => 0
-    ];
-  }
-
-  /* ---------------------------
-     ASIGNACIÓN CORRECTA
-     Conteo 1 = CAP_INVENTARIO.cant_invfis
-     Conteo 2 y 3 = CAP_INVENTARIO_CONTEOS
-  ----------------------------- */
-
-  // CONTEO 1 siempre desde la tabla CAP_INVENTARIO
-  if ($fisico > 0) {
-    $base[$codigo]['conteo1'] = $fisico;
-  }
-
-  // Si CT tiene registro, sobreescribe
-  if ($nro === 1) $base[$codigo]['conteo1'] = $cant ?: $fisico;
-  if ($nro === 2) $base[$codigo]['conteo2'] = $cant;
-  if ($nro === 3) $base[$codigo]['conteo3'] = $cant;
+        // Solo el conteo que me corresponde (1 ó 2, según CAP_CONTEO_CONFIG)
+        if ($nro_conteo_mio !== null && $nro_conteo_mio === $nro) {
+            $base[$codigo]['conteo_mio'] = $cant;
+        }
+    }
 }
 
+/* ============================================================
+   CARGAR CONTEOS DEL COMPAÑERO (BRIGADA)
+============================================================ */
+if ($empleado_companero) {
+    $sqlC2 = "
+        SELECT c.ItemCode, ct.nro_conteo, ct.cantidad
+        FROM CAP_INVENTARIO c
+        LEFT JOIN CAP_INVENTARIO_CONTEOS ct ON c.id = ct.id_inventario
+        WHERE c.almacen   = '$almacen_safe'
+          AND c.fecha_inv = '$fecha'
+          AND c.usuario   = '$empleado_companero'
+    ";
+    $resC2 = mssql_query($sqlC2, $conn);
 
-/* ---------------------------
-   OBTENER ESTATUS DEL USUARIO
------------------------------ */
-$estatus = 1;
-$res = mssql_query("
-  SELECT TOP 1 estatus
-  FROM CAP_INVENTARIO
-  WHERE almacen = '$almacen'
-    AND fecha_inv = '$fecha'
-    AND usuario = '$usuario'
-", $conn);
+    if ($resC2) {
+        while ($r = mssql_fetch_assoc($resC2)) {
+            $codigo = trim($r['ItemCode']);
+            $nro    = intval($r['nro_conteo']);
+            $cant   = floatval($r['cantidad']);
 
-if ($res && $row = mssql_fetch_assoc($res))
-    $estatus = intval($row['estatus']);
+            if (!isset($base[$codigo])) continue;
 
-if ($estatus < 1) $estatus = 1;
+            // Conteo compañero (normalmente el conteo opuesto: 1 vs 2)
+            $base[$codigo]['conteo_comp'] = $cant;
+        }
+    }
+}
 
-
-/* ---------------------------
-   DEFINIR BASE DE COMPARACIÓN
------------------------------ */
-$base_comparacion = "SAP";
-if ($estatus == 2) $base_comparacion = "CONTEO1";
-if ($estatus == 3) $base_comparacion = "CONTEO2";
-
-
-/* ---------------------------
-   GENERAR RESULTADO FINAL
------------------------------ */
-$hay_diferencias = false;
-$resultado = [];
+/* ============================================================
+   CALCULAR DIFERENCIAS
+============================================================ */
+$resultado             = [];
+$hay_dif_brigada       = false;
+$hay_dif_mio_vs_sap    = false;
+$hay_dif_comp_vs_sap   = false;
 
 foreach ($base as $item) {
+    $sap  = $item['cant_sap'];
+    $mio  = $item['conteo_mio'];
+    $comp = $item['conteo_comp'];
 
-  if ($estatus == 1) {
-    $b = $item['cant_sap'];
-    $a = $item['conteo1'];
-  } elseif ($estatus == 2) {
-    $b = $item['conteo1'];
-    $a = $item['conteo2'];
-  } else { // estatus 3
-    $b = $item['conteo2'];
-    $a = $item['conteo3'];
-  }
+    $dif_mio_vs_sap  = round($mio  - $sap, 2);
+    $dif_comp_vs_sap = round($comp - $sap, 2);
+    $dif_mio_vs_comp = round($mio  - $comp, 2);
 
-  $item['base_valor']   = round($b, 2);
-  $item['conteo_valor'] = round($a, 2);
-  $item['diferencia']   = round($b - $a, 2);
+    if ($dif_mio_vs_comp != 0) {
+        $hay_dif_brigada = true; // hay diferencia entre A y B
+    }
+    if ($dif_mio_vs_sap != 0)  $hay_dif_mio_vs_sap  = true;
+    if ($dif_comp_vs_sap != 0) $hay_dif_comp_vs_sap = true;
 
-  if (abs($item['diferencia']) > 0.01)
-      $hay_diferencias = true;
-
-  $resultado[] = $item;
+    $resultado[] = [
+        'ItemCode'        => $item['ItemCode'],
+        'Itemname'        => $item['Itemname'],
+        'almacen'         => $item['almacen'],
+        'cias'            => $item['cias'],
+        'usuario'         => $usuario,
+        'codebars'        => $item['codebars'],
+        'cant_sap'        => $sap,
+        'conteo_mio'      => $mio,
+        'conteo_comp'     => $comp,
+        'dif_mio_vs_sap'  => $dif_mio_vs_sap,
+        'dif_comp_vs_sap' => $dif_comp_vs_sap,
+        'dif_mio_vs_comp' => $dif_mio_vs_comp,
+    ];
 }
 
-
-/* ---------------------------
-   RESPUESTA JSON FINAL
------------------------------ */
+/* ============================================================
+   RESPUESTA
+============================================================ */
 echo json_encode([
-  "success"          => true,
-  "data"             => $resultado,
-  "estatus"          => $estatus,
-  "base_comparacion" => $base_comparacion,
-  "hay_diferencias"  => $hay_diferencias
+    "success"                  => true,
+    "brigada"                  => $esBrigada,
+    "mi_empleado"              => $usuario,
+    "mi_nro_conteo"            => $nro_conteo_mio,
+    "empleado_companero"       => $empleado_companero,
+    "nro_conteo_companero"     => $nro_conteo_companero,
+    "nro_conteo"               => $nro_conteo_mio,          // compatibilidad con front actual
+    "hay_diferencias_brigada"  => $hay_dif_brigada,
+    "hay_dif_mio_vs_sap"       => $hay_dif_mio_vs_sap,
+    "hay_dif_comp_vs_sap"      => $hay_dif_comp_vs_sap,
+    "tercer_conteo_asignado"   => $tercer_conteo_asignado,
+    "empleado_tercer_conteo"   => $empleado_tercer_conteo,
+    "estatus_tercer_conteo"    => $estatus_tercer_conteo,
+    "estatus_global"           => $estatus_global,
+    "data"                     => $resultado
 ]);
 exit;
-
 ?>

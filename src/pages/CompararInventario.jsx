@@ -30,6 +30,20 @@ export default function CompararInventario() {
   const registrosPorPagina = 100;
 
   const [mostrarSoloDiferencias, setMostrarSoloDiferencias] = useState(false);
+  const [mostrarDiferenciasBrigada, setMostrarDiferenciasBrigada] = useState(false);
+  const [esBrigada, setEsBrigada] = useState(false);
+  const [mostrarTercerConteo, setMostrarTercerConteo] = useState(false);
+  const [resGlobal, setResGlobal] = useState({});
+  const [hayDiferenciasBrigada, setHayDiferenciasBrigada] = useState(false);
+  const [empleadoCompanero, setEmpleadoCompanero] = useState(null);
+  const [miEmpleado, setMiEmpleado] = useState(empleado);
+  const [nroConteoMio, setNroConteoMio] = useState(1);
+  const [nroConteoComp, setNroConteoComp] = useState(2);
+
+
+
+
+
 
 
 
@@ -206,32 +220,50 @@ export default function CompararInventario() {
     // Solo hacer la llamada si los datos aún no han sido cargados
     if (datos.length === 0) {
 
-     const obtenerComparacion = async () => {
+   const obtenerComparacion = async () => {
       try {
         const res = await axios.get(
           "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/comparar_inventarios.php",
           { params: { almacen, fecha, usuario: empleado, cia } }
         );
 
-        console.log("DATOS DEL BACK:", res.data.data[0]);
-
-
         if (!res.data.success) throw new Error(res.data.error);
 
-        const estatusActual = res.data.estatus || 1;
+        setResGlobal(res.data);
+
+        setMiEmpleado(res.data.mi_empleado);
+        setEmpleadoCompanero(res.data.empleado_companero);
+        setNroConteoMio(Number(res.data.mi_nro_conteo));
+        setNroConteoComp(Number(res.data.nro_conteo_companero));
+        setHayDiferenciasBrigada(res.data.hay_diferencias_brigada === true);
+
+        // Estatus recibido
+        const estatusActual = res.data.nro_conteo ? Number(res.data.nro_conteo) : 1;
         setEstatus(estatusActual);
 
-        // AQUI SE CONSERVAN TODOS LOS CAMPOS DEL BACKEND
-        const datosFinal = res.data.data.map(item => {
-          const conteo =
-            estatusActual === 1 ? (item.conteo1 ?? 0) :
-            estatusActual === 2 ? (item.conteo2 ?? 0) :
-            estatusActual === 3 ? (item.conteo3 ?? 0) :
-            0;
+        // Si es brigada o no
+       setEsBrigada(res.data.brigada === true);
+
+       const mostrarTercerConteo =
+        res.data.brigada === true &&
+        res.data.hay_diferencias_brigada === true &&
+        res.data.tercer_conteo_asignado === false;
+      setMostrarTercerConteo(mostrarTercerConteo);
+
+
+        // Procesar datos
+        const datosFinal = res.data.data.map((item) => {
+          const c1 = Number(item.conteo_mio ?? 0);
+          const c2 = Number(item.conteo_comp ?? 0);
+          const sap = Number(item.cant_sap ?? 0);
 
           return {
-            ...item, // ¡RESPETA TODOS LOS NOMBRES ORIGINALES!
-            diferencia: parseFloat(((item.cant_sap ?? 0) - conteo).toFixed(2)),
+            ...item,
+            cant_sap: sap,
+            conteo1: c1,
+            conteo2: c2,
+            diferencia: Number((sap - c1).toFixed(2)),
+            diferenciaBrigada: Number((c1 - c2).toFixed(2)),
           };
         });
 
@@ -346,6 +378,13 @@ export default function CompararInventario() {
       );
     }
 
+    if (mostrarDiferenciasBrigada) {
+      datosFiltrados = datosFiltrados.filter(
+        (row) => Number(row.diferenciaBrigada) !== 0
+      );
+    }
+
+
 
     const totalPaginas = Math.max(1, Math.ceil(datosFiltrados.length / registrosPorPagina));
     const pagina = Math.min(paginaActual, totalPaginas); // evita quedar en una página inexistente
@@ -354,6 +393,74 @@ export default function CompararInventario() {
     const indiceFinal = indiceInicial + registrosPorPagina;
 
     const datosPaginados = datosFiltrados.slice(indiceInicial, indiceFinal);
+
+
+
+
+    const iniciarTercerConteo = async () => {
+        const resModal = await Swal.fire({
+          title: "¿Quién realizará el Tercer Conteo?",
+          html: `
+            <div style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
+              <button id="btnA" class="swal2-confirm swal2-styled" style="background:#2563eb;">
+                Usuario ${resGlobal.mi_empleado}
+              </button>
+              <button id="btnB" class="swal2-confirm swal2-styled" style="background:#16a34a;">
+                Usuario ${resGlobal.empleado_companero}
+              </button>
+            </div>
+          `,
+          showConfirmButton: false,
+          allowOutsideClick: false,
+          didRender: () => {
+            document.getElementById("btnA").addEventListener("click", () => {
+              Swal.close();
+              asignarTercerConteo(resGlobal.mi_empleado);
+            });
+            document.getElementById("btnB").addEventListener("click", () => {
+              Swal.close();
+              asignarTercerConteo(resGlobal.empleado_companero);
+            });
+          },
+        });
+      };
+
+      const asignarTercerConteo = async (empleadoElegido) => {
+    try {
+      Swal.fire({
+        title: "Asignando tercer conteo...",
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+      });
+
+      const formData = new FormData();
+      formData.append("almacen", almacen);
+      formData.append("fecha", fecha);
+      formData.append("cia", cia);
+      formData.append("empleado_elegido", empleadoElegido);
+
+      const r = await axios.post(
+        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/asignar_tercer_conteo.php",
+        formData
+      );
+
+      Swal.close();
+
+      if (!r.data.success) throw new Error(r.data.error);
+
+      await Swal.fire("Listo", "Tercer conteo asignado correctamente.", "success");
+
+      navigate("/captura", {
+        state: { almacen, fecha, cia, empleado: empleadoElegido, estatus: 3 },
+      });
+    } catch (error) {
+      Swal.close();
+      Swal.fire("Error", error.message, "error");
+    }
+  };
+
+
+
 
 
 
@@ -528,119 +635,147 @@ export default function CompararInventario() {
 
       <div className="flex justify-end items-center mb-4 gap-3">
 
+        {esBrigada && (
+          <button
+            className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2
+                      bg-blue-200 text-blue-900 hover:bg-blue-300 transition shadow-sm"
+            onClick={() => setMostrarDiferenciasBrigada(!mostrarDiferenciasBrigada)}
+          >
+            {mostrarDiferenciasBrigada
+              ? "Mostrar todo"
+              : "Diferencias Brigada"}
+          </button>
+        )}
+
+
+        {/* Botón: Mostrar diferencias */}
         <button
-          className="btn btn-warning"
+          className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2
+                    bg-yellow-200 text-yellow-900 hover:bg-yellow-300 transition shadow-sm"
           onClick={() => setMostrarSoloDiferencias(!mostrarSoloDiferencias)}
         >
           {mostrarSoloDiferencias ? "Mostrar todo" : "Mostrar solo diferencias"}
         </button>
 
+        {/* Botón: Exportar Excel */}
         <button
           onClick={exportarExcel}
-          className="px-3 py-1 rounded-full text-sm font-semibold bg-green-300 text-green-900 hover:bg-green-400 flex items-center gap-2 transition"
+          className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2
+                    bg-green-200 text-green-900 hover:bg-green-300 transition shadow-sm"
         >
-          <img src="https://img.icons8.com/color/24/microsoft-excel-2019.png" alt="excel" />
+          <img
+            src="https://img.icons8.com/color/24/microsoft-excel-2019.png"
+            alt="excel"
+            className="w-5 h-5"
+          />
           Exportar a Excel
         </button>
 
+        {/* Botón: Exportar PDF */}
         <button
           onClick={exportarPDF}
-          className="px-3 py-1 rounded-full text-sm font-semibold bg-red-300 text-red-900 hover:bg-red-400 flex items-center gap-2 transition"
+          className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2
+                    bg-red-200 text-red-900 hover:bg-red-300 transition shadow-sm"
         >
-          📄 Exportar a PDF
+          📄
+          Exportar a PDF
         </button>
+
+        {mostrarTercerConteo && (
+          <button
+            onClick={iniciarTercerConteo}
+            className="px-4 py-2 rounded-lg text-sm font-semibold bg-purple-200 text-purple-900 hover:bg-purple-300 transition shadow-sm"
+          >
+            Iniciar Tercer Conteo
+          </button>
+        )}
+
 
       </div>
 
-
       <div className="relative overflow-auto max-h-[70vh] border rounded-lg shadow-md">
 
-        <table className="min-w-full text-sm table-auto">
-          <thead className="sticky top-0 bg-gradient-to-r from-red-100 via-white to-red-100 text-gray-800 text-xs uppercase tracking-wider shadow-md z-10">
-            <tr>
-              <th className="p-3 text-left w-10">#</th>
-              <th className="p-3 text-left">No Empleado</th>
-              <th className="p-3 text-left">Almacen</th>
-              <th className="p-3 text-left">CIA</th>
-              <th className="p-3 text-left">Código</th>
-              <th className="p-3 text-left w-64 max-w-[16rem]">NOMBRE</th>
-              <th className="p-3 text-left">Código de Barras</th>
-              <th className="p-3 text-right">Existencia SAP</th>
-              {estatus >= 1 && <th className="p-3 text-right">Conteo 1</th>}
-              {estatus >= 2 && <th className="p-3 text-right">Conteo 2</th>}
-              {estatus >= 3 && <th className="p-3 text-right">Conteo 3</th>}
-              <th className="p-3 text-right">Diferencia</th>
-            </tr>
-          </thead>
+      <table className="min-w-full text-sm table-auto">
+            <thead className="sticky top-0 bg-gradient-to-r from-red-100 via-white to-red-100 text-gray-800 text-xs uppercase tracking-wider shadow-md z-10">
+              <tr>
+                <th className="p-3 text-left w-10">#</th>
+                <th className="p-3 text-left">No Empleado</th>
+                <th className="p-3 text-left">Almacen</th>
+                <th className="p-3 text-left">CIA</th>
+                <th className="p-3 text-left">Código</th>
+                <th className="p-3 text-left w-64 max-w-[16rem]">NOMBRE</th>
+                <th className="p-3 text-left">Código de Barras</th>
+                <th className="p-3 text-right">Existencia SAP</th>
 
-          <tbody className="bg-white divide-y divide-gray-100">
-            {datosPaginados.map((item, i) => (
-              <tr
-                key={i}
-                className="hover:bg-red-50 transition duration-150 ease-in-out"
-              >
-                {/* Número consecutivo global */}
-                <td className="p-3 text-sm text-gray-500 font-semibold whitespace-nowrap">
-                  {indiceInicial + i + 1}
-                </td>
+                {/* SOLO mostrar el conteo activo */}
+                <th className="p-3 text-right">Mi conteo</th>
+                <th className="p-3 text-right">Diferencia SAP</th>
+                <th className="p-3 text-right">Conteo compañero</th>
+                <th className="p-3 text-right">Dif. Brigada</th>
 
-                <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-                  {item.usuario ?? "-"}
-                </td>
-                <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-                  {item.almacen ?? "-"}
-                </td>
-                <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-                  {item.cias ?? "-"}
-                </td>
-                <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-                  {item.ItemCode  ?? "-"}
-                </td>
-                <td className="p-3 text-sm text-gray-700 whitespace-nowrap truncate max-w-[16rem]">
-                  {item.Itemname  ?? "-"}
-                </td>
-                <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-                  {item.codebars ?? "-"}
-                </td>
+              </tr>
+            </thead>
 
-                {/* Columna SAP */}
-                <td className="p-3 text-sm text-right text-gray-700">
-                  {(item.cant_sap ?? 0).toFixed(2)}
+            <tbody className="bg-white divide-y divide-gray-100">
+              {datosPaginados.map((item, i) => (
+                <tr
+                  key={i}
+                  className="hover:bg-red-50 transition duration-150 ease-in-out"
+                >
+                  {/* Número consecutivo */}
+                  <td className="p-3 text-sm text-gray-500 font-semibold whitespace-nowrap">
+                    {indiceInicial + i + 1}
+                  </td>
 
-                </td>
+                  <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+                    {item.usuario ?? "-"}
+                  </td>
+                  <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+                    {item.almacen ?? "-"}
+                  </td>
+                  <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+                    {item.cias ?? "-"}
+                  </td>
+                  <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+                    {item.ItemCode ?? "-"}
+                  </td>
+                  <td className="p-3 text-sm text-gray-700 whitespace-nowrap truncate max-w-[16rem]">
+                    {item.Itemname ?? "-"}
+                  </td>
+                  <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+                    {item.codebars ?? "-"}
+                  </td>
 
-                {/* Conteos dinámicos */}
+                  {/* SAP */}
+                  <td className="p-3 text-sm text-right text-gray-700">
+                    {(item.cant_sap ?? 0).toFixed(2)}
+                  </td>
 
-                {estatus >= 1 && (
+                  {/* SOLO mostrar el conteo asignado */}
                   <td className="p-3 text-sm text-right bg-red-50 text-red-800 font-semibold">
                     {(item.conteo1 ?? 0).toFixed(2)}
                   </td>
-                )}
 
-                {estatus >= 2 && (
-                  <td className="p-3 text-sm text-right bg-purple-50 text-purple-800 font-semibold">
+                   <td className="p-3 text-sm text-right font-bold" style={{ color: getColor(item.diferencia) }}>
+                    {item.diferencia.toFixed(2)}
+                  </td>
+
+                  <td className="p-3 text-sm text-right bg-blue-50 text-blue-800 font-semibold">
                     {(item.conteo2 ?? 0).toFixed(2)}
                   </td>
-                )}
-                {estatus >= 3 && (
-                  <td className="p-3 text-sm text-right bg-amber-50 text-amber-800 font-semibold">
-                    {(item.conteo3 ?? 0).toFixed(2)}
+
+
+                  <td className="p-3 text-sm text-right font-bold"
+                      style={{ color: item.diferenciaBrigada === 0 ? "green" : "red" }}>
+                    {item.diferenciaBrigada.toFixed(2)}
                   </td>
-                )}
-
-                {/* Diferencia */}
-                <td
-                  className="p-3 text-sm text-right font-bold"
-                  style={{ color: getColor(item.diferencia) }}
-                >
-                  {item.diferencia.toFixed(2)}
-                </td>
 
 
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
 
          <div className="mt-4 flex justify-center items-center gap-4 text-sm text-gray-700 font-medium">
             <button
