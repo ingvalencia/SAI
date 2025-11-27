@@ -339,6 +339,13 @@ export default function CapturaInventario() {
       }
     );
 
+    if (r1.data.error?.includes("bloqueado")) {
+        Swal.fire("Bloqueado", r1.data.error, "error");
+        setBloqueado(true);
+        return;
+    }
+
+
     if (!r1.data.success) throw new Error(r1.data.error);
 
     const modo = r1.data.modo;

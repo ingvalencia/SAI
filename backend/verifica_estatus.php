@@ -4,7 +4,14 @@ header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 header('Content-Type: application/json');
 
-// === Validar parámetros ===
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
+/* ============================================================
+   PARÁMETROS
+============================================================ */
 $almacen  = isset($_GET['almacen']) ? $_GET['almacen'] : null;
 $fecha    = isset($_GET['fecha'])   ? $_GET['fecha']   : null;
 $empleado = isset($_GET['empleado']) ? $_GET['empleado'] : null;
@@ -15,7 +22,9 @@ if (!$almacen || !$fecha || !$empleado || !$cia) {
   exit;
 }
 
-// === Conexión SQL Server ===
+/* ============================================================
+   CONEXIÓN SQL
+============================================================ */
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -28,7 +37,9 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-// === Paso 1: Obtener estatus más alto desde CAP_INVENTARIO ===
+/* ============================================================
+   PASO 1: Obtener estatus mayor en CAP_INVENTARIO (1,2,3,4)
+============================================================ */
 $query = "
   SELECT MAX(estatus) AS estatus
   FROM CAP_INVENTARIO
@@ -46,9 +57,11 @@ if (!$result) {
 
 $row = mssql_fetch_assoc($result);
 $estatus = isset($row['estatus']) ? intval($row['estatus']) : 0;
-if ($estatus < 1) $estatus = 0; // si no hay registros, estatus 0
+if ($estatus < 1) $estatus = 0;
 
-// === Paso 2: Consultar configuración de conteo para ese almacén ===
+/* ============================================================
+   PASO 2: Leer configuración normal del inventario
+============================================================ */
 $queryConfig = "
   SELECT a.conteo
   FROM configuracion_inventario c
@@ -68,8 +81,34 @@ if (!$resConfig) {
 $rowConfig = mssql_fetch_assoc($resConfig);
 $conteo_config = isset($rowConfig['conteo']) ? intval($rowConfig['conteo']) : 0;
 
-// === Paso 3: Validaciones según reglas de negocio ===
-// Caso: administrador aún no autoriza pasar a siguiente conteo
+/* ============================================================
+   PASO 3 (NUEVO): SI EXISTE CONTEO 3 EN CAP_CONTEO_CONFIG,
+   entonces NO aplicar validación del administrador.
+============================================================ */
+$sqlCheck3 = "
+  SELECT TOP 1 nro_conteo
+  FROM CAP_CONTEO_CONFIG
+  WHERE almacen = '$almacen'
+    AND cia = '$cia'
+    AND nro_conteo = 3
+    AND estatus IN (0,1)
+";
+
+$resCheck3 = mssql_query($sqlCheck3, $conn);
+
+if ($resCheck3 && mssql_num_rows($resCheck3) > 0) {
+    // Tercer conteo manual ya fue asignado -> permitir acceso
+    echo json_encode([
+        "success" => true,
+        "estatus" => $estatus
+    ]);
+    exit;
+}
+
+/* ============================================================
+   PASO 4: Validación original del administrador (casos normales)
+============================================================ */
+
 if ($estatus > $conteo_config && $estatus !== 1 && $estatus !== 4) {
   echo json_encode([
     "success" => false,
@@ -78,7 +117,9 @@ if ($estatus > $conteo_config && $estatus !== 1 && $estatus !== 4) {
   exit;
 }
 
-// === Respuesta normal ===
+/* ============================================================
+   RESPUESTA FINAL
+============================================================ */
 echo json_encode([
   "success" => true,
   "estatus" => $estatus

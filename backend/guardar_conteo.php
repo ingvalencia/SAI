@@ -5,21 +5,27 @@ header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 header('Content-Type: application/json');
 
-// --- Parámetros recibidos ---
-$id_inventario = isset($_POST['id_inventario']) ? intval($_POST['id_inventario']) : null;
-$nro_conteo    = isset($_POST['nro_conteo']) ? intval($_POST['nro_conteo']) : null;
-$cantidad      = isset($_POST['cantidad']) ? floatval($_POST['cantidad']) : null;
-$usuario       = isset($_POST['usuario']) ? $_POST['usuario'] : null;
-
-// --- Validar parámetros ---
-if ($id_inventario === null || $nro_conteo === null || $cantidad === null || $usuario === null) {
-  echo json_encode(["success" => false, "error" => "Faltan parámetros"]);
-  exit;
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
 }
 
-if (!in_array($nro_conteo, [0, 1, 2])) {
-  echo json_encode(["success" => false, "error" => "Número de conteo inválido"]);
-  exit;
+// --- Parámetros recibidos ---
+$id_inventario = isset($_POST['id_inventario']) ? intval($_POST['id_inventario']) : null;
+$nro_conteo    = isset($_POST['nro_conteo'])    ? intval($_POST['nro_conteo'])    : null;
+$cantidad      = isset($_POST['cantidad'])      ? floatval($_POST['cantidad'])    : null;
+$usuario       = isset($_POST['usuario'])       ? trim($_POST['usuario'])         : null;
+
+// --- Validar parámetros obligatorios ---
+if ($id_inventario === null || $nro_conteo === null || $cantidad === null || $usuario === null) {
+    echo json_encode(["success" => false, "error" => "Faltan parámetros"]);
+    exit;
+}
+
+// --- Validar rango de conteo ---
+if (!in_array($nro_conteo, [1, 2, 3])) {
+    echo json_encode(["success" => false, "error" => "Número de conteo inválido"]);
+    exit;
 }
 
 // --- Conexión a SQL Server ---
@@ -30,12 +36,82 @@ $db     = "SAP_PROCESOS";
 
 $conn = mssql_connect($server, $user, $pass);
 if (!$conn) {
-  echo json_encode(["success" => false, "error" => "No se pudo conectar a SQL Server"]);
-  exit;
+    echo json_encode(["success" => false, "error" => "No se pudo conectar a SQL Server"]);
+    exit;
 }
 mssql_select_db($db, $conn);
 
-// --- Verificar si ya existe el conteo ---
+/* ===========================================================
+   1. Obtener id interno del usuario (tabla usuarios)
+=========================================================== */
+$sqlUID = "
+    SELECT TOP 1 id
+    FROM usuarios
+    WHERE empleado = '$usuario'
+";
+$resUID = mssql_query($sqlUID, $conn);
+
+if (!$resUID || mssql_num_rows($resUID) === 0) {
+    echo json_encode(["success" => false, "error" => "Usuario no encontrado"]);
+    exit;
+}
+
+$rowUID = mssql_fetch_assoc($resUID);
+$usuario_id = intval($rowUID['id']);
+
+/* ===========================================================
+   2. Validar si el usuario está BLOQUEADO (estatus = 1)
+=========================================================== */
+$sqlBlock = "
+    SELECT TOP 1 estatus
+    FROM CAP_CONTEO_CONFIG
+    WHERE usuarios_asignados LIKE '%[$usuario_id]%'
+      AND estatus = 1
+";
+$resBlock = mssql_query($sqlBlock, $conn);
+
+if ($resBlock && mssql_num_rows($resBlock) > 0) {
+    echo json_encode([
+        "success" => false,
+        "error"   => "Usuario bloqueado: otro usuario realizará el tercer conteo."
+    ]);
+    exit;
+}
+
+/* ===========================================================
+   3. Validar que el usuario está capturando SU conteo asignado
+=========================================================== */
+$sqlAsign = "
+    SELECT TOP 1 nro_conteo
+    FROM CAP_CONTEO_CONFIG
+    WHERE usuarios_asignados LIKE '%[$usuario_id]%'
+      AND estatus = 0
+";
+$resAsign = mssql_query($sqlAsign, $conn);
+
+if (!$resAsign || mssql_num_rows($resAsign) === 0) {
+    echo json_encode([
+        "success" => false,
+        "error"   => "No tiene asignado ningún conteo activo."
+    ]);
+    exit;
+}
+
+$rowAsign = mssql_fetch_assoc($resAsign);
+$nro_conteo_asignado = intval($rowAsign['nro_conteo']);
+
+// ❗Usuario intenta capturar otro conteo
+if ($nro_conteo_asignado !== $nro_conteo) {
+    echo json_encode([
+        "success" => false,
+        "error"   => "Intento inválido: debe capturar el conteo $nro_conteo_asignado."
+    ]);
+    exit;
+}
+
+/* ===========================================================
+   4. Verificar si ya existe registro en CAP_INVENTARIO_CONTEOS
+=========================================================== */
 $existe = mssql_query("
   SELECT COUNT(*) AS total
   FROM CAP_INVENTARIO_CONTEOS
@@ -43,47 +119,58 @@ $existe = mssql_query("
 ", $conn);
 
 $row = mssql_fetch_assoc($existe);
+
+
 if ($row && intval($row['total']) > 0) {
-  // --- Update si ya existe ---
-  $sql = "
-    UPDATE CAP_INVENTARIO_CONTEOS
-    SET cantidad = $cantidad,
-        usuario = '$usuario',
-        fecha = GETDATE()
-    WHERE id_inventario = $id_inventario AND nro_conteo = $nro_conteo
-  ";
+
+    // --- UPDATE ---
+    $sql = "
+        UPDATE CAP_INVENTARIO_CONTEOS
+        SET cantidad = $cantidad,
+            usuario = '$usuario',
+            fecha   = GETDATE()
+        WHERE id_inventario = $id_inventario AND nro_conteo = $nro_conteo
+    ";
+
 } else {
-  // --- Insert si no existe ---
-  $sql = "
-    INSERT INTO CAP_INVENTARIO_CONTEOS (id_inventario, nro_conteo, cantidad, usuario, fecha)
-    VALUES ($id_inventario, $nro_conteo, $cantidad, '$usuario', GETDATE())
-  ";
+
+    // --- INSERT ---
+    $sql = "
+        INSERT INTO CAP_INVENTARIO_CONTEOS (id_inventario, nro_conteo, cantidad, usuario, fecha)
+        VALUES ($id_inventario, $nro_conteo, $cantidad, '$usuario', GETDATE())
+    ";
+
 }
 
-// --- Ejecutar SQL principal ---
+// Ejecutar
 $res = mssql_query($sql, $conn);
+
 if (!$res) {
-  $error = mssql_get_last_message();
-  echo json_encode(["success" => false, "error" => "Error en SQL: $error"]);
-  exit;
+    echo json_encode(["success" => false, "error" => "Error SQL: " . mssql_get_last_message()]);
+    exit;
 }
 
-// --- Actualizar también el valor en CAP_INVENTARIO ---
+/* ===========================================================
+   5. Actualizar CAP_INVENTARIO.cant_invfis
+=========================================================== */
 $updInv = "
-  UPDATE CAP_INVENTARIO
-  SET cant_invfis = $cantidad
-  WHERE id = $id_inventario
+    UPDATE CAP_INVENTARIO
+    SET cant_invfis = $cantidad
+    WHERE id = $id_inventario
 ";
 $resInv = mssql_query($updInv, $conn);
+
 if (!$resInv) {
-  $error = mssql_get_last_message();
-  echo json_encode(["success" => false, "error" => "Error actualizando inventario: $error"]);
-  exit;
+    echo json_encode(["success" => false, "error" => "Error actualizando inventario"]);
+    exit;
 }
 
-// --- Respuesta OK ---
+/* ===========================================================
+   RESPUESTA OK
+=========================================================== */
 echo json_encode([
-  "success" => true,
-  "mensaje" => "Conteo $nro_conteo guardado correctamente"
+    "success" => true,
+    "mensaje" => "Conteo $nro_conteo guardado correctamente"
 ]);
 exit;
+?>

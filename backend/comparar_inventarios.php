@@ -90,7 +90,8 @@ $sqlBrig = "
   FROM CAP_CONTEO_CONFIG
   WHERE almacen = '$almacen_safe'
     AND cia = '$cia_safe'
-    AND estatus = 0
+   AND estatus IN (0,1)
+
 ";
 $resBrig = mssql_query($sqlBrig, $conn);
 

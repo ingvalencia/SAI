@@ -39,6 +39,7 @@ export default function CompararInventario() {
   const [miEmpleado, setMiEmpleado] = useState(empleado);
   const [nroConteoMio, setNroConteoMio] = useState(1);
   const [nroConteoComp, setNroConteoComp] = useState(2);
+  const [bloqueado, setBloqueado] = useState(false);
 
 
 
@@ -230,6 +231,10 @@ export default function CompararInventario() {
         if (!res.data.success) throw new Error(res.data.error);
 
         setResGlobal(res.data);
+
+        if (res.data.modo === "solo lectura" || res.data.error?.includes("bloqueado")) {
+            setBloqueado(true);
+        }
 
         setMiEmpleado(res.data.mi_empleado);
         setEmpleadoCompanero(res.data.empleado_companero);
@@ -481,36 +486,80 @@ export default function CompararInventario() {
       </h1>
 
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-      <div className="flex items-center gap-2">
-        {["Primer Conteo", "Segundo Conteo", "Tercer Conteo"].map((label, index) => {
-          const conteoNumero = index + 1;
-          const activo = estatus === conteoNumero;
+      {!bloqueado && (
+        <div className="flex items-center gap-2">
+          {["Primer Conteo", "Segundo Conteo", "Tercer Conteo"].map((label, index) => {
+            const conteoNumero = index + 1;
+            const activo = estatus === conteoNumero;
 
-          return (
-            <button
-              key={label}
-              onClick={async () => {
-                if (conteoNumero === 1) {
-                  if (estatus === 1) {
-                    Swal.fire("No permitido", "Ya se realizo el primer conteo.", "warning");
-                    return;
-                  }
-                  if ([2, 3, 4].includes(estatus)) {
-                    Swal.fire("No permitido", "Ya no se puede realizar primer conteo.", "warning");
-                    return;
-                  }
-                }
-
-                else if (conteoNumero === 2) {
-                  if ([2, 3, 4].includes(estatus)) {
-                    Swal.fire("No permitido", "Ya no se puede realizar segundo conteo.", "warning");
-                    return;
+            return (
+              <button
+                key={label}
+                onClick={async () => {
+                  if (conteoNumero === 1) {
+                    if (estatus === 1) {
+                      Swal.fire("No permitido", "Ya se realizo el primer conteo.", "warning");
+                      return;
+                    }
+                    if ([2, 3, 4].includes(estatus)) {
+                      Swal.fire("No permitido", "Ya no se puede realizar primer conteo.", "warning");
+                      return;
+                    }
                   }
 
-                  if (estatus === 1) {
+                  else if (conteoNumero === 2) {
+                    if ([2, 3, 4].includes(estatus)) {
+                      Swal.fire("No permitido", "Ya no se puede realizar segundo conteo.", "warning");
+                      return;
+                    }
+
+                    if (estatus === 1) {
+                      const confirm = await Swal.fire({
+                        title: "¿Iniciar segundo conteo?",
+                        text: "¿Estás seguro de avanzar al segundo conteo?",
+                        icon: "question",
+                        showCancelButton: true,
+                        confirmButtonText: "Sí",
+                        cancelButtonText: "Cancelar",
+                      });
+
+                      if (!confirm.isConfirmed) return;
+
+                      try {
+                        const formData = new FormData();
+                        formData.append("almacen", almacen);
+                        formData.append("fecha", fecha);
+                        formData.append("empleado", empleado);
+                        formData.append("estatus", 2);
+
+                        await axios.post(
+                          "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/actualizar_estatus.php",
+                          formData
+                        );
+
+                        navigate("/captura", {
+                          state: { almacen, fecha, cia, empleado, estatus: 2 },
+                        });
+                      } catch (error) {
+                        console.error("Error al actualizar estatus", error);
+                        Swal.fire("Error", "No se pudo actualizar el estatus. Revisa la consola.", "error");
+                      }
+                    }
+                  }
+
+                  else if (conteoNumero === 3) {
+                    if (estatus === 1) {
+                      Swal.fire("No permitido", "Debe hacer el segundo conteo previamente.", "warning");
+                      return;
+                    }
+                    if ([3, 4].includes(estatus)) {
+                      Swal.fire("No permitido", "Ya no se puede hacer ningún conteo.", "warning");
+                      return;
+                    }
+
                     const confirm = await Swal.fire({
-                      title: "¿Iniciar segundo conteo?",
-                      text: "¿Estás seguro de avanzar al segundo conteo?",
+                      title: "¿Iniciar tercer conteo?",
+                      text: "¿Estás seguro de avanzar al tercer conteo?",
                       icon: "question",
                       showCancelButton: true,
                       confirmButtonText: "Sí",
@@ -520,84 +569,41 @@ export default function CompararInventario() {
                     if (!confirm.isConfirmed) return;
 
                     try {
-                      const formData = new FormData();
-                      formData.append("almacen", almacen);
-                      formData.append("fecha", fecha);
-                      formData.append("empleado", empleado);
-                      formData.append("estatus", 2);
+                      const formData3 = new FormData();
+                      formData3.append("almacen", almacen);
+                      formData3.append("fecha", fecha);
+                      formData3.append("empleado", empleado);
+                      formData3.append("estatus", 3);
 
                       await axios.post(
                         "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/actualizar_estatus.php",
-                        formData
+                        formData3
                       );
 
                       navigate("/captura", {
-                        state: { almacen, fecha, cia, empleado, estatus: 2 },
+                        state: { almacen, fecha, cia, empleado, estatus: 3 },
                       });
                     } catch (error) {
                       console.error("Error al actualizar estatus", error);
                       Swal.fire("Error", "No se pudo actualizar el estatus. Revisa la consola.", "error");
                     }
                   }
-                }
-
-                else if (conteoNumero === 3) {
-                  if (estatus === 1) {
-                    Swal.fire("No permitido", "Debe hacer el segundo conteo previamente.", "warning");
-                    return;
-                  }
-                  if ([3, 4].includes(estatus)) {
-                    Swal.fire("No permitido", "Ya no se puede hacer ningún conteo.", "warning");
-                    return;
-                  }
-
-                  const confirm = await Swal.fire({
-                    title: "¿Iniciar tercer conteo?",
-                    text: "¿Estás seguro de avanzar al tercer conteo?",
-                    icon: "question",
-                    showCancelButton: true,
-                    confirmButtonText: "Sí",
-                    cancelButtonText: "Cancelar",
-                  });
-
-                  if (!confirm.isConfirmed) return;
-
-                  try {
-                    const formData3 = new FormData();
-                    formData3.append("almacen", almacen);
-                    formData3.append("fecha", fecha);
-                    formData3.append("empleado", empleado);
-                    formData3.append("estatus", 3);
-
-                    await axios.post(
-                      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/actualizar_estatus.php",
-                      formData3
-                    );
-
-                    navigate("/captura", {
-                      state: { almacen, fecha, cia, empleado, estatus: 3 },
-                    });
-                  } catch (error) {
-                    console.error("Error al actualizar estatus", error);
-                    Swal.fire("Error", "No se pudo actualizar el estatus. Revisa la consola.", "error");
-                  }
-                }
-              }}
-              className={`px-3 py-1 rounded-full text-sm font-semibold transition ${
-                activo
-                  ? "bg-red-600 text-white"
-                  : "bg-red-100 text-red-700 hover:bg-red-200"
-              }`}
-            >
-              {label}
-            </button>
+                }}
+                className={`px-3 py-1 rounded-full text-sm font-semibold transition ${
+                  activo
+                    ? "bg-red-600 text-white"
+                    : "bg-red-100 text-red-700 hover:bg-red-200"
+                }`}
+              >
+                {label}
+              </button>
 
 
-          );
-        })}
-      </div>
-
-        {!diferenciaConfirmada && (
+            );
+          })}
+        </div>
+      )}
+        {!bloqueado && !diferenciaConfirmada && (
           <button
             onClick={confirmarDiferencia}
             className="px-3 py-1 rounded-full text-sm font-semibold bg-yellow-500 text-white hover:bg-yellow-600 transition"
@@ -681,7 +687,7 @@ export default function CompararInventario() {
           Exportar a PDF
         </button>
 
-        {mostrarTercerConteo && (
+        {!bloqueado && mostrarTercerConteo && (
           <button
             onClick={iniciarTercerConteo}
             className="px-4 py-2 rounded-lg text-sm font-semibold bg-purple-200 text-purple-900 hover:bg-purple-300 transition shadow-sm"
