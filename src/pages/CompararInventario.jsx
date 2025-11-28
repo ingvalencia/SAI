@@ -222,66 +222,70 @@ export default function CompararInventario() {
     if (datos.length === 0) {
 
    const obtenerComparacion = async () => {
-      try {
-        const res = await axios.get(
-          "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/comparar_inventarios.php",
-          { params: { almacen, fecha, usuario: empleado, cia } }
-        );
+        try {
+          const res = await axios.get(
+            "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/comparar_inventarios.php",
+            { params: { almacen, fecha, usuario: empleado, cia } }
+          );
 
-        if (!res.data.success) throw new Error(res.data.error);
+          if (!res.data.success) throw new Error(res.data.error);
 
-        setResGlobal(res.data);
+          setResGlobal(res.data);
 
-        if (res.data.modo === "solo lectura" || res.data.error?.includes("bloqueado")) {
+          // 🔒 Bloqueo forzado si el backend dice solo lectura
+          if (res.data.modo === "solo lectura" || res.data.error?.includes("bloqueado")) {
             setBloqueado(true);
+          }
+
+          // 🔹 Normalizar booleans recibidos del backend
+          const esBrig = res.data.brigada == true || res.data.brigada == "1";
+          const hayDif = res.data.hay_diferencias_brigada == true || res.data.hay_diferencias_brigada == "1";
+          const tercerAsignado = res.data.tercer_conteo_asignado == true || res.data.tercer_conteo_asignado == "1";
+
+          setMiEmpleado(res.data.mi_empleado);
+          setEmpleadoCompanero(res.data.empleado_companero);
+          setNroConteoMio(Number(res.data.mi_nro_conteo));
+          setNroConteoComp(Number(res.data.nro_conteo_companero));
+          setHayDiferenciasBrigada(hayDif);
+
+          // 🔹 Estatus activo
+          const estatusActual = res.data.nro_conteo ? Number(res.data.nro_conteo) : 1;
+          setEstatus(estatusActual);
+
+          // 🔹 Marcar brigada
+          setEsBrigada(esBrig);
+
+          // 🔥 Nueva condición corregida para mostrar botón "Iniciar Tercer Conteo"
+          const mostrarTercer = esBrig && hayDif && !tercerAsignado;
+          setMostrarTercerConteo(mostrarTercer);
+
+          // 🔹 Procesar datos
+          const datosFinal = res.data.data.map((item) => {
+            const c1 = Number(item.conteo_mio ?? 0);
+            const c2 = Number(item.conteo_comp ?? 0);
+            const sap = Number(item.cant_sap ?? 0);
+
+            return {
+              ...item,
+              cant_sap: sap,
+              conteo1: c1,
+              conteo2: c2,
+              diferencia: Number((sap - c1).toFixed(2)),
+              diferenciaBrigada: Number((c1 - c2).toFixed(2)),
+            };
+          });
+
+          setDatos(datosFinal);
+
+          if (estatusActual === 4) setDiferenciaConfirmada(true);
+
+        } catch (error) {
+          console.error("Error al obtener diferencias", error.message);
+        } finally {
+          setLoading(false);
         }
+      };
 
-        setMiEmpleado(res.data.mi_empleado);
-        setEmpleadoCompanero(res.data.empleado_companero);
-        setNroConteoMio(Number(res.data.mi_nro_conteo));
-        setNroConteoComp(Number(res.data.nro_conteo_companero));
-        setHayDiferenciasBrigada(res.data.hay_diferencias_brigada === true);
-
-        // Estatus recibido
-        const estatusActual = res.data.nro_conteo ? Number(res.data.nro_conteo) : 1;
-        setEstatus(estatusActual);
-
-        // Si es brigada o no
-       setEsBrigada(res.data.brigada === true);
-
-       const mostrarTercerConteo =
-        res.data.brigada === true &&
-        res.data.hay_diferencias_brigada === true &&
-        res.data.tercer_conteo_asignado === false;
-      setMostrarTercerConteo(mostrarTercerConteo);
-
-
-        // Procesar datos
-        const datosFinal = res.data.data.map((item) => {
-          const c1 = Number(item.conteo_mio ?? 0);
-          const c2 = Number(item.conteo_comp ?? 0);
-          const sap = Number(item.cant_sap ?? 0);
-
-          return {
-            ...item,
-            cant_sap: sap,
-            conteo1: c1,
-            conteo2: c2,
-            diferencia: Number((sap - c1).toFixed(2)),
-            diferenciaBrigada: Number((c1 - c2).toFixed(2)),
-          };
-        });
-
-        setDatos(datosFinal);
-
-        if (estatusActual === 4) setDiferenciaConfirmada(true);
-
-      } catch (error) {
-        console.error("Error al obtener diferencias", error.message);
-      } finally {
-        setLoading(false);
-      }
-    };
 
 
       obtenerComparacion();

@@ -354,20 +354,18 @@ export default function CapturaInventario() {
 
     setModo(modo);
 
-    const debeBloquear =
-      modo === "solo lectura" && estatusReal === 1;
+    // 🔒 Bloquear SIEMPRE que el backend diga "solo lectura"
+    const debeBloquear = (modo === "solo lectura");
     setBloqueado(debeBloquear);
 
-    let mensajeFinal = mensaje;
-    if (modo === "solo lectura") {
-      if (estatusReal === 2) mensajeFinal = "📝 Modo: Segundo conteo";
-      else if (estatusReal === 3) mensajeFinal = "📝 Modo: Tercer conteo";
-    }
-    setMensajeModo(mensajeFinal);
+    // mensaje tal cual viene del backend
+    setMensajeModo(mensaje);
 
+    // Mostrar botón de comparar solo si es solo lectura
     const esCapturista =
       capturista === null || parseInt(capturista) === parseInt(emp);
     setMostrarComparar(modo === "solo lectura" && esCapturista);
+
 
     // =======================
     // 3️Cargar inventario
@@ -1410,7 +1408,8 @@ const handleCodigoDetectado = async (codigo) => {
                     }}
                     onBlur={(e) => {
                       setTimeout(() => setLectorActivo(true), 200);
-                      autoGuardar(item, e.target.value); // <— ÚNICO lugar donde se llama
+                      if (!bloqueado) autoGuardar(item, e.target.value);
+
                     }}
                   />
 
@@ -1467,6 +1466,7 @@ const handleCodigoDetectado = async (codigo) => {
 
 
          {!loadingInventario && !bloqueado && estatus !== 4 && (
+
             <div className="mt-4 flex justify-between items-center">
               {/* Botón Exportar Excel */}
               <button

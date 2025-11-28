@@ -73,7 +73,9 @@ $sqlPermiso = "
   WHERE cia = '$cia_safe'
     AND almacen = '$almacen_safe'
     AND estatus IN (0,1)
-    AND usuarios_asignados LIKE '%[$usuario_id]%'
+   AND usuarios_asignados LIKE '%$usuario_id%'
+
+
 ";
 
 $resPermiso = mssql_query($sqlPermiso, $conn);
