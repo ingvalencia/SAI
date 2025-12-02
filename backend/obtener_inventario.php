@@ -44,9 +44,9 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-// ====================
+// ============================
 // Obtener ID interno del usuario (para brigada)
-// ====================
+// ============================
 $sqlUser = "SELECT TOP 1 id FROM usuarios WHERE empleado = $empleado";
 $resUser = mssql_query($sqlUser, $conn);
 $usuario_id = null;
@@ -54,17 +54,18 @@ if ($resUser && $rowUser = mssql_fetch_assoc($resUser)) {
   $usuario_id = intval($rowUser['id']);
 }
 
-// ====================
-// Consulta principal (compatible con individual y brigada)
-// ====================
+// ============================
+// Consulta principal CORREGIDA
+// ============================
+
+
 $sql = "
   SELECT *
   FROM CAP_INVENTARIO
-  WHERE almacen = '$almacen'
+  WHERE almacen   = '$almacen'
     AND fecha_inv = '$fecha'
-    AND cias = '$cia'
-    AND estatus = $estatus
-    AND (usuario = '$empleado' OR usuario = '$usuario_id')
+    AND cias      = '$cia'
+    AND usuario   = '$empleado'
 ";
 
 $res = mssql_query($sql, $conn);
@@ -74,20 +75,21 @@ if (!$res) {
   exit;
 }
 
-// ====================
+// ============================
 // Procesar resultados
-// ====================
+// ============================
 $data = [];
 while ($row = mssql_fetch_assoc($res)) {
   $data[] = array_map('utf8_encode', $row);
 }
 
-// ====================
+// ============================
 // Respuesta final
-// ====================
+// ============================
 echo json_encode([
   'success' => true,
-  'data'    => $data
+  'data'    => $data,
+  'nro_conteo' => $estatus  // opcional, útil para el front
 ]);
 exit;
 ?>

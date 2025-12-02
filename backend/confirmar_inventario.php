@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
    PARÁMETROS
 ============================================================ */
 $almacen = isset($_POST['almacen']) ? $_POST['almacen'] : null;
-$fecha   = isset($_POST['fecha'])   ? $_POST['fecha']   : null; // SE USA TAL CUAL
+$fecha   = isset($_POST['fecha'])   ? $_POST['fecha']   : null;
 $empleado= isset($_POST['empleado'])? $_POST['empleado']: null;
 $cia     = isset($_POST['cia'])     ? $_POST['cia']     : null;
 $estatus = isset($_POST['estatus']) ? intval($_POST['estatus']) : 1;
@@ -71,7 +71,6 @@ foreach ($datos as $d) {
 
     if ($id_inv <= 0) continue;
 
-    // Verificar existencia
     $chk = mssql_query("
         SELECT COUNT(*) AS n
         FROM CAP_INVENTARIO_CONTEOS
@@ -111,7 +110,7 @@ if ($esBrigada) {
 }
 
 /* ============================================================
-   FLUJO INDIVIDUAL (EL MISMO QUE YA TENÍAS)
+   FLUJO INDIVIDUAL
 ============================================================ */
 
 // Actualiza estatus actual
@@ -126,16 +125,21 @@ $url="https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/compar
 $resp=@file_get_contents($url);
 $res=json_decode($resp,true);
 
+/* ============================================================
+   CORRECCIÓN REAL → DETECTAR diferencias del usuario
+============================================================ */
 $hay_diferencias = false;
-if($res && isset($res['hay_diferencias']))
-    $hay_diferencias = boolval($res['hay_diferencias']);
+
+if ($res && isset($res['hay_dif_mio_vs_sap'])) {
+    $hay_diferencias = boolval($res['hay_dif_mio_vs_sap']);
+}
 
 $next_status  = $estatus;
 $mensaje_final= "";
 
-/* -----------------------------
+/* ============================================================
    SI HAY DIFERENCIAS
------------------------------ */
+============================================================ */
 if ($hay_diferencias) {
 
     if ($estatus < 3) {
@@ -177,9 +181,10 @@ if ($hay_diferencias) {
     }
 
 }
-/* -----------------------------
-   NO HAY DIFERENCIAS
------------------------------ */
+
+/* ============================================================
+   SIN DIFERENCIAS
+============================================================ */
 else {
     mssql_query("
         UPDATE CAP_INVENTARIO

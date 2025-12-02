@@ -225,6 +225,8 @@ echo json_encode([
   'success'    => true,
   'modo'       => $modo,
   'mensaje'    => $mensaje,
+  'nro_conteo_asignado' => $nro_asignado,
+  'estatus_proceso'     => $estatus_cfg ,
   'capturista' => $capturista
 ]);
 exit;

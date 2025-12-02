@@ -197,6 +197,11 @@ if ($resEst && $rowEst = mssql_fetch_assoc($resEst)) {
         : null;
 }
 
+$modo = "captura";
+if ($estatus_global !== null && $estatus_global >= 4) {
+    $modo = "solo lectura";
+}
+
 /* ============================================================
    CARGAR BASE SAP
 ============================================================ */
@@ -333,6 +338,7 @@ echo json_encode([
     "empleado_tercer_conteo"   => $empleado_tercer_conteo,
     "estatus_tercer_conteo"    => $estatus_tercer_conteo,
     "estatus_global"           => $estatus_global,
+     "modo"                     => $modo,   
     "data"                     => $resultado
 ]);
 exit;

@@ -468,6 +468,20 @@ export default function CompararInventario() {
     }
   };
 
+  // === Determinar conteo activo según estatus ===
+  const getConteoActual = (item) => {
+    if (estatus === 3) return item.conteo3 ?? 0;
+    if (estatus === 2) return item.conteo2 ?? 0;
+    return item.conteo1 ?? 0; // estatus 1 por defecto
+  };
+
+  // === Diferencia SAP basada en conteo activo ===
+  const getDiferenciaSAP = (item) => {
+    const sap = item.cant_sap ?? 0;
+    const conteo = getConteoActual(item);
+    return Number((sap - conteo).toFixed(2));
+  };
+
 
 
 
@@ -490,7 +504,7 @@ export default function CompararInventario() {
       </h1>
 
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-      {!bloqueado && (
+      {!bloqueado && !esBrigada && (
         <div className="flex items-center gap-2">
           {["Primer Conteo", "Segundo Conteo", "Tercer Conteo"].map((label, index) => {
             const conteoNumero = index + 1;
@@ -761,13 +775,17 @@ export default function CompararInventario() {
                     {(item.cant_sap ?? 0).toFixed(2)}
                   </td>
 
-                  {/* SOLO mostrar el conteo asignado */}
+                  {/* Mi conteo (depende del estatus) */}
                   <td className="p-3 text-sm text-right bg-red-50 text-red-800 font-semibold">
-                    {(item.conteo1 ?? 0).toFixed(2)}
+                    {getConteoActual(item).toFixed(2)}
                   </td>
 
-                   <td className="p-3 text-sm text-right font-bold" style={{ color: getColor(item.diferencia) }}>
-                    {item.diferencia.toFixed(2)}
+                  {/* Diferencia SAP basada en conteo activo */}
+                  <td
+                    className="p-3 text-sm text-right font-bold"
+                    style={{ color: getColor(getDiferenciaSAP(item)) }}
+                  >
+                    {getDiferenciaSAP(item).toFixed(2)}
                   </td>
 
                   <td className="p-3 text-sm text-right bg-blue-50 text-blue-800 font-semibold">
