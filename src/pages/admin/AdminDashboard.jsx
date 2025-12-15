@@ -15,6 +15,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="flex h-screen bg-gray-100 font-sans relative overflow-hidden">
+
       {/* Botón hamburguesa visible solo en móvil */}
       <button
         className="lg:hidden fixed top-4 left-4 z-[60] bg-white p-2 rounded-md shadow-md border border-red-700"
@@ -28,19 +29,9 @@ export default function AdminDashboard() {
           stroke="currentColor"
         >
           {menuAbierto ? (
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           ) : (
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 6h16M4 12h16M4 18h16"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           )}
         </svg>
       </button>
@@ -64,6 +55,7 @@ export default function AdminDashboard() {
           </button>
         </div>
 
+        {/* Menú */}
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           {menuItems.map((item) => (
             <button
@@ -90,6 +82,7 @@ export default function AdminDashboard() {
         </div>
       </aside>
 
+      {/* Fondo oscuro cuando menú móvil está abierto */}
       {menuAbierto && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
@@ -97,6 +90,7 @@ export default function AdminDashboard() {
         ></div>
       )}
 
+      {/* CONTENIDO PRINCIPAL */}
       <main className="flex-1 p-10 overflow-y-auto transition-all duration-300 z-0">
         {vista === "inicio" && (
           <div className="flex flex-col items-center justify-center h-full">
@@ -114,10 +108,16 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
         {vista === "usuarios" && <Usuarios />}
         {vista === "control" && <Control />}
-        {vista === "mapa" && <Mapa />}
+
+        {/* 🔥 Pasamos drawerRootId → Mapa */}
+        {vista === "mapa" && <Mapa drawerRootId="drawer-root" />}
       </main>
+
+      {/* 🔥 CONTENEDOR GLOBAL PARA EL DRAWER (PORTAL) */}
+      <div id="drawer-root"></div>
     </div>
   );
 }

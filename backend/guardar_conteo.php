@@ -16,6 +16,8 @@ $nro_conteo    = isset($_POST['nro_conteo'])    ? intval($_POST['nro_conteo'])  
 $cantidad      = isset($_POST['cantidad'])      ? floatval($_POST['cantidad'])    : null;
 $usuario       = isset($_POST['usuario'])       ? trim($_POST['usuario'])         : null;
 
+
+
 // --- Validar parámetros obligatorios ---
 if ($id_inventario === null || $nro_conteo === null || $cantidad === null || $usuario === null) {
     echo json_encode(["success" => false, "error" => "Faltan parámetros"]);
@@ -65,7 +67,7 @@ $usuario_id = intval($rowUID['id']);
 $sqlBlock = "
     SELECT TOP 1 estatus
     FROM CAP_CONTEO_CONFIG
-    WHERE usuarios_asignados LIKE '%[$usuario_id]%'
+    WHERE usuarios_asignados LIKE '%$usuario_id%'
       AND estatus = 1
 ";
 $resBlock = mssql_query($sqlBlock, $conn);
@@ -84,7 +86,7 @@ if ($resBlock && mssql_num_rows($resBlock) > 0) {
 $sqlAsign = "
     SELECT TOP 1 nro_conteo
     FROM CAP_CONTEO_CONFIG
-    WHERE usuarios_asignados LIKE '%[$usuario_id]%'
+    WHERE usuarios_asignados LIKE '%$usuario_id%'
       AND estatus = 0
 ";
 $resAsign = mssql_query($sqlAsign, $conn);

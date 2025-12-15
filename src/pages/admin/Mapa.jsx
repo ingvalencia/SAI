@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { createPortal } from "react-dom";
+
 import axios from "axios";
 import Swal from "sweetalert2";
 import ExcelJS from "exceljs";
@@ -16,7 +18,7 @@ const coloresEstatus = {
 };
 
 
-export default function Mapa() {
+export default function Mapa({ drawerRootId }) {
   const [almacenes, setAlmacenes] = useState([]);
   const [cia, setCia] = useState("");
   const [fecha, setFecha] = useState("");
@@ -28,6 +30,11 @@ export default function Mapa() {
   const registrosPorPagina = 100;
 
   const [fechasDisponibles, setFechasDisponibles] = useState([]);
+
+  const [mostrarDrawer, setMostrarDrawer] = useState(false);
+  const [estatusInventario, setEstatusInventario] = useState(null);
+  const [tabActiva, setTabActiva] = useState("resumen");
+
 
   const fetchFechasDisponibles = async (ciaSeleccionada) => {
     const ciaActiva = ciaSeleccionada || cia;
@@ -133,12 +140,42 @@ export default function Mapa() {
       Swal.close();
 
       if (res.data.success) {
-        setDetalle(res.data.data);
-        setPaginaActual(1);
-        if (res.data.data.length === 0) {
-          Swal.fire("Sin datos", "No hay información para este almacén y fecha.", "info");
+      // 🔥 Guardar estatus del inventario
+      setEstatusInventario(res.data.estatus);
+
+      const detalleConFinal = res.data.data.map((item) => {
+        let conteo_final = 0;
+
+        if (item.conteo3 && item.conteo3 > 0) {
+          conteo_final = item.conteo3;
+        } else if (item.conteo2 && item.conteo2 > 0) {
+          conteo_final = item.conteo2;
+        } else {
+          conteo_final = item.conteo1;
         }
+
+        const sap_final = item.inventario_sap ?? 0;
+
+        // Diferencia para cierre: FÍSICO - SAP
+        const diferencia_cierre = (conteo_final ?? 0) - sap_final;
+
+        return {
+          ...item,
+          conteo_final,
+          sap_final,
+          diferencia_cierre,
+        };
+      });
+
+      setDetalle(detalleConFinal);
+      setPaginaActual(1);
+
+      if (res.data.data.length === 0) {
+        Swal.fire("Sin datos", "No hay información para este almacén y fecha.", "info");
       }
+    }
+
+
     } catch (err) {
       Swal.close();
       console.error("Error al obtener detalle:", err);
@@ -179,6 +216,52 @@ export default function Mapa() {
       );
     });
   }, [detalle, busqueda]);
+
+
+  const resumenCierre = useMemo(() => {
+    if (!detalle || detalle.length === 0) {
+      return {
+        totalItems: 0,
+        itemsConDiferencia: 0,
+        sobrantes: 0,
+        faltantes: 0,
+        ajusteTotalAbs: 0,
+      };
+    }
+
+    let totalItems = detalle.length;
+    let itemsConDiferencia = 0;
+    let sobrantes = 0; // fisico > sap
+    let faltantes = 0; // sap > fisico
+
+    detalle.forEach((d) => {
+      const dif = d.diferencia_cierre ?? 0;
+      if (dif !== 0) {
+        itemsConDiferencia++;
+        if (dif > 0) {
+          sobrantes += dif;
+        } else {
+          faltantes += Math.abs(dif);
+        }
+      }
+    });
+
+    return {
+      totalItems,
+      itemsConDiferencia,
+      sobrantes,
+      faltantes,
+      ajusteTotalAbs: sobrantes + faltantes,
+    };
+  }, [detalle]);
+
+  // Solo artículos con diferencia para el resumen
+  const filasDiferencias = useMemo(() => {
+    return detalle
+      .filter((d) => (d.diferencia_cierre ?? 0) !== 0)
+      .sort((a, b) => Math.abs(b.diferencia_cierre ?? 0) - Math.abs(a.diferencia_cierre ?? 0));
+  }, [detalle]);
+
 
   // === Paginación ===
   const indiceInicial = (paginaActual - 1) * registrosPorPagina;
@@ -252,11 +335,305 @@ export default function Mapa() {
       4: almacenes.filter(a => a.estatus === 4),
     };
 
+  const confirmarCierre = async () => {
+    const confirmar = await Swal.fire({
+      title: "¿Generar cierre oficial?",
+      text: "Esto consolidará los conteos y creará los ajustes SAP.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, generar cierre",
+      cancelButtonText: "Cancelar",
+    });
+
+    if (!confirmar.isConfirmed) return;
+
+    Swal.fire({
+      title: "Procesando...",
+      text: "Generando cierre del inventario...",
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+    });
+
+    try {
+      const res = await axios.get(
+        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/cerrar_inventario_admin.php",
+        {
+          params: {
+            cia,
+            almacen: almacenSeleccionado,
+            fecha,
+            usuario: sessionStorage.getItem("empleado"),
+          },
+        }
+      );
+
+      Swal.close();
+
+      if (!res.data.success) {
+        Swal.fire("Error", res.data.error, "error");
+        return;
+      }
+
+      Swal.fire("Éxito", "Cierre generado correctamente", "success");
+      setMostrarDrawer(false);
+      fetchDetalle();
+
+    } catch (e) {
+      Swal.close();
+      Swal.fire("Error", "No se pudo generar el cierre", "error");
+    }
+  };
+
+
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-3xl font-extrabold text-gray-900 mb-6">
         📊 Mapa de Operaciones
       </h1>
+
+    {mostrarDrawer &&
+      createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-start z-[600]">
+
+
+
+          <div className="w-full max-w-[1500px] h-screen bg-white shadow-2xl overflow-y-auto rounded-lg">
+
+            {/* HEADER */}
+            <div className="sticky top-0 bg-gray-100 p-5 shadow flex justify-between items-center border-b z-[650]">
+
+              <button
+                onClick={() => setMostrarDrawer(false)}
+                className="text-gray-600 text-lg hover:text-black"
+              >
+                ← Regresar
+              </button>
+
+              <h2 className="text-xl font-bold text-gray-800 text-center flex-1">
+                Cierre del Inventario – {almacenSeleccionado} – {fecha}
+              </h2>
+
+              <button
+                onClick={() => setMostrarDrawer(false)}
+                className="text-gray-600 text-xl hover:text-black"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* TABS */}
+            <div className="sticky top-[64px] bg-white border-b flex z-[650]">
+
+              <button
+                onClick={() => setTabActiva("resumen")}
+                className={`px-5 py-3 text-sm font-semibold ${
+                  tabActiva === "resumen"
+                    ? "border-b-4 border-red-600 text-red-700"
+                    : "text-gray-600 hover:text-black"
+                }`}
+              >
+                Resumen
+              </button>
+
+              <button
+                onClick={() => setTabActiva("detalle")}
+                className={`px-5 py-3 text-sm font-semibold ${
+                  tabActiva === "detalle"
+                    ? "border-b-4 border-red-600 text-red-700"
+                    : "text-gray-600 hover:text-black"
+                }`}
+              >
+                Detalle Completo
+              </button>
+            </div>
+
+            {/* CONTENIDO */}
+            <div className="p-8 bg-gray-50 min-h-[70vh]">
+
+              {tabActiva === "resumen" ? (
+                <>
+                  {/* CARDS KPI */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+
+                    <div className="bg-white rounded-lg shadow-md p-5">
+                      <p className="text-xs text-gray-500">Total artículos</p>
+                      <p className="text-3xl font-extrabold text-gray-800">
+                        {resumenCierre.totalItems}
+                      </p>
+                    </div>
+
+                    <div className="bg-white rounded-lg shadow-md p-5">
+                      <p className="text-xs text-gray-500">Artículos con diferencia</p>
+                      <p className="text-3xl font-extrabold text-gray-800">
+                        {resumenCierre.itemsConDiferencia}
+                      </p>
+                    </div>
+
+                    <div className="bg-white rounded-lg shadow-md p-5">
+                      <p className="text-xs text-gray-500">Sobrantes (unidades)</p>
+                      <p className="text-3xl font-extrabold text-green-700">
+                        {resumenCierre.sobrantes.toFixed(2)}
+                      </p>
+                    </div>
+
+                    <div className="bg-white rounded-lg shadow-md p-5">
+                      <p className="text-xs text-gray-500">Faltantes (unidades)</p>
+                      <p className="text-3xl font-extrabold text-red-700">
+                        {resumenCierre.faltantes.toFixed(2)}
+                      </p>
+                    </div>
+
+                  </div>
+
+                  {/* TABLA RESUMEN */}
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                      Artículos con diferencia (ordenados por impacto)
+                    </h3>
+
+                    {filasDiferencias.length === 0 ? (
+                      <p className="text-gray-500 text-sm">
+                        No hay diferencias en este inventario.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto max-h-[60vh]">
+                        <table className="min-w-full text-sm">
+                          <thead className="bg-gray-100 text-gray-700 uppercase text-xs">
+                            <tr>
+                              <th className="px-3 py-2 text-left">Código</th>
+                              <th className="px-3 py-2 text-left">Nombre</th>
+                              <th className="px-3 py-2 text-center">SAP</th>
+                              <th className="px-3 py-2 text-center">Físico</th>
+                              <th className="px-3 py-2 text-center">Diferencia</th>
+                              <th className="px-3 py-2 text-center">Ajuste</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y">
+                            {filasDiferencias.map((d, i) => {
+                              const dif = d.diferencia_cierre ?? 0;
+                              const tipo = dif > 0 ? "Entrada" : "Salida";
+
+                              return (
+                                <tr key={i} className="hover:bg-gray-50">
+                                  <td className="px-3 py-2 font-mono text-red-900">{d.codigo}</td>
+                                  <td className="px-3 py-2">{d.nombre}</td>
+                                  <td className="px-3 py-2 text-center">{d.sap_final}</td>
+                                  <td className="px-3 py-2 text-center">{d.conteo_final}</td>
+                                  <td className="px-3 py-2 text-center">{dif}</td>
+                                  <td className="px-3 py-2 text-center">
+                                    <span
+                                      className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                        dif > 0
+                                          ? "bg-green-100 text-green-800"
+                                          : "bg-red-100 text-red-800"
+                                      }`}
+                                    >
+                                      {tipo}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* DETALLE COMPLETO */}
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                      Detalle completo del inventario
+                    </h3>
+
+                    <div className="overflow-x-auto max-h-[65vh]">
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-gray-100 uppercase text-gray-700 text-xs">
+                          <tr>
+                            <th className="px-3 py-2 text-left">Código</th>
+                            <th className="px-3 py-2 text-left">Nombre</th>
+                            <th className="px-3 py-2 text-center">SAP</th>
+                            <th className="px-3 py-2 text-center">C1</th>
+                            <th className="px-3 py-2 text-center">C2</th>
+                            <th className="px-3 py-2 text-center">C3</th>
+                            <th className="px-3 py-2 text-center">Final</th>
+                            <th className="px-3 py-2 text-center">Dif</th>
+                            <th className="px-3 py-2 text-center">Ajuste</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y">
+                          {detalle.map((d, i) => {
+                            const dif = d.diferencia_cierre ?? 0;
+                            const tipo = dif > 0 ? "Entrada" : dif < 0 ? "Salida" : "-";
+
+                            return (
+                              <tr key={i} className="hover:bg-gray-50">
+                                <td className="px-3 py-2 font-mono text-red-900">{d.codigo}</td>
+                                <td className="px-3 py-2">{d.nombre}</td>
+                                <td className="px-3 py-2 text-center">{d.sap_final}</td>
+                                <td className="px-3 py-2 text-center">{d.conteo1}</td>
+                                <td className="px-3 py-2 text-center">{d.conteo2}</td>
+                                <td className="px-3 py-2 text-center">{d.conteo3}</td>
+                                <td className="px-3 py-2 text-center">{d.conteo_final}</td>
+                                <td className="px-3 py-2 text-center">{dif}</td>
+                                <td className="px-3 py-2 text-center">
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                      dif === 0
+                                        ? "bg-gray-100 text-gray-500"
+                                        : dif > 0
+                                        ? "bg-green-100 text-green-700"
+                                        : "bg-red-100 text-red-700"
+                                    }`}
+                                  >
+                                    {tipo}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              )}
+
+            </div>
+
+            {/* FOOTER */}
+            <div className="sticky bottom-0 bg-white p-5 shadow-lg flex justify-between items-center border-t z-[650]">
+
+              <div className="flex gap-4">
+                <button className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">
+                  Exportar PDF
+                </button>
+
+                <button className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">
+                  Exportar Excel
+                </button>
+              </div>
+
+              <button
+                className="px-5 py-3 bg-green-600 text-white rounded shadow hover:bg-green-700 text-sm font-semibold"
+                onClick={confirmarCierre}
+              >
+                Confirmar y Generar Cierre SAP
+              </button>
+            </div>
+
+          </div>
+
+        </div>,
+        document.body
+      )
+    }
+
+
+
 
       {/* Filtros */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 items-end">
@@ -420,6 +797,17 @@ export default function Mapa() {
             <h2 className="text-xl font-bold text-gray-800">
               🔎 Detalle: {almacenSeleccionado}
             </h2>
+
+            {estatusInventario === 4 && (
+              <button
+                onClick={() => setMostrarDrawer(true)}
+                className="px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-md"
+              >
+                Revisar Cierre del Inventario
+              </button>
+            )}
+
+
             <div className="flex gap-3">
               <button
                 onClick={exportarExcelMapa}

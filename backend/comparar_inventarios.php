@@ -214,7 +214,8 @@ if ($sp) {
 
         $base[$codigo] = [
             'ItemCode'   => $codigo,
-            'Itemname'   => $r['Nombre'],
+            'Itemname' => json_decode(json_encode($r['Nombre'], JSON_UNESCAPED_UNICODE)),
+
             'almacen'    => $r['Almacen'],
             'cias'       => $r['CIA'],
             'codebars'   => $r['CodeBars'],
@@ -338,7 +339,7 @@ echo json_encode([
     "empleado_tercer_conteo"   => $empleado_tercer_conteo,
     "estatus_tercer_conteo"    => $estatus_tercer_conteo,
     "estatus_global"           => $estatus_global,
-     "modo"                     => $modo,   
+     "modo"                     => $modo,
     "data"                     => $resultado
 ]);
 exit;

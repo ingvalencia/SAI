@@ -25,6 +25,16 @@ if (!$almacen || !$fecha || !$empleado || !$cia) {
   exit;
 }
 
+if ($nro_conteo == 4) {
+    echo json_encode([
+        'success' => false,
+        'modo'    => 'solo lectura',
+        'error'   => 'Conteos finalizados, ya no se permite hacer más conteos'
+    ]);
+    exit;
+}
+
+
 if ($nro_conteo < 1 || $nro_conteo > 3) {
   echo json_encode(['success' => false, 'error' => 'Número de conteo inválido']);
   exit;
@@ -127,7 +137,7 @@ if ($nro_conteo !== $nro_asignado) {
    5. VALIDACIÓN DE CIERRE FINAL
    ============================ */
 $sqlEstatus = "
-  SELECT TOP 1 usuario, estatus
+  SELECT MAX(estatus) AS estatus
   FROM CAP_INVENTARIO
   WHERE almacen = '$almacen_safe'
     AND fecha_inv = '$fecha'
@@ -137,18 +147,21 @@ $resEstatus = mssql_query($sqlEstatus, $conn);
 
 if ($resEstatus && $row = mssql_fetch_assoc($resEstatus)) {
   $estatus_inv = intval($row['estatus']);
-  $usuario_inv = intval($row['usuario']);
 
+  // Si el proceso ya está cerrado (4)
   if ($estatus_inv >= 4) {
+
     echo json_encode([
       'success'    => true,
       'modo'       => 'solo lectura',
-      'mensaje'    => '🔒 Modo: Solo lectura (proceso finalizado)',
-      'capturista' => $usuario_inv
+      'mensaje'    => 'Conteos finalizados, ya no se permite hacer más conteos',
+      'capturista' => $empleado,
+      'estatus'    => $estatus_inv
     ]);
     exit;
   }
 }
+
 
 /* ============================
    6. EJECUCIÓN DEL SP

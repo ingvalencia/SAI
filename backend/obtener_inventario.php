@@ -66,6 +66,7 @@ $sql = "
     AND fecha_inv = '$fecha'
     AND cias      = '$cia'
     AND usuario   = '$empleado'
+    AND estatus   = $estatus
 ";
 
 $res = mssql_query($sql, $conn);

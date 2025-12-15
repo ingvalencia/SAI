@@ -117,7 +117,7 @@ if ($esBrigada) {
 mssql_query("
     UPDATE CAP_INVENTARIO
     SET estatus=$estatus
-    WHERE almacen='$almacen' AND fecha_inv='$fecha' AND usuario='$empleado'
+    WHERE almacen='$almacen' AND fecha_inv='$fecha' AND usuario=$empleado
 ",$conn);
 
 // Comparación normal
@@ -149,13 +149,13 @@ if ($hay_diferencias) {
         mssql_query("
             UPDATE CAP_INVENTARIO
             SET estatus=$next_status
-            WHERE almacen='$almacen' AND fecha_inv='$fecha' AND usuario='$empleado'
+            WHERE almacen='$almacen' AND fecha_inv='$fecha' AND usuario=$empleado
         ",$conn);
 
         $q = mssql_query("
             SELECT id
             FROM CAP_INVENTARIO
-            WHERE almacen='$almacen' AND fecha_inv='$fecha' AND usuario='$empleado'
+            WHERE almacen='$almacen' AND fecha_inv='$fecha' AND usuario=$empleado
         ",$conn);
 
         while($r = mssql_fetch_assoc($q)) {
@@ -173,7 +173,7 @@ if ($hay_diferencias) {
         mssql_query("
             UPDATE CAP_INVENTARIO
             SET estatus=4
-            WHERE almacen='$almacen' AND fecha_inv='$fecha' AND usuario='$empleado'
+            WHERE almacen='$almacen' AND fecha_inv='$fecha' AND usuario=$empleado
         ",$conn);
 
         $next_status = 4;
@@ -189,7 +189,7 @@ else {
     mssql_query("
         UPDATE CAP_INVENTARIO
         SET estatus=4
-        WHERE almacen='$almacen' AND fecha_inv='$fecha' AND usuario='$empleado'
+        WHERE almacen='$almacen' AND fecha_inv='$fecha' AND usuario=$empleado
     ",$conn);
 
     $next_status = 4;

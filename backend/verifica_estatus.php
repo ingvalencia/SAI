@@ -38,7 +38,7 @@ if (!$conn) {
 mssql_select_db($db, $conn);
 
 /* ============================================================
-   PASO 1: Obtener estatus mayor en CAP_INVENTARIO (1,2,3,4)
+   PASO 1: Obtener estatus mayor en CAP_INVENTARIO
 ============================================================ */
 $query = "
   SELECT MAX(estatus) AS estatus
@@ -50,17 +50,13 @@ $query = "
 ";
 
 $result = mssql_query($query, $conn);
-if (!$result) {
-  echo json_encode(["success" => false, "error" => "Error en consulta: " . mssql_get_last_message()]);
-  exit;
-}
-
 $row = mssql_fetch_assoc($result);
+
 $estatus = isset($row['estatus']) ? intval($row['estatus']) : 0;
 if ($estatus < 1) $estatus = 0;
 
 /* ============================================================
-   PASO 2: Leer configuración normal del inventario
+   PASO 2: (solo informativo)
 ============================================================ */
 $queryConfig = "
   SELECT a.conteo
@@ -73,17 +69,11 @@ $queryConfig = "
 ";
 
 $resConfig = mssql_query($queryConfig, $conn);
-if (!$resConfig) {
-  echo json_encode(["success" => false, "error" => "Error al consultar configuración: " . mssql_get_last_message()]);
-  exit;
-}
-
 $rowConfig = mssql_fetch_assoc($resConfig);
 $conteo_config = isset($rowConfig['conteo']) ? intval($rowConfig['conteo']) : 0;
 
 /* ============================================================
-   PASO 3 (NUEVO): SI EXISTE CONTEO 3 EN CAP_CONTEO_CONFIG,
-   entonces NO aplicar validación del administrador.
+   PASO 3: Ver si existe asignación de tercer conteo
 ============================================================ */
 $sqlCheck3 = "
   SELECT TOP 1 nro_conteo
@@ -95,34 +85,70 @@ $sqlCheck3 = "
 ";
 
 $resCheck3 = mssql_query($sqlCheck3, $conn);
-
-if ($resCheck3 && mssql_num_rows($resCheck3) > 0) {
-    // Tercer conteo manual ya fue asignado -> permitir acceso
-    echo json_encode([
-        "success" => true,
-        "estatus" => $estatus
-    ]);
-    exit;
-}
+$existe_config_tercer_conteo = ($resCheck3 && mssql_num_rows($resCheck3) > 0);
 
 /* ============================================================
-   PASO 4: Validación original del administrador (casos normales)
+   NUEVA LÓGICA:
+   Validar si el conteo correspondiente YA EXISTE
 ============================================================ */
 
-if ($estatus > $conteo_config && $estatus !== 1 && $estatus !== 4) {
-  echo json_encode([
-    "success" => false,
-    "error"   => "Administrador aun no autoriza este conteo"
-  ]);
-  exit;
-}
+/*
+   - estatus = 0 → todavía no comienza → conteo 1
+   - estatus = 1 → terminó conteo 1 → ahora toca conteo 2
+   - estatus = 2 → terminó conteo 2 → ahora toca conteo 3
+*/
+// Obtener ID interno del usuario
+$sqlUser = "SELECT TOP 1 id FROM usuarios WHERE empleado = '$empleado'";
+$resUser = mssql_query($sqlUser, $conn);
+$rowUser = mssql_fetch_assoc($resUser);
+$usuario_id = intval($rowUser['id']);
+
+// Obtener conteo asignado correcto
+$sqlAsig = "
+  SELECT TOP 1 nro_conteo
+  FROM CAP_CONTEO_CONFIG
+  WHERE almacen='$almacen'
+    AND cia='$cia'
+    AND estatus IN (0,1)
+    AND usuarios_asignados LIKE '%[$usuario_id]%'
+";
+
+$resAsig = mssql_query($sqlAsig, $conn);
+$rowAsig = mssql_fetch_assoc($resAsig);
+
+$nro_conteo_actual = intval($rowAsig['nro_conteo']);
+
+
+if ($nro_conteo_actual > 3) $nro_conteo_actual = 3;
+
+$sqlCheckConteo = "
+    SELECT COUNT(*) AS total
+    FROM CAP_INVENTARIO_CONTEOS
+    WHERE usuario = '$empleado'
+      AND nro_conteo = $nro_conteo_actual
+      AND id_inventario IN (
+            SELECT id
+            FROM CAP_INVENTARIO
+            WHERE almacen = '$almacen'
+              AND fecha_inv = '$fecha'
+              AND cias = '$cia'
+        )
+";
+
+$resConteos = mssql_query($sqlCheckConteo, $conn);
+$rowConteos = mssql_fetch_assoc($resConteos);
+
+$existe_conteo_actual = intval($rowConteos['total']) > 0;
 
 /* ============================================================
    RESPUESTA FINAL
 ============================================================ */
 echo json_encode([
-  "success" => true,
-  "estatus" => $estatus
+  "success"                => true,
+  "estatus"                => $estatus,
+  "nro_conteo"             => $nro_conteo_actual,
+  "existe_conteo"          => $existe_conteo_actual,
+  "config_tercer_conteo"   => $existe_config_tercer_conteo
 ]);
 exit;
 ?>

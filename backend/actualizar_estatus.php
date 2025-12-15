@@ -21,10 +21,17 @@ $fecha    = isset($_POST['fecha'])    ? $_POST['fecha']    : null;
 $empleado = isset($_POST['empleado']) ? intval($_POST['empleado']) : null;
 $estatus  = isset($_POST['estatus'])  ? intval($_POST['estatus'])  : null;
 
-if (!$almacen || !$fecha || !$empleado || !$estatus) {
+
+if (!$almacen || !$fecha || !$empleado || !$estatus ) {
   echo json_encode(['success' => false, 'error' => 'Faltan parámetros requeridos']);
   exit;
 }
+
+// Normalizar fecha a formato SQL
+$fecha = date("Y-m-d", strtotime($fecha));
+
+$alm_safe = addslashes($almacen);
+
 
 // ============================
 // Conexión
@@ -42,19 +49,40 @@ if (!$conn) {
 mssql_select_db($db, $conn);
 
 // ============================
+// Obtener id interno del usuario
+// ============================
+$sqlUser = "SELECT TOP 1 id FROM usuarios WHERE empleado = $empleado";
+$resUser = mssql_query($sqlUser, $conn);
+
+if (!$resUser || mssql_num_rows($resUser) === 0) {
+  echo json_encode(['success' => false, 'error' => 'Empleado no encontrado en tabla usuarios']);
+  exit;
+}
+
+$rowUser    = mssql_fetch_assoc($resUser);
+$usuario_id = intval($rowUser['id']);
+
+// ============================
 // Actualizar estatus en CAP_INVENTARIO
 // ============================
-$sql = "
-  UPDATE CAP_INVENTARIO
-  SET estatus = $estatus
-  WHERE almacen = '" . addslashes($almacen) . "'
-    AND fecha_inv = '" . addslashes($fecha) . "'
-    AND usuario = $empleado
-";
-$res = mssql_query($sql, $conn);
 
-if (!$res) {
-  error_log("Error SQL actualizar_estatus: " . mssql_get_last_message());
+
+// ============================
+// Actualizar CAP_CONTEO_CONFIG (modo individual)
+// Se asume un solo registro activo (estatus=0) por usuario/almacén/cia
+// ============================
+$sqlCfg = "
+  UPDATE CAP_CONTEO_CONFIG
+  SET nro_conteo = $estatus
+  WHERE
+     almacen          = '$alm_safe'
+    AND tipo_conteo      = 'Individual'
+    AND usuarios_asignados LIKE '%[$usuario_id]%'
+";
+$resCfg = mssql_query($sqlCfg, $conn);
+
+if (!$resCfg) {
+  error_log("Error SQL actualizar_estatus CAP_CONTEO_CONFIG: " . mssql_get_last_message());
   echo json_encode(['success' => false, 'error' => mssql_get_last_message()]);
   exit;
 }

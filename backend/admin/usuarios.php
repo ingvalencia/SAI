@@ -21,28 +21,53 @@ mssql_query("SET ANSI_PADDING ON", $conn);
 // Cargar usuarios con info de rol
 $query = "
 SELECT
-  u.id,
-  u.empleado,
-  u.nombre,
-  u.email,
-  ur.rol_id,
-  r.nombre AS rol_nombre,
-  u.activo,
-  u.creado_por,
-  creador.nombre AS responsable_nombre,
-  ISNULL((
-    SELECT STUFF((
-      SELECT ',' + ul.local_codigo
-      FROM usuario_local ul
-      WHERE ul.usuario_id = u.id AND ul.activo = 1
-      FOR XML PATH(''), TYPE
-    ).value('.', 'NVARCHAR(MAX)'), 1, 1, '')
-  ), '') AS locales_csv
+    u.id,
+    u.empleado,
+    u.nombre,
+    u.email,
+    ur.rol_id,
+    r.nombre AS rol_nombre,
+    u.activo,
+
+    ISNULL(CAST(u.creado_por AS VARCHAR(50)), 'Sin asignación') AS creado_por,
+
+    ISNULL(creador.nombre, 'Sin asignación') AS responsable_nombre,
+
+    ISNULL(cfg.tipo_conteo, 'Sin asignación') AS tipo_conteo,
+
+    CASE
+        WHEN cfg.nro_conteo = 4 THEN 'Finalizado'
+        WHEN cfg.nro_conteo IS NULL THEN 'Sin asignación'
+        ELSE CAST(cfg.nro_conteo AS VARCHAR(10))
+    END AS nro_conteo,
+
+    ISNULL((
+        SELECT STUFF(
+            (
+                SELECT ',' + c2.almacen
+                FROM CAP_CONTEO_CONFIG c2
+                WHERE c2.usuarios_asignados LIKE '%[' + CAST(u.id AS VARCHAR(10)) + ']%'
+                  AND c2.estatus IN (0,1,4)
+                FOR XML PATH(''), TYPE
+            ).value('.', 'NVARCHAR(MAX)')
+        ,1,1,'')
+    ), 'Sin asignación') AS locales_csv
+
 FROM usuarios u
-LEFT JOIN usuario_rol ur ON ur.usuario_id = u.id
-LEFT JOIN roles r ON r.id = ur.rol_id
-LEFT JOIN usuarios creador ON creador.empleado = u.creado_por
+LEFT JOIN usuario_rol ur
+       ON ur.usuario_id = u.id
+LEFT JOIN roles r
+       ON r.id = ur.rol_id
+LEFT JOIN usuarios creador
+       ON creador.empleado = u.creado_por
+LEFT JOIN CAP_CONTEO_CONFIG cfg
+       ON cfg.usuarios_asignados LIKE '%[' + CAST(u.id AS VARCHAR(10)) + ']%'
+      AND cfg.estatus IN (0,1,4)
+
 ORDER BY u.empleado;
+
+
+;
 ";
 
 $res = mssql_query($query, $conn);
@@ -63,6 +88,8 @@ while ($row = mssql_fetch_assoc($res)) {
     'activo'   => (int)$row['activo'],
     'creado_por'=> $row['creado_por'],
     'responsable_nombre'=> $row['responsable_nombre'],
+    'tipo_conteo' => $row['tipo_conteo'],
+    'nro_conteo'  => $row['nro_conteo'],
     'locales'  => array_map('trim', $locales)
   ];
 }

@@ -306,7 +306,24 @@ export default function CapturaInventario() {
     if (!estatusRes.data.success)
       throw new Error(estatusRes.data.error);
 
-    // 👇 ESTE ES EL CAMBIO CLAVE:
+    // ======================================================
+    // Si ya existe el conteo, NO capturar.
+    // Redirigir DIRECTO a comparar.
+    // ======================================================
+    if (estatusRes.data.existe_conteo === true) {
+      Swal.close();
+      return navigate("/comparar", {
+        state: {
+          almacen: alm,
+          fecha: fecISO,
+          empleado: emp,
+          cia,
+          estatus: estatusRes.data.nro_conteo
+        },
+      });
+    }
+
+    //  ESTE ES EL CAMBIO CLAVE:
     // Si hay asignación, NO usamos lo que diga la BD
     let estatusReal = nroAsignado; // 1 o 2 según asignación
 
@@ -316,7 +333,25 @@ export default function CapturaInventario() {
     }
 
     setEstatus(estatusReal);
-    console.log("📌 Estatus/nro_conteo que se usará:", estatusReal);
+    if (estatusReal >= 4) {
+        Swal.close();
+        await MySwal.fire({
+          icon: "info",
+          title: "Proceso finalizado",
+          text: "Los conteos están cerrados. Ya no puedes capturar inventario.",
+          confirmButtonText: "OK",
+        });
+
+        return navigate("/comparar", {
+          state: {
+            almacen: alm,
+            fecha: fecISO,
+            empleado: emp,
+            cia,
+            estatus: estatusReal,
+          },
+        });
+      }
 
     // =======================
     // 2️ Consultar modo de captura
@@ -438,7 +473,9 @@ export default function CapturaInventario() {
   try {
     const form = new FormData();
     form.append("id_inventario", item.id);
-    form.append("nro_conteo", estatus);
+    form.append("nro_conteo", asignacionCargada ? parseInt(nroConteo) : parseInt(estatus));
+
+
     form.append("cantidad", cantidad === "" ? 0 : parseInt(cantidad, 10));
     form.append("usuario", empleado);
 
@@ -487,8 +524,11 @@ export default function CapturaInventario() {
   if (!confirmacion.isConfirmed) return;
 
   // 3️ Configuración inicial
-  const estatusFinal = estatus === 0 ? 1 : estatus;
-  const loteTamaño = 200; // 🔹 Lotes pequeños para estabilidad
+  const estatusFinal = asignacionCargada ? nroConteo : estatus;
+
+  //console.log(">>> Enviando estatusFinal:", estatusFinal, "nroConteo:", nroConteo, "estatus:", estatus);
+
+  const loteTamaño = 200; // Lotes pequeños para estabilidad
   const lotes = [];
   for (let i = 0; i < datos.length; i += loteTamaño) {
     lotes.push(datos.slice(i, i + loteTamaño));
@@ -536,7 +576,9 @@ export default function CapturaInventario() {
       payload.append("fecha", fecEf);
       payload.append("empleado", empEf);
       payload.append("cia", cia);
-      payload.append("estatus", estatusFinal);
+      payload.append("estatus", asignacionCargada ? parseInt(nroConteo) : parseInt(estatusFinal));
+
+
       payload.append("datos", JSON.stringify(lotes[i]));
 
       const res = await axios.post(
@@ -581,7 +623,9 @@ export default function CapturaInventario() {
         fecha: p.fecha,
         empleado: p.empleado,
         cia: p.cia,
-        estatus: estatusFinal,
+        estatus: asignacionCargada ? parseInt(nroConteo) : parseInt(estatusFinal),
+
+
       };
     })(),
   });

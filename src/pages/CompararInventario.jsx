@@ -301,21 +301,21 @@ export default function CompararInventario() {
 
   // Función para confirmar diferencias
   const confirmarDiferencia = async () => {
-    const resultado = await Swal.fire({
-      title: "¿Confirmar diferencias?",
-      text: "¿Deseas confirmar las diferencias proporcionadas?",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Sí, confirmar",
-      cancelButtonText: "No estoy de acuerdo",
-    });
+  const resultado = await Swal.fire({
+    title: "¿Confirmar diferencias?",
+    text: "¿Deseas confirmar las diferencias proporcionadas?",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Sí, confirmar",
+    cancelButtonText: "No estoy de acuerdo",
+  });
 
-    if (!resultado.isConfirmed) {
-      Swal.fire("Cancelado", "Debe completar el proceso para continuar.", "info");
-      return;
-    }
+  if (!resultado.isConfirmed) {
+    Swal.fire("Cancelado", "Debe completar el proceso para continuar.", "info");
+    return;
+  }
 
-    try {
+  try {
     Swal.fire({
       title: "Procesando...",
       text: "Por favor espera",
@@ -328,10 +328,12 @@ export default function CompararInventario() {
     formData.append("fecha", fecha);
     formData.append("empleado", empleado);
     formData.append("cia", cia);
-    formData.append("estatus", estatus);
+
+    //
+    formData.append("estatus", resGlobal.nro_conteo);
 
     const res = await axios.post(
-      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/confirmar_inventario.php",
+      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/cerrar_inventario.php",
       formData
     );
 
@@ -339,7 +341,7 @@ export default function CompararInventario() {
 
     if (!res.data.success) throw new Error(res.data.error);
 
-    const { mensaje, next_status, hay_diferencias } = res.data;
+    const { mensaje, next_status } = res.data;
 
     await Swal.fire({
       title: "Confirmado",
@@ -356,12 +358,12 @@ export default function CompararInventario() {
       setDiferenciaConfirmada(true);
       setEstatus(4);
     }
-    } catch (error) {
-      Swal.close();
-      Swal.fire("Error", error.message, "error");
-    }
+  } catch (error) {
+    Swal.close();
+    Swal.fire("Error", error.message, "error");
+  }
+};
 
-  };
 
 
   function getColor(diferencia) {
@@ -469,11 +471,20 @@ export default function CompararInventario() {
   };
 
   // === Determinar conteo activo según estatus ===
-  const getConteoActual = (item) => {
-    if (estatus === 3) return item.conteo3 ?? 0;
-    if (estatus === 2) return item.conteo2 ?? 0;
-    return item.conteo1 ?? 0; // estatus 1 por defecto
-  };
+    const getConteoActual = (item) => {
+
+      // 🟦 Caso Brigada: manejo normal con conteo1/conteo2/conteo3
+      if (esBrigada) {
+        if (estatus === 3) return item.conteo3 ?? 0;
+        if (estatus === 2) return item.conteo2 ?? 0;
+        return item.conteo1 ?? 0;
+      }
+
+      // 🟥 Caso Individual:
+      // El backend SIEMPRE manda el conteo del usuario en conteo_mio → que guardaste como conteo1.
+      return item.conteo1 ?? 0;
+    };
+
 
   // === Diferencia SAP basada en conteo activo ===
   const getDiferenciaSAP = (item) => {
@@ -734,8 +745,13 @@ export default function CompararInventario() {
                 {/* SOLO mostrar el conteo activo */}
                 <th className="p-3 text-right">Mi conteo</th>
                 <th className="p-3 text-right">Diferencia SAP</th>
-                <th className="p-3 text-right">Conteo compañero</th>
-                <th className="p-3 text-right">Dif. Brigada</th>
+                {esBrigada && (
+                  <>
+                    <th className="p-3 text-right">Conteo compañero</th>
+                    <th className="p-3 text-right">Dif. Brigada</th>
+                  </>
+                )}
+
 
               </tr>
             </thead>
@@ -788,15 +804,19 @@ export default function CompararInventario() {
                     {getDiferenciaSAP(item).toFixed(2)}
                   </td>
 
-                  <td className="p-3 text-sm text-right bg-blue-50 text-blue-800 font-semibold">
-                    {(item.conteo2 ?? 0).toFixed(2)}
-                  </td>
+                  {esBrigada && (
+                    <>
+                      <td className="p-3 text-sm text-right bg-blue-50 text-blue-800 font-semibold">
+                        {(item.conteo2 ?? 0).toFixed(2)}
+                      </td>
 
+                      <td className="p-3 text-sm text-right font-bold"
+                          style={{ color: item.diferenciaBrigada === 0 ? "green" : "red" }}>
+                        {item.diferenciaBrigada.toFixed(2)}
+                      </td>
+                    </>
+                  )}
 
-                  <td className="p-3 text-sm text-right font-bold"
-                      style={{ color: item.diferenciaBrigada === 0 ? "green" : "red" }}>
-                    {item.diferenciaBrigada.toFixed(2)}
-                  </td>
 
 
                 </tr>

@@ -5,6 +5,11 @@ header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 header('Content-Type: application/json');
 
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+  http_response_code(200);
+  exit;
+}
+
 // === PARÁMETROS ===
 $cia = isset($_GET['cia']) ? trim($_GET['cia']) : null;
 
@@ -26,22 +31,25 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-// === CONSULTA DE FECHAS CON SU CONTEO MÁXIMO (JOIN) ===
+// ==========================================================
+// NUEVA CONSULTA basada en CAP_CONTEO_CONFIG
+// ==========================================================
 $query = "
   SELECT
-    CONVERT(VARCHAR(10), ci.fecha_gestion, 23) AS fecha_gestion,
-    MAX(cia.conteo) AS conteo_maximo
-  FROM configuracion_inventario ci
-  INNER JOIN configuracion_inventario_almacenes cia
-    ON ci.id = cia.configuracion_id
-  WHERE ci.cia = '$cia'
-  GROUP BY ci.fecha_gestion
-  ORDER BY ci.fecha_gestion DESC
+      CONVERT(VARCHAR(10), fecha_asignacion, 23) AS fecha,
+      MAX(nro_conteo) AS conteo_maximo
+  FROM CAP_CONTEO_CONFIG
+  WHERE cia = '$cia'
+  GROUP BY fecha_asignacion
+  ORDER BY fecha_asignacion DESC
 ";
 
 $res = mssql_query($query, $conn);
 if (!$res) {
-  echo json_encode(["success" => false, "error" => "Error en SQL: " . mssql_get_last_message()]);
+  echo json_encode([
+    "success" => false,
+    "error"   => "Error en SQL: " . mssql_get_last_message()
+  ]);
   exit;
 }
 
@@ -49,7 +57,7 @@ if (!$res) {
 $fechas = [];
 while ($row = mssql_fetch_assoc($res)) {
   $fechas[] = [
-    "fecha"  => $row['fecha_gestion'],
+    "fecha"  => $row['fecha'],
     "conteo" => (int)$row['conteo_maximo']
   ];
 }
