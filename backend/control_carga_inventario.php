@@ -25,17 +25,7 @@ if (!$almacen || !$fecha || !$empleado || !$cia) {
   exit;
 }
 
-if ($nro_conteo == 4) {
-    echo json_encode([
-        'success' => false,
-        'modo'    => 'solo lectura',
-        'error'   => 'Conteos finalizados, ya no se permite hacer más conteos'
-    ]);
-    exit;
-}
-
-
-if ($nro_conteo < 1 || $nro_conteo > 3) {
+if (!in_array($nro_conteo, [1,2,3,7], true)) {
   echo json_encode(['success' => false, 'error' => 'Número de conteo inválido']);
   exit;
 }

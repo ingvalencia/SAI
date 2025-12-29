@@ -333,7 +333,7 @@ export default function CapturaInventario() {
     }
 
     setEstatus(estatusReal);
-    if (estatusReal >= 4) {
+    if (estatusReal >= 4  && estatusReal !== 7) {
         Swal.close();
         await MySwal.fire({
           icon: "info",
@@ -958,8 +958,9 @@ const handleCodigoDetectado = async (codigo) => {
               <strong>Tipo de captura:</strong> {tipoConteo}
             </p>
             <p className="text-sm text-gray-700">
-              <strong>Conteo asignado:</strong> {nroConteo}
+              <strong>Conteo asignado:</strong> {Number(nroConteo) === 7 ? "Cuarto conteo" : nroConteo}
             </p>
+
             <p className="text-sm text-gray-700">
               <strong>CIA:</strong> {ciaAsignada}
             </p>

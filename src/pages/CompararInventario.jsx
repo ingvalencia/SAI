@@ -40,6 +40,8 @@ export default function CompararInventario() {
   const [nroConteoMio, setNroConteoMio] = useState(1);
   const [nroConteoComp, setNroConteoComp] = useState(2);
   const [bloqueado, setBloqueado] = useState(false);
+  const [mostrarCuartoConteo, setMostrarCuartoConteo] = useState(false);
+
 
 
 
@@ -251,6 +253,13 @@ export default function CompararInventario() {
           // 🔹 Estatus activo
           const estatusActual = res.data.nro_conteo ? Number(res.data.nro_conteo) : 1;
           setEstatus(estatusActual);
+
+          const hayDifVsSap =
+            (res.data.hay_dif_mio_vs_sap == true || res.data.hay_dif_mio_vs_sap == "1") ||
+            (res.data.hay_dif_comp_vs_sap == true || res.data.hay_dif_comp_vs_sap == "1");
+
+          setMostrarCuartoConteo(estatusActual === 3 && hayDifVsSap && !bloqueado);
+
 
           // 🔹 Marcar brigada
           setEsBrigada(esBrig);
@@ -493,10 +502,48 @@ export default function CompararInventario() {
     return Number((sap - conteo).toFixed(2));
   };
 
+ const iniciarCuartoConteo = async () => {
+    // Solo si vienes de conteo 3
+    if (estatus !== 3) {
+      Swal.fire("No permitido", "El cuarto conteo solo se puede iniciar después del tercer conteo.", "warning");
+      return;
+    }
 
+    const confirm = await Swal.fire({
+      title: "¿Iniciar cuarto conteo?",
+      text: "Se capturará nuevamente SOLO lo que sigue diferente vs SAP.",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí",
+      cancelButtonText: "Cancelar",
+    });
 
+    if (!confirm.isConfirmed) return;
 
+    try {
+      Swal.fire({ title: "Procesando...", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
+      const formData7 = new FormData();
+      formData7.append("almacen", almacen);
+      formData7.append("fecha", fecha);
+      formData7.append("empleado", empleado);
+      formData7.append("estatus", 7);
+
+      await axios.post(
+        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/actualizar_estatus.php",
+        formData7
+      );
+
+      Swal.close();
+
+      navigate("/captura", {
+        state: { almacen, fecha, cia, empleado, estatus: 7 },
+      });
+    } catch (e) {
+      Swal.close();
+      Swal.fire("Error", "No se pudo iniciar el cuarto conteo.", "error");
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto p-6">
@@ -508,6 +555,8 @@ export default function CompararInventario() {
             ? "Segundo Conteo"
             : estatus === 3
             ? "Tercer Conteo"
+            : estatus === 7
+            ? "Cuarto Conteo"
             : estatus === 4
             ? "Diferencia Confirmada"
             : "Sin Estatus"
@@ -632,7 +681,7 @@ export default function CompararInventario() {
           })}
         </div>
       )}
-        {!bloqueado && !diferenciaConfirmada && (
+        {((!bloqueado && !diferenciaConfirmada) || estatus === 7) && (
           <button
             onClick={confirmarDiferencia}
             className="px-3 py-1 rounded-full text-sm font-semibold bg-yellow-500 text-white hover:bg-yellow-600 transition"
@@ -723,7 +772,19 @@ export default function CompararInventario() {
           >
             Iniciar Tercer Conteo
           </button>
+
+
         )}
+
+        {!bloqueado && mostrarCuartoConteo && (
+          <button
+            onClick={iniciarCuartoConteo}
+            className="px-4 py-2 rounded-lg text-sm font-semibold bg-fuchsia-200 text-fuchsia-900 hover:bg-fuchsia-300 transition shadow-sm"
+          >
+            Iniciar Cuarto Conteo
+          </button>
+        )}
+
 
 
       </div>

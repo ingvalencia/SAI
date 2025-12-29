@@ -71,14 +71,26 @@ $usuario_id = intval($rowUser['id']);
 // Actualizar CAP_CONTEO_CONFIG (modo individual)
 // Se asume un solo registro activo (estatus=0) por usuario/almacén/cia
 // ============================
+// ============================
+// CAPTURAR CIA SI VIENE (NO OBLIGATORIA PARA NO ROMPER LO ACTUAL)
+// ============================
+$cia = isset($_POST['cia']) ? trim($_POST['cia']) : null;
+$cia_safe = $cia ? addslashes($cia) : null;
+
+// ============================
+// Actualizar CAP_CONTEO_CONFIG (Individual o Brigada)
+// ============================
+$whereCia = $cia_safe ? " AND cia = '$cia_safe' " : "";
+
 $sqlCfg = "
   UPDATE CAP_CONTEO_CONFIG
   SET nro_conteo = $estatus
-  WHERE
-     almacen          = '$alm_safe'
-    AND tipo_conteo      = 'Individual'
+  WHERE almacen = '$alm_safe'
+    $whereCia
     AND usuarios_asignados LIKE '%[$usuario_id]%'
+    AND estatus IN (0,1)
 ";
+
 $resCfg = mssql_query($sqlCfg, $conn);
 
 if (!$resCfg) {
@@ -86,6 +98,17 @@ if (!$resCfg) {
   echo json_encode(['success' => false, 'error' => mssql_get_last_message()]);
   exit;
 }
+
+// VALIDAR QUE SÍ ACTUALIZÓ ALGO
+$afectadas = mssql_rows_affected($conn);
+if ($afectadas <= 0) {
+  echo json_encode([
+    'success' => false,
+    'error' => 'No se actualizó CAP_CONTEO_CONFIG (0 filas). Valida cia/almacen/usuarios_asignados.'
+  ]);
+  exit;
+}
+
 
 // ============================
 // Respuesta

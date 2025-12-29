@@ -118,8 +118,11 @@ $rowAsig = mssql_fetch_assoc($resAsig);
 
 $nro_conteo_actual = intval($rowAsig['nro_conteo']);
 
+// Permitir 1,2,3 y 7 (cuarto conteo). Todo lo demás cae a 3 por seguridad.
+if (!in_array($nro_conteo_actual, [1,2,3,7], true)) {
+  $nro_conteo_actual = 3;
+}
 
-if ($nro_conteo_actual > 3) $nro_conteo_actual = 3;
 
 $sqlCheckConteo = "
     SELECT COUNT(*) AS total
@@ -132,6 +135,7 @@ $sqlCheckConteo = "
             WHERE almacen = '$almacen'
               AND fecha_inv = '$fecha'
               AND cias = '$cia'
+              
         )
 ";
 
