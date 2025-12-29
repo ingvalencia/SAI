@@ -30,7 +30,6 @@ SELECT
     u.activo,
 
     ISNULL(CAST(u.creado_por AS VARCHAR(50)), 'Sin asignación') AS creado_por,
-
     ISNULL(creador.nombre, 'Sin asignación') AS responsable_nombre,
 
     ISNULL(cfg.tipo_conteo, 'Sin asignación') AS tipo_conteo,
@@ -41,17 +40,7 @@ SELECT
         ELSE CAST(cfg.nro_conteo AS VARCHAR(10))
     END AS nro_conteo,
 
-    ISNULL((
-        SELECT STUFF(
-            (
-                SELECT ',' + c2.almacen
-                FROM CAP_CONTEO_CONFIG c2
-                WHERE c2.usuarios_asignados LIKE '%[' + CAST(u.id AS VARCHAR(10)) + ']%'
-                  AND c2.estatus IN (0,1,4)
-                FOR XML PATH(''), TYPE
-            ).value('.', 'NVARCHAR(MAX)')
-        ,1,1,'')
-    ), 'Sin asignación') AS locales_csv
+    ISNULL(cfg.almacen, 'Sin asignación') AS locales_csv
 
 FROM usuarios u
 LEFT JOIN usuario_rol ur
@@ -60,9 +49,19 @@ LEFT JOIN roles r
        ON r.id = ur.rol_id
 LEFT JOIN usuarios creador
        ON creador.empleado = u.creado_por
-LEFT JOIN CAP_CONTEO_CONFIG cfg
-       ON cfg.usuarios_asignados LIKE '%[' + CAST(u.id AS VARCHAR(10)) + ']%'
-      AND cfg.estatus IN (0,1,4)
+
+OUTER APPLY (
+    SELECT TOP 1
+        c.tipo_conteo,
+        c.nro_conteo,
+        c.almacen
+    FROM CAP_CONTEO_CONFIG c
+    WHERE c.usuarios_asignados = '[' + CAST(u.id AS VARCHAR(10)) + ']'
+      AND c.estatus IN (0,1,4)
+    ORDER BY
+        CASE WHEN c.tipo_conteo = 'Individual' THEN 1 ELSE 2 END,
+        c.nro_conteo DESC
+) cfg
 
 ORDER BY u.empleado;
 

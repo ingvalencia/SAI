@@ -791,23 +791,30 @@ export default function CompararInventario() {
                     {(item.cant_sap ?? 0).toFixed(2)}
                   </td>
 
-                  {/* Mi conteo (depende del estatus) */}
-                  <td className="p-3 text-sm text-right bg-red-50 text-red-800 font-semibold">
-                    {getConteoActual(item).toFixed(2)}
-                  </td>
+              {(() => {
+                    const miConteo = Number(item.conteo_mio ?? item.conteo1 ?? 0);
+                    const difSapMiConteo = Number(((item.cant_sap ?? 0) - miConteo).toFixed(2));
 
-                  {/* Diferencia SAP basada en conteo activo */}
-                  <td
-                    className="p-3 text-sm text-right font-bold"
-                    style={{ color: getColor(getDiferenciaSAP(item)) }}
-                  >
-                    {getDiferenciaSAP(item).toFixed(2)}
-                  </td>
+                    return (
+                      <>
+                        <td className="p-3 text-sm text-right bg-red-50 text-red-800 font-semibold">
+                          {miConteo.toFixed(2)}
+                        </td>
+
+                        <td
+                          className="p-3 text-sm text-right font-bold"
+                          style={{ color: getColor(difSapMiConteo) }}
+                        >
+                          {difSapMiConteo.toFixed(2)}
+                        </td>
+                      </>
+                    );
+                  })()}
 
                   {esBrigada && (
                     <>
                       <td className="p-3 text-sm text-right bg-blue-50 text-blue-800 font-semibold">
-                        {(item.conteo2 ?? 0).toFixed(2)}
+                        {Number(item.conteo_comp ?? item.conteo2 ?? 0).toFixed(2)}
                       </td>
 
                       <td className="p-3 text-sm text-right font-bold"
