@@ -465,6 +465,7 @@ export default function Control() {
                   <th className="px-4 py-2">Empleado</th>
                   <th className="px-4 py-2">Nombre</th>
                   <th className="px-4 py-2">Almacenes asignados</th>
+                  <th className="px-4 py-2">Tipo de Conteo</th>
                   <th className="px-4 py-2">Responsable</th>
                   <th className="px-4 py-2">Estado</th>
                   <th className="px-4 py-2">Acciones</th>
@@ -482,6 +483,7 @@ export default function Control() {
                         <span className="text-gray-400">—</span>
                       )}
                     </td>
+                    <td className="px-4 py-2 text-gray-700">{u.tipo_conteo || "—"}</td>
                     <td className="px-4 py-2 text-gray-700">{u.responsable_nombre || "—"}</td>
                     <td className="px-4 py-2">
                       {u.activo ? (
@@ -522,7 +524,9 @@ export default function Control() {
       {/* Vista Fecha */}
       {vista === "fecha" && (
         <div className="space-y-10 max-w-6xl mx-auto">
-          <div className="bg-white border border-gray-300 rounded-xl shadow p-8">
+
+      {/*}
+          <div className="bg-white border border-gray-300 rounded-xl shadow p-8 ">
             <h2 className="text-2xl font-bold mb-8 text-gray-800 flex items-center gap-2">
               🗓 Configuración de fecha de gestión
             </h2>
@@ -572,7 +576,7 @@ export default function Control() {
                         />
                         {a.codigo} - {a.nombre}
                       </label>
-                  ))}
+                  ) ))}
 
                 </div>
               </div>
@@ -611,7 +615,7 @@ export default function Control() {
               </button>
             </div>
           </div>
-
+        */}
           <div className="bg-white border border-gray-300 rounded-xl shadow p-8">
             <h2 className="text-2xl font-bold mb-8 text-gray-800 flex items-center gap-2">
               📋 Fechas de gestión existentes
@@ -668,53 +672,75 @@ export default function Control() {
             </div>
 
 
-            <div className="overflow-auto rounded border border-gray-300 shadow-sm">
-              <table className="min-w-full text-sm text-left">
-                <thead className="bg-gray-800 text-white uppercase text-xs">
-                  <tr>
-                    <th className="px-4 py-2">CIA</th>
-                    <th className="px-4 py-2">Fecha</th>
-                    <th className="px-4 py-2">Almacén</th>
-                    <th className="px-4 py-2">Conteo</th>
-                    <th className="px-4 py-2">Actualizado por</th>
-                    <th className="px-4 py-2">Actualizado en</th>
-                    <th className="px-4 py-2">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {configuracionesFiltradas.map((c, i) => (
-                    <tr key={i} className="hover:bg-gray-50 transition">
-                      <td className="px-4 py-2">{c.cia}</td>
-                      <td className="px-4 py-2">{formatSoloFecha(c.fecha_gestion)}</td>
-                      <td className="px-4 py-2">{c.almacen}</td>
-                      <td className="px-4 py-2">
-                        {c.conteo === 0 ? "Conteo 1" : c.conteo === 2 ? "Conteo 2" : "Conteo 3"}
-                      </td>
-                      <td className="px-4 py-2">{c.actualizado_por}</td>
-                      <td className="px-4 py-2">{formatSoloFecha(c.actualizado_en)}</td>
-                      <td className="px-4 py-2 flex gap-2">
-                        <button
-                          onClick={() => editarConfiguracion(c)}
-                          className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs"
-                        >
-                          Editar
-                        </button>
-                        {/* Si quieres habilitar eliminar, descomenta */}
-                        {/*
-                        <button
-                          onClick={() => eliminarConfiguracion(c.id)}
-                          className="px-3 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-xs"
-                        >
-                          Eliminar
-                        </button>
-                        */}
-
-                      </td>
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <div className="overflow-auto">
+                <table className="min-w-full text-sm text-left">
+                  <thead className="bg-slate-100 text-slate-700 uppercase text-xs">
+                    <tr>
+                      <th className="px-4 py-3">CIA</th>
+                      <th className="px-4 py-3">Almacén</th>
+                      <th className="px-4 py-3">Fecha Asignación</th>
+                      <th className="px-4 py-3">Tipo Conteo</th>
+                      <th className="px-4 py-3">No. Conteo</th>
+                      <th className="px-4 py-3">Equipo</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-200">
+                    {configuracionesFiltradas.map((c, i) => {
+
+                      const ultimoConteo = Number(String(c.conteos || "").split(",").pop());
+
+                      const etiquetaConteo =
+                        {
+                          0: "Conteo 1",
+                          2: "Conteo 2",
+                          3: "Conteo 3",
+                          4: "Cierre de conteo",
+                          7: "",
+                        }[ultimoConteo] || "—";
+
+                      return (
+                        <tr
+                          key={i}
+                          className={`${
+                            i % 2 === 0 ? "bg-white" : "bg-slate-50"
+                          } hover:bg-slate-100 transition-colors`}
+                        >
+                          <td className="px-4 py-2 font-medium text-slate-800">
+                            {c.cia}
+                          </td>
+
+                          <td className="px-4 py-2 text-slate-700">
+                            {c.almacen}
+                          </td>
+
+                          <td className="px-4 py-2 text-slate-700">
+                            {formatSoloFecha(c.fecha_asignacion)}
+                          </td>
+
+                          <td className="px-4 py-2">
+                            <span className="inline-flex items-center rounded-full border border-slate-300 bg-white px-2 py-0.5 text-xs font-semibold text-slate-700">
+                              {c.tipo_conteo}
+                            </span>
+                          </td>
+
+
+                          <td className="px-4 py-2 font-semibold text-slate-800">
+                            {etiquetaConteo}
+                          </td>
+
+                          <td className="px-4 py-2 text-slate-700 whitespace-pre-wrap">
+                            {c.equipo || "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
+
           </div>
         </div>
       )}

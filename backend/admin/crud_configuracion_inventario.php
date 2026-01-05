@@ -31,20 +31,69 @@ switch ($action) {
   // ====================
   case 'listar':
     $query = "
-      SELECT
-        a.id AS detalle_id,
-        c.id AS configuracion_id,
-        c.cia,
-        c.fecha_gestion,
-        a.almacen,
-        a.conteo,
-        c.actualizado_por,
-        c.actualizado_en
-      FROM configuracion_inventario c
-      LEFT JOIN configuracion_inventario_almacenes a
-        ON c.id = a.configuracion_id
-      ORDER BY c.id DESC, a.almacen
-    ";
+  SET ANSI_NULLS ON;
+  SET QUOTED_IDENTIFIER ON;
+  SET CONCAT_NULL_YIELDS_NULL ON;
+  SET ANSI_WARNINGS ON;
+  SET ANSI_PADDING ON;
+  SET ARITHABORT ON;
+  SET NUMERIC_ROUNDABORT OFF;
+
+  ;WITH base AS (
+    SELECT
+        cc.cia,
+        cc.almacen,
+        cc.tipo_conteo,
+        cc.fecha_asignacion,
+        cc.nro_conteo,
+        LTRIM(RTRIM(REPLACE(REPLACE(REPLACE(cc.usuarios_asignados,'[',''),']',''),'\"',''))) AS ids_txt
+    FROM SAP_PROCESOS.dbo.CAP_CONTEO_CONFIG cc
+  ),
+  split AS (
+    SELECT
+        b.cia, b.almacen, b.tipo_conteo, b.fecha_asignacion, b.nro_conteo,
+        CAST('<i>' + REPLACE(b.ids_txt, ',', '</i><i>') + '</i>' AS XML) AS x
+    FROM base b
+  ),
+  u AS (
+    SELECT
+        s.cia, s.almacen, s.tipo_conteo, s.fecha_asignacion, s.nro_conteo,
+        CAST(t.c.value('.', 'varchar(20)') AS int) AS usuario_id
+    FROM split s
+    CROSS APPLY s.x.nodes('/i') t(c)
+  )
+  SELECT
+      u.cia,
+      u.almacen,
+      u.tipo_conteo,
+      u.fecha_asignacion,
+
+      conteos = STUFF((
+          SELECT DISTINCT ',' + CAST(u2.nro_conteo AS varchar(10))
+          FROM u u2
+          WHERE u2.cia = u.cia
+            AND u2.almacen = u.almacen
+            AND u2.tipo_conteo = u.tipo_conteo
+            AND u2.fecha_asignacion = u.fecha_asignacion
+          FOR XML PATH(''), TYPE
+      ).value('.', 'nvarchar(max)'), 1, 1, ''),
+
+      equipo = STUFF((
+          SELECT DISTINCT ' | ' + us.empleado + '-' + us.nombre
+          FROM u u2
+          JOIN SAP_PROCESOS.dbo.usuarios us ON us.id = u2.usuario_id
+          WHERE u2.cia = u.cia
+            AND u2.almacen = u.almacen
+            AND u2.tipo_conteo = u.tipo_conteo
+            AND u2.fecha_asignacion = u.fecha_asignacion
+          FOR XML PATH(''), TYPE
+      ).value('.', 'nvarchar(max)'), 1, 3, '')
+
+  FROM u
+  GROUP BY u.cia, u.almacen, u.tipo_conteo, u.fecha_asignacion
+  ORDER BY u.fecha_asignacion DESC, u.almacen
+  ";
+
     $result = mssql_query($query, $conn);
 
     if (!$result) {

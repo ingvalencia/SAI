@@ -18,10 +18,18 @@ $almacen = isset($_GET['almacen']) ? trim($_GET['almacen']) : null;
 $fecha   = isset($_GET['fecha'])   ? trim($_GET['fecha'])   : null;
 $usuario = isset($_GET['usuario']) ? trim($_GET['usuario']) : null;
 
-if (!$cia || !$almacen || !$fecha || !$usuario) {
+$proyecto  = isset($_GET['proyecto'])  ? trim($_GET['proyecto'])  : null;
+$cuenta_em = isset($_GET['cuenta_em']) ? trim($_GET['cuenta_em']) : null;
+$cuenta_sm = isset($_GET['cuenta_sm']) ? trim($_GET['cuenta_sm']) : null;
+
+if (!$cia || !$almacen || !$fecha || !$usuario || !$proyecto || !$cuenta_em || !$cuenta_sm) {
     echo json_encode(array("success" => false, "error" => "Faltan parámetros"));
     exit;
 }
+
+
+$id_cierre = intval($row["id"]);
+
 
 /* ===============================
    CONEXIÓN SQL SERVER
@@ -44,7 +52,7 @@ mssql_select_db($db, $conn);
 ================================= */
 
 $qr = mssql_query("
-    SELECT TOP 1 estatus
+    SELECT MAX(estatus) AS estatus
     FROM CAP_INVENTARIO
     WHERE almacen = '$almacen'
       AND fecha_inv = '$fecha'
@@ -175,6 +183,44 @@ mssql_query("
 $qr  = mssql_query("SELECT @@IDENTITY AS id", $conn);
 $row = mssql_fetch_assoc($qr);
 $id_cierre = intval($row["id"]);
+
+// ===============================
+// 6.1 GUARDAR CONFIG (PROYECTO + CUENTAS)
+// ===============================
+
+$proy_safe = str_replace("'", "''", $proyecto);
+$em_safe   = str_replace("'", "''", $cuenta_em);
+$sm_safe   = str_replace("'", "''", $cuenta_sm);
+
+mssql_query("
+  IF EXISTS (
+    SELECT 1
+    FROM CAP_INVENTARIO_CIERRE_CONFIG
+    WHERE cia = '$cia'
+      AND almacen = '$almacen'
+      AND fecha_inventario = '$fecha'
+  )
+  BEGIN
+    UPDATE CAP_INVENTARIO_CIERRE_CONFIG
+    SET id_cierre = $id_cierre,
+        proyecto = '$proy_safe',
+        cuenta_em = '$em_safe',
+        cuenta_sm = '$sm_safe',
+        usuario_creacion = '$usuario',
+        fecha_creacion = GETDATE()
+    WHERE cia = '$cia'
+      AND almacen = '$almacen'
+      AND fecha_inventario = '$fecha'
+  END
+  ELSE
+  BEGIN
+    INSERT INTO CAP_INVENTARIO_CIERRE_CONFIG
+      (id_cierre, cia, almacen, fecha_inventario, proyecto, cuenta_em, cuenta_sm, usuario_creacion, fecha_creacion)
+    VALUES
+      ($id_cierre, '$cia', '$almacen', '$fecha', '$proy_safe', '$em_safe', '$sm_safe', '$usuario', GETDATE())
+  END
+", $conn);
+
 
 /* ===============================
    7. INSERTAR DETALLE + OBTENER id_cierre_det

@@ -335,17 +335,113 @@ export default function Mapa({ drawerRootId }) {
       4: almacenes.filter(a => a.estatus === 4),
     };
 
+  const [catCierre, setCatCierre] = useState(null); // { proyecto, cuentas: [] }
+
+  const fetchCatalogoCierre = async () => {
+    const ciaLocal = almacenSeleccionado; // MGP-CV
+    if (!ciaLocal) throw new Error("No hay almacén seleccionado.");
+
+    const res = await axios.get(
+      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/get_catalogo_cierre.php",
+      { params: { cia: ciaLocal } }
+    );
+
+    if (!res.data.success) throw new Error(res.data.error || "Error al obtener catálogo de cierre.");
+
+    setCatCierre(res.data);
+    return res.data; // { proyecto, cuentas, ... }
+  };
+
+
   const confirmarCierre = async () => {
-    const confirmar = await Swal.fire({
+  try {
+    Swal.fire({
+      title: "Cargando catálogo...",
+      text: "Obteniendo proyecto y cuentas para el cierre.",
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+    });
+
+    const data = await fetchCatalogoCierre();
+
+    Swal.close();
+
+    const proyectoDefault = data.proyecto || "";
+    const cuentas = Array.isArray(data.cuentas) ? data.cuentas : [];
+
+    const optionsCuentas = cuentas
+      .map(
+        (c) =>
+          `<option value="${c.numero_cuenta}">${c.numero_cuenta} - ${c.nombre_cuenta}</option>`
+      )
+      .join("");
+
+   const { isConfirmed, value } = await Swal.fire({
       title: "¿Generar cierre oficial?",
-      text: "Esto consolidará los conteos y creará los ajustes SAP.",
       icon: "warning",
+      width: 900,                 // 
+      padding: "1.25rem",
       showCancelButton: true,
       confirmButtonText: "Sí, generar cierre",
       cancelButtonText: "Cancelar",
+      focusConfirm: false,
+      html: `
+        <div style="text-align:left; font-size:14px;">
+          <p style="margin:0 0 12px 0;">Esto consolidará los conteos y creará los ajustes SAP.</p>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:14px; align-items:end;">
+            <div>
+              <label style="display:block; margin:0 0 6px;">Proyecto</label>
+              <input id="sw_proyecto"
+                    class="swal2-input"
+                    style="width:100%; margin:0;"
+                    value="${proyectoDefault}"
+                    readonly
+                    disabled />
+            </div>
+
+            <div>
+              <label style="display:block; margin:0 0 6px;">Cuenta EM (Sobrante)</label>
+              <select id="sw_em" class="swal2-select" style="width:100%; margin:0;">
+                <option value="">-- Selecciona cuenta EM --</option>
+                ${optionsCuentas}
+              </select>
+            </div>
+
+            <div>
+              <label style="display:block; margin:0 0 6px;">Cuenta SM (Salida)</label>
+              <select id="sw_sm" class="swal2-select" style="width:100%; margin:0;">
+                <option value="">-- Selecciona cuenta SM --</option>
+                ${optionsCuentas}
+              </select>
+            </div>
+          </div>
+        </div>
+      `,
+      didOpen: () => {
+        // 👇 fuerza que no haya scroll horizontal en el popup
+        const popup = Swal.getPopup();
+        if (popup) popup.style.overflow = "hidden";
+      },
+      preConfirm: () => {
+        const proyecto = document.getElementById("sw_proyecto")?.value?.trim(); // fijo
+        const cuentaEM = document.getElementById("sw_em")?.value;
+        const cuentaSM = document.getElementById("sw_sm")?.value;
+
+        if (!cuentaEM) {
+          Swal.showValidationMessage("Selecciona la cuenta EM (sobrante).");
+          return;
+        }
+        if (!cuentaSM) {
+          Swal.showValidationMessage("Selecciona la cuenta SM (salida).");
+          return;
+        }
+        return { proyecto, cuentaEM, cuentaSM };
+      },
     });
 
-    if (!confirmar.isConfirmed) return;
+
+    if (!isConfirmed) return;
 
     Swal.fire({
       title: "Procesando...",
@@ -354,35 +450,37 @@ export default function Mapa({ drawerRootId }) {
       didOpen: () => Swal.showLoading(),
     });
 
-    try {
-      const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/cerrar_inventario_admin.php",
-        {
-          params: {
-            cia,
-            almacen: almacenSeleccionado,
-            fecha,
-            usuario: sessionStorage.getItem("empleado"),
-          },
-        }
-      );
-
-      Swal.close();
-
-      if (!res.data.success) {
-        Swal.fire("Error", res.data.error, "error");
-        return;
+    const res = await axios.get(
+      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/cerrar_inventario_admin.php",
+      {
+        params: {
+          cia,
+          almacen: almacenSeleccionado,
+          fecha,
+          usuario: sessionStorage.getItem("empleado"),
+          proyecto: value.proyecto,
+          cuenta_em: value.cuentaEM,
+          cuenta_sm: value.cuentaSM,
+        },
       }
+    );
 
-      Swal.fire("Éxito", "Cierre generado correctamente", "success");
-      setMostrarDrawer(false);
-      fetchDetalle();
+    Swal.close();
 
-    } catch (e) {
-      Swal.close();
-      Swal.fire("Error", "No se pudo generar el cierre", "error");
+    if (!res.data.success) {
+      Swal.fire("Error", res.data.error, "error");
+      return;
     }
-  };
+
+    Swal.fire("Éxito", "Cierre generado correctamente", "success");
+    setMostrarDrawer(false);
+    fetchDetalle();
+  } catch (e) {
+    Swal.close();
+    Swal.fire("Error", e.message || "No se pudo generar el cierre", "error");
+  }
+};
+
 
 
 
@@ -605,25 +703,33 @@ export default function Mapa({ drawerRootId }) {
             </div>
 
             {/* FOOTER */}
-            <div className="sticky bottom-0 bg-white p-5 shadow-lg flex justify-between items-center border-t z-[650]">
-
-              <div className="flex gap-4">
-                <button className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">
-                  Exportar PDF
-                </button>
-
-                <button className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">
-                  Exportar Excel
-                </button>
-              </div>
-
+           <div className="sticky bottom-0 bg-white p-5 shadow-lg flex justify-center items-center border-t z-[650]">
               <button
-                className="px-5 py-3 bg-green-600 text-white rounded shadow hover:bg-green-700 text-sm font-semibold"
                 onClick={confirmarCierre}
+                className="
+                  px-6 py-3
+                  bg-emerald-700
+                  text-white
+                  text-sm
+                  font-semibold
+                  rounded-lg
+                  shadow-md
+                  transition-all
+                  duration-200
+                  hover:bg-emerald-800
+                  hover:shadow-lg
+                  focus:outline-none
+                  focus:ring-2
+                  focus:ring-emerald-500
+                  focus:ring-offset-2
+                  active:scale-[0.98]
+                "
               >
                 Confirmar y Generar Cierre SAP
               </button>
+
             </div>
+
 
           </div>
 
@@ -801,10 +907,28 @@ export default function Mapa({ drawerRootId }) {
             {estatusInventario === 4 && (
               <button
                 onClick={() => setMostrarDrawer(true)}
-                className="px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-md"
+                className="
+                  px-5 py-3
+                  bg-slate-700
+                  text-white
+                  text-sm
+                  font-semibold
+                  rounded-lg
+                  shadow-md
+                  transition-all
+                  duration-200
+                  hover:bg-slate-800
+                  hover:shadow-lg
+                  focus:outline-none
+                  focus:ring-2
+                  focus:ring-slate-500
+                  focus:ring-offset-2
+                  active:scale-[0.98]
+                "
               >
                 Revisar Cierre del Inventario
               </button>
+
             )}
 
 
