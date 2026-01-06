@@ -379,7 +379,7 @@ export default function Mapa({ drawerRootId }) {
    const { isConfirmed, value } = await Swal.fire({
       title: "¿Generar cierre oficial?",
       icon: "warning",
-      width: 900,                 // 
+      width: 900,                 //
       padding: "1.25rem",
       showCancelButton: true,
       confirmButtonText: "Sí, generar cierre",
@@ -419,7 +419,7 @@ export default function Mapa({ drawerRootId }) {
         </div>
       `,
       didOpen: () => {
-        // 👇 fuerza que no haya scroll horizontal en el popup
+        // fuerza que no haya scroll horizontal en el popup
         const popup = Swal.getPopup();
         if (popup) popup.style.overflow = "hidden";
       },

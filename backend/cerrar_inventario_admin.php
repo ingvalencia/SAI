@@ -275,6 +275,23 @@ foreach ($items as $codigo => $it) {
 
     $tipo = ($it["dif"] > 0) ? "E" : "S";
 
+    $meses = array(
+        1 => 'ENERO', 2 => 'FEBRERO', 3 => 'MARZO', 4 => 'ABRIL',
+        5 => 'MAYO', 6 => 'JUNIO', 7 => 'JULIO', 8 => 'AGOSTO',
+        9 => 'SEPTIEMBRE', 10 => 'OCTUBRE', 11 => 'NOVIEMBRE', 12 => 'DICIEMBRE'
+    );
+
+    $mes = $meses[intval(date('n', strtotime($fecha)))];
+
+    $anio = date('Y', strtotime($fecha));
+
+    if ($tipo === 'S') {
+        $comentario = $almacen." SM FALTANTE DE INVENTARIO MENSUAL COSTO - $mes $anio  ELABORO: $usuario";
+    } else { // E
+        $comentario = $almacen." EM POR SOBRANTE DE INVENTARIO MENSUAL - $mes $anio  ELABORO: $usuario";
+    }
+
+
     mssql_query("
       INSERT INTO CAP_INVENTARIO_AJUSTES_SAP
       (
@@ -303,7 +320,7 @@ foreach ($items as $codigo => $it) {
         {$it["dif"]},
         '$tipo',
         'Diferencia inventario físico vs SAP',
-        'Generado automáticamente por cierre de inventario',
+        '".str_replace("'", "''", $comentario)."',
         0,
         GETDATE(),
         '$usuario'
