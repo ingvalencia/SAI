@@ -34,6 +34,9 @@ export default function Mapa({ drawerRootId }) {
   const [mostrarDrawer, setMostrarDrawer] = useState(false);
   const [estatusInventario, setEstatusInventario] = useState(null);
   const [tabActiva, setTabActiva] = useState("resumen");
+  const [grupoSeleccionado, setGrupoSeleccionado] = useState(null);
+  const [almacenFiltro, setAlmacenFiltro] = useState("TODOS");
+
 
 
   const fetchFechasDisponibles = async (ciaSeleccionada) => {
@@ -103,27 +106,73 @@ export default function Mapa({ drawerRootId }) {
       Swal.close();
 
       if (res.data.success) {
-        setAlmacenes(res.data.data);
-        if (res.data.data.length === 0) {
+
+        const data = Array.isArray(res.data.data) ? res.data.data : [];
+
+        const listaAplanada =
+          data.length > 0 && data[0]?.registros
+            ? data.flatMap((b) => Array.isArray(b.registros) ? b.registros : [])
+            : data; //
+
+        if (res.data.success) {
+          const bloques = Array.isArray(res.data.data) ? res.data.data : [];
+          setAlmacenes(bloques);
+
+          if (bloques.length === 0) {
+            Swal.fire("Sin datos", "No se encontraron almacenes para la CIA y fecha seleccionada.", "warning");
+          }
+        }
+
+
+        if (listaAplanada.length === 0) {
           Swal.fire(
             "Sin datos",
             "No se encontraron almacenes para la CIA y fecha seleccionada.",
             "warning"
           );
         }
-      } else {
-        Swal.fire("Error", res.data.error || "Error desconocido en la carga de datos.", "error");
       }
-    } catch (err) {
-      Swal.close();
-      console.error("Error al cargar almacenes:", err);
-      Swal.fire("Error", "No se pudieron cargar los almacenes.", "error");
-    }
-  };
+      else {
+              Swal.fire("Error", res.data.error || "Error desconocido en la carga de datos.", "error");
+            }
+          } catch (err) {
+            Swal.close();
+            console.error("Error al cargar almacenes:", err);
+            Swal.fire("Error", "No se pudieron cargar los almacenes.", "error");
+          }
+        };
+
+    const normalizarDetalle = (data = []) => {
+      return (Array.isArray(data) ? data : []).map((item) => {
+        const c1 = Number(item.conteo1 ?? 0);
+        const c2 = Number(item.conteo2 ?? 0);
+        const c3 = Number(item.conteo3 ?? 0);
+
+        let conteo_final = 0;
+        if (c3 > 0) conteo_final = c3;
+        else if (c2 > 0) conteo_final = c2;
+        else conteo_final = c1;
+
+        const sap_final = Number(item.inventario_sap ?? 0);
+        const diferencia_cierre = conteo_final - sap_final;
+
+        return {
+          ...item,
+          conteo1: c1,
+          conteo2: c2,
+          conteo3: c3,
+          inventario_sap: sap_final,
+          conteo_final,
+          sap_final,
+          diferencia_cierre,
+        };
+      });
+    };
 
 
-  const fetchDetalle = async () => {
+    const fetchDetalle = async () => {
     if (!cia || !fecha || !almacenSeleccionado) return;
+
     try {
       Swal.fire({
         title: "Procesando...",
@@ -133,17 +182,75 @@ export default function Mapa({ drawerRootId }) {
       });
 
       const res = await axios.get(
-        `https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/mapa_detalle.php`,
+        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/mapa_detalle.php",
         { params: { almacen: almacenSeleccionado, fecha, cia } }
       );
 
       Swal.close();
 
       if (res.data.success) {
-      // 🔥 Guardar estatus del inventario
+        // 🔥 Guardar estatus del inventario
+        setEstatusInventario(res.data.estatus);
+
+        // ✅ Normaliza para que siempre tengas: almacen, sap_final, conteo_final, diferencia_cierre
+        const detalleConFinal = normalizarDetalle(res.data.data);
+
+        setDetalle(detalleConFinal);
+        setPaginaActual(1);
+
+        if (res.data.data.length === 0) {
+          Swal.fire("Sin datos", "No hay información para este almacén y fecha.", "info");
+        }
+      } else {
+        Swal.fire("Error", res.data.error || "No se pudo obtener el detalle.", "error");
+      }
+    } catch (err) {
+      Swal.close();
+      console.error("Error al obtener detalle:", err);
+      Swal.fire("Error", "No se pudo obtener el detalle del almacén.", "error");
+    }
+  };
+
+
+  const fetchDetalleGrupo = async (grupo) => {
+    if (!cia || !fecha || !grupo?.base) return;
+
+    try {
+      Swal.fire({
+        title: "Procesando...",
+        text: `Obteniendo detalle del grupo ${grupo.base}...`,
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+      });
+
+      const res = await axios.get(
+        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/mapa_detalle_grupo.php",
+        {
+          params: {
+            grupo: grupo.base,
+            fecha,
+            cia,
+            usuario: sessionStorage.getItem("empleado"),
+          },
+        }
+      );
+
+      Swal.close();
+
+      if (!res.data.success) {
+        Swal.fire(
+          "Error",
+          res.data.error || "Error al obtener detalle del grupo",
+          "error"
+        );
+        return;
+      }
+
+      //  Guardar estatus del inventario
       setEstatusInventario(res.data.estatus);
 
-      const detalleConFinal = res.data.data.map((item) => {
+      // 🔥 Normalizar igual que en fetchDetalle (sap_final, conteo_final, diferencia_cierre)
+      const detalleConFinal = (Array.isArray(res.data.data) ? res.data.data : []).map((item) => {
         let conteo_final = 0;
 
         if (item.conteo3 && item.conteo3 > 0) {
@@ -170,18 +277,17 @@ export default function Mapa({ drawerRootId }) {
       setDetalle(detalleConFinal);
       setPaginaActual(1);
 
-      if (res.data.data.length === 0) {
-        Swal.fire("Sin datos", "No hay información para este almacén y fecha.", "info");
+      if (detalleConFinal.length === 0) {
+        Swal.fire("Sin datos", "No hay información para este grupo.", "info");
       }
-    }
-
-
     } catch (err) {
       Swal.close();
-      console.error("Error al obtener detalle:", err);
-      Swal.fire("Error", "No se pudo obtener el detalle del almacén.", "error");
+      console.error(err);
+      Swal.fire("Error", "No se pudo obtener el detalle del grupo.", "error");
     }
   };
+
+
 
   useEffect(() => {
     if (!fecha || !cia) {
@@ -200,22 +306,59 @@ export default function Mapa({ drawerRootId }) {
 
 
   useEffect(() => {
-    fetchDetalle();
-  }, [almacenSeleccionado]);
+    if (grupoSeleccionado) {
+      fetchDetalleGrupo(grupoSeleccionado);
+    } else if (almacenSeleccionado) {
+      fetchDetalle();
+    }
+  }, [almacenSeleccionado, grupoSeleccionado]);
+
+  const almacenesDisponibles = useMemo(() => {
+    const set = new Set();
+    detalle.forEach(d => {
+      if (d.almacen) set.add(d.almacen);
+    });
+    return Array.from(set).sort();
+  }, [detalle]);
 
   // === Filtro por búsqueda ===
   const detalleFiltrado = useMemo(() => {
     const texto = busqueda.toLowerCase();
+
     return detalle.filter((item) => {
-      return (
+      const matchTexto =
         item.codigo?.toLowerCase().includes(texto) ||
         item.nombre?.toLowerCase().includes(texto) ||
         item.familia?.toLowerCase().includes(texto) ||
         item.subfamilia?.toLowerCase().includes(texto) ||
-        item.codebars?.toLowerCase().includes(texto)
-      );
+        item.codebars?.toLowerCase().includes(texto);
+
+      const matchAlmacen =
+        almacenFiltro === "TODOS" || item.almacen === almacenFiltro;
+
+      return matchTexto && matchAlmacen;
     });
-  }, [detalle, busqueda]);
+  }, [detalle, busqueda, almacenFiltro]);
+
+
+  const detallePaginado = useMemo(() => {
+  const inicio = (paginaActual - 1) * registrosPorPagina;
+  const fin = inicio + registrosPorPagina;
+
+  return detalleFiltrado.slice(inicio, fin);
+  }, [detalleFiltrado, paginaActual]);
+
+
+  const detallePorAlmacen = useMemo(() => {
+    const out = {};
+    detallePaginado.forEach((item) => {
+      const alm = item.almacen || "SIN_ALMACEN";
+      if (!out[alm]) out[alm] = [];
+      out[alm].push(item);
+    });
+    return out;
+  }, [detallePaginado]);
+
 
 
   const resumenCierre = useMemo(() => {
@@ -262,6 +405,35 @@ export default function Mapa({ drawerRootId }) {
       .sort((a, b) => Math.abs(b.diferencia_cierre ?? 0) - Math.abs(a.diferencia_cierre ?? 0));
   }, [detalle]);
 
+  const gruposUI = useMemo(() => {
+    const bloques = Array.isArray(almacenes) ? almacenes : [];
+
+    //
+    const out = {};
+
+    bloques.forEach((b) => {
+      const est = Number(b.estatus);
+      const regs = Array.isArray(b.registros) ? b.registros : [];
+
+      const porBase = {};
+      regs.forEach((r) => {
+        const alm = (r.almacen || "").trim();
+        const base = alm.includes("-") ? alm.split("-")[0] : alm; // MGP-CO -> MGP
+
+        if (!porBase[base]) porBase[base] = [];
+        porBase[base].push(r);
+      });
+
+      out[est] = Object.entries(porBase).map(([base, items]) => ({
+        base,
+        items,
+      }));
+    });
+
+    return out;
+  }, [almacenes]);
+
+
 
   // === Paginación ===
   const indiceInicial = (paginaActual - 1) * registrosPorPagina;
@@ -277,9 +449,10 @@ export default function Mapa({ drawerRootId }) {
     const datosExportar = detalleFiltrado;
 
     const headers = [
-      "#", "CÓDIGO", "NOMBRE", "FAMILIA", "SUBFAMILIA",
+      "#", "ALMACÉN", "CÓDIGO", "NOMBRE", "FAMILIA", "SUBFAMILIA",
       "EXISTENCIA SAP", "CONTEO 1", "CONTEO 2", "CONTEO 3", "DIFERENCIA"
     ];
+
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Mapa Operaciones");
@@ -302,6 +475,7 @@ export default function Mapa({ drawerRootId }) {
     datosExportar.forEach((item, i) => {
       worksheet.addRow([
         i + 1,
+        item.almacen ?? "-",
         item.codigo,
         item.nombre,
         item.familia ?? "-",
@@ -338,151 +512,217 @@ export default function Mapa({ drawerRootId }) {
   const [catCierre, setCatCierre] = useState(null); // { proyecto, cuentas: [] }
 
   const fetchCatalogoCierre = async () => {
-    const ciaLocal = almacenSeleccionado; // MGP-CV
-    if (!ciaLocal) throw new Error("No hay almacén seleccionado.");
+
+    // Resolver almacén real de referencia
+    let almacenRef = null;
+
+    if (grupoSeleccionado && grupoSeleccionado.almacenes?.length > 0) {
+      almacenRef = grupoSeleccionado.almacenes[0]; // 👈 uno cualquiera del grupo
+    } else if (almacenSeleccionado) {
+      almacenRef = almacenSeleccionado;
+    }
+
+    if (!almacenRef) {
+      throw new Error("No hay almacén seleccionado.");
+    }
 
     const res = await axios.get(
       "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/get_catalogo_cierre.php",
-      { params: { cia: ciaLocal } }
-    );
-
-    if (!res.data.success) throw new Error(res.data.error || "Error al obtener catálogo de cierre.");
-
-    setCatCierre(res.data);
-    return res.data; // { proyecto, cuentas, ... }
-  };
-
-
-  const confirmarCierre = async () => {
-  try {
-    Swal.fire({
-      title: "Cargando catálogo...",
-      text: "Obteniendo proyecto y cuentas para el cierre.",
-      allowOutsideClick: false,
-      didOpen: () => Swal.showLoading(),
-    });
-
-    const data = await fetchCatalogoCierre();
-
-    Swal.close();
-
-    const proyectoDefault = data.proyecto || "";
-    const cuentas = Array.isArray(data.cuentas) ? data.cuentas : [];
-
-    const optionsCuentas = cuentas
-      .map(
-        (c) =>
-          `<option value="${c.numero_cuenta}">${c.numero_cuenta} - ${c.nombre_cuenta}</option>`
-      )
-      .join("");
-
-   const { isConfirmed, value } = await Swal.fire({
-      title: "¿Generar cierre oficial?",
-      icon: "warning",
-      width: 900,                 //
-      padding: "1.25rem",
-      showCancelButton: true,
-      confirmButtonText: "Sí, generar cierre",
-      cancelButtonText: "Cancelar",
-      focusConfirm: false,
-      html: `
-        <div style="text-align:left; font-size:14px;">
-          <p style="margin:0 0 12px 0;">Esto consolidará los conteos y creará los ajustes SAP.</p>
-
-          <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:14px; align-items:end;">
-            <div>
-              <label style="display:block; margin:0 0 6px;">Proyecto</label>
-              <input id="sw_proyecto"
-                    class="swal2-input"
-                    style="width:100%; margin:0;"
-                    value="${proyectoDefault}"
-                    readonly
-                    disabled />
-            </div>
-
-            <div>
-              <label style="display:block; margin:0 0 6px;">Cuenta EM (Sobrante)</label>
-              <select id="sw_em" class="swal2-select" style="width:100%; margin:0;">
-                <option value="">-- Selecciona cuenta EM --</option>
-                ${optionsCuentas}
-              </select>
-            </div>
-
-            <div>
-              <label style="display:block; margin:0 0 6px;">Cuenta SM (Salida)</label>
-              <select id="sw_sm" class="swal2-select" style="width:100%; margin:0;">
-                <option value="">-- Selecciona cuenta SM --</option>
-                ${optionsCuentas}
-              </select>
-            </div>
-          </div>
-        </div>
-      `,
-      didOpen: () => {
-        // fuerza que no haya scroll horizontal en el popup
-        const popup = Swal.getPopup();
-        if (popup) popup.style.overflow = "hidden";
-      },
-      preConfirm: () => {
-        const proyecto = document.getElementById("sw_proyecto")?.value?.trim(); // fijo
-        const cuentaEM = document.getElementById("sw_em")?.value;
-        const cuentaSM = document.getElementById("sw_sm")?.value;
-
-        if (!cuentaEM) {
-          Swal.showValidationMessage("Selecciona la cuenta EM (sobrante).");
-          return;
-        }
-        if (!cuentaSM) {
-          Swal.showValidationMessage("Selecciona la cuenta SM (salida).");
-          return;
-        }
-        return { proyecto, cuentaEM, cuentaSM };
-      },
-    });
-
-
-    if (!isConfirmed) return;
-
-    Swal.fire({
-      title: "Procesando...",
-      text: "Generando cierre del inventario...",
-      allowOutsideClick: false,
-      didOpen: () => Swal.showLoading(),
-    });
-
-    const res = await axios.get(
-      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/cerrar_inventario_admin.php",
       {
         params: {
-          cia,
-          almacen: almacenSeleccionado,
-          fecha,
-          usuario: sessionStorage.getItem("empleado"),
-          proyecto: value.proyecto,
-          cuenta_em: value.cuentaEM,
-          cuenta_sm: value.cuentaSM,
+          cia: almacenRef, //
         },
       }
     );
 
-    Swal.close();
-
     if (!res.data.success) {
-      Swal.fire("Error", res.data.error, "error");
-      return;
+      throw new Error(res.data.error || "Error al obtener catálogo de cierre.");
     }
 
-    Swal.fire("Éxito", "Cierre generado correctamente", "success");
-    setMostrarDrawer(false);
-    fetchDetalle();
-  } catch (e) {
-    Swal.close();
-    Swal.fire("Error", e.message || "No se pudo generar el cierre", "error");
-  }
-};
+    setCatCierre(res.data);
+    return res.data;
+  };
 
 
 
+ const confirmarCierre = async () => {
+    try {
+      /* =========================
+        1. CARGAR CATÁLOGO
+      ========================= */
+      Swal.fire({
+        title: "Cargando catálogo...",
+        text: "Obteniendo proyecto y cuentas para el cierre.",
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+      });
+
+      const data = await fetchCatalogoCierre();
+
+      Swal.close();
+
+      const proyectoDefault = data.proyecto || "";
+      const cuentas = Array.isArray(data.cuentas) ? data.cuentas : [];
+
+      const optionsCuentas = cuentas
+        .map(
+          (c) =>
+            `<option value="${c.numero_cuenta}">
+              ${c.numero_cuenta} - ${c.nombre_cuenta}
+            </option>`
+        )
+        .join("");
+
+      /* =========================
+        2. MODAL DE CONFIRMACIÓN
+      ========================= */
+      const { isConfirmed, value } = await Swal.fire({
+        title: "¿Generar cierre oficial?",
+        icon: "warning",
+        width: 900,
+        padding: "1.25rem",
+        showCancelButton: true,
+        confirmButtonText: "Sí, generar cierre",
+        cancelButtonText: "Cancelar",
+        focusConfirm: false,
+        html: `
+          <div style="text-align:left; font-size:14px;">
+            <p style="margin:0 0 12px 0;">
+              Esto consolidará los conteos y creará los ajustes SAP.
+            </p>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:14px; align-items:end;">
+              <div>
+                <label style="display:block; margin:0 0 6px;">Proyecto</label>
+                <input
+                  id="sw_proyecto"
+                  class="swal2-input"
+                  style="width:100%; margin:0;"
+                  value="${proyectoDefault}"
+                  readonly
+                  disabled
+                />
+              </div>
+
+              <div>
+                <label style="display:block; margin:0 0 6px;">Cuenta EM (Sobrante)</label>
+                <select id="sw_em" class="swal2-select" style="width:100%; margin:0;">
+                  <option value="">-- Selecciona cuenta EM --</option>
+                  ${optionsCuentas}
+                </select>
+              </div>
+
+              <div>
+                <label style="display:block; margin:0 0 6px;">Cuenta SM (Salida)</label>
+                <select id="sw_sm" class="swal2-select" style="width:100%; margin:0;">
+                  <option value="">-- Selecciona cuenta SM --</option>
+                  ${optionsCuentas}
+                </select>
+              </div>
+            </div>
+          </div>
+        `,
+        didOpen: () => {
+          const popup = Swal.getPopup();
+          if (popup) popup.style.overflow = "hidden";
+        },
+        preConfirm: () => {
+          const proyecto = document.getElementById("sw_proyecto")?.value?.trim();
+          const cuentaEM = document.getElementById("sw_em")?.value;
+          const cuentaSM = document.getElementById("sw_sm")?.value;
+
+          if (!cuentaEM) {
+            Swal.showValidationMessage("Selecciona la cuenta EM (sobrante).");
+            return;
+          }
+          if (!cuentaSM) {
+            Swal.showValidationMessage("Selecciona la cuenta SM (salida).");
+            return;
+          }
+
+          return { proyecto, cuentaEM, cuentaSM };
+        },
+      });
+
+      if (!isConfirmed) return;
+
+      /* =========================
+        3. PROCESO DE CIERRE
+      ========================= */
+      Swal.fire({
+        title: "Procesando...",
+        text: "Generando cierre del inventario...",
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+      });
+
+      // 👉 DEFINIR ALMACENES A CERRAR
+      const almacenesACerrar = grupoSeleccionado
+        ? grupoSeleccionado.almacenes
+        : [almacenSeleccionado];
+
+      if (!almacenesACerrar || almacenesACerrar.length === 0) {
+        Swal.close();
+        Swal.fire("Error", "No hay almacenes para cerrar.", "error");
+        return;
+      }
+
+      /* =========================
+        4. CIERRE POR ALMACÉN
+      ========================= */
+      for (const alm of almacenesACerrar) {
+        const res = await axios.get(
+          "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/cerrar_inventario_admin.php",
+          {
+            params: {
+              cia,
+              almacen: alm, // 
+              fecha,
+              usuario: sessionStorage.getItem("empleado"),
+              proyecto: value.proyecto,
+              cuenta_em: value.cuentaEM,
+              cuenta_sm: value.cuentaSM,
+            },
+          }
+        );
+
+        if (!res.data || !res.data.success) {
+          throw new Error(
+            res.data?.error || `Error al cerrar el almacén ${alm}`
+          );
+        }
+      }
+
+      /* =========================
+        5. FINALIZAR
+      ========================= */
+      Swal.close();
+
+      await Swal.fire(
+        "Éxito",
+        grupoSeleccionado
+          ? "Cierre generado correctamente para todos los almacenes del grupo."
+          : "Cierre generado correctamente.",
+        "success"
+      );
+
+      setMostrarDrawer(false);
+
+      if (grupoSeleccionado) {
+        fetchDetalleGrupo(grupoSeleccionado);
+      } else {
+        fetchDetalle();
+      }
+
+    } catch (e) {
+      Swal.close();
+      Swal.fire(
+        "Error",
+        e.message || "No se pudo generar el cierre",
+        "error"
+      );
+    }
+  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -509,8 +749,14 @@ export default function Mapa({ drawerRootId }) {
               </button>
 
               <h2 className="text-xl font-bold text-gray-800 text-center flex-1">
-                Cierre del Inventario – {almacenSeleccionado} – {fecha}
+                Cierre del Inventario –{" "}
+                {grupoSeleccionado
+                  ? `Grupo ${grupoSeleccionado.base}`
+                  : almacenSeleccionado}
+                {" – "}
+                {fecha}
               </h2>
+
 
               <button
                 onClick={() => setMostrarDrawer(false)}
@@ -849,60 +1095,84 @@ export default function Mapa({ drawerRootId }) {
       </div>
 
       {/* Grid de almacenes */}
-      {!almacenSeleccionado ? (
+      {!almacenSeleccionado && !grupoSeleccionado ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
 
-          {Object.entries(grupos).map(([estatus, lista]) => (
-            lista.length > 0 && (
-              <div key={estatus} className="mb-10 animar-grupo">
-                {/* Encabezado del grupo */}
-                <h3
-                  className={`grupo-header ${
-                    coloresEstatus[estatus]?.color || "bg-gray-400"
-                  } bg-gradient-to-r from-white/10 to-black/10`}
-                >
-                  {coloresEstatus[estatus]?.icono} {coloresEstatus[estatus]?.label}
-                </h3>
+         {Object.entries(gruposUI)
+        .sort((a, b) => Number(b[0]) - Number(a[0])) // estatus desc
+        .map(([estatus, conjuntos]) => (
+          conjuntos.length > 0 && (
+            <div key={estatus} className="mb-10 animar-grupo">
+              <h3
+                className={`grupo-header ${
+                  coloresEstatus[estatus]?.color || "bg-gray-400"
+                } bg-gradient-to-r from-white/10 to-black/10`}
+              >
+                {coloresEstatus[estatus]?.icono} {coloresEstatus[estatus]?.label}
+              </h3>
 
-
-                {/* Contenedor horizontal con scroll */}
-                <div className="flex gap-6 overflow-x-auto pb-4 px-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
-                  {lista.map((a, i) => {
-                    const estado = coloresEstatus[a.estatus] || coloresEstatus[0];
-                    return (
-                      <div
-                        key={i}
-                        onClick={() => setAlmacenSeleccionado(a.almacen)}
-                        className="min-w-[180px] flex-shrink-0 cursor-pointer rounded-2xl overflow-hidden shadow-lg bg-white transform transition-transform duration-300 hover:scale-105 hover:shadow-2xl"
-                      >
-                        <div
-                          className={`h-20 flex items-center justify-between px-4 text-white ${estado.color}`}
-                        >
-                          <span className="text-lg font-bold truncate">{a.almacen}</span>
-                          <span className="text-2xl">{estado.icono}</span>
-                        </div>
-                        <div className="p-4 text-center">
-                          <div className="text-sm font-medium text-gray-700">
-                            {estado.label}
-                          </div>
-                          <span className="inline-block mt-2 px-4 py-1 text-xs rounded-full bg-gray-100 text-gray-600">
-                            Ver detalle
-                          </span>
-                        </div>
+              <div className="flex gap-6 overflow-x-auto pb-4 px-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+                {conjuntos.map((g, idx) => (
+                  <div
+                    key={`${estatus}-${g.base}-${idx}`}
+                    className="min-w-[260px] flex-shrink-0 rounded-2xl overflow-hidden shadow-lg bg-white"
+                  >
+                    <div className={`p-4 text-white ${coloresEstatus[estatus]?.color || "bg-gray-400"}`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-lg font-bold truncate">{g.base}</span>
+                        <span className="text-2xl">{coloresEstatus[estatus]?.icono}</span>
                       </div>
-                    );
-                  })}
-                </div>
+                      <div className="text-xs opacity-90 mt-1">
+                        {g.items.length} almacén(es)
+                      </div>
+                    </div>
+
+                    <div className="p-4">
+
+                      <button
+                        onClick={() => {
+                          setAlmacenSeleccionado(null);
+                          setGrupoSeleccionado({
+                            base: g.base,
+                            almacenes: g.items.map(x => x.almacen),
+                            estatus: Number(estatus),
+                          });
+                        }}
+
+
+                        className="w-full mb-3 px-3 py-2 rounded-lg bg-slate-700 text-white text-sm font-semibold hover:bg-slate-800"
+                      >
+                        Ver detalle del grupo
+                      </button>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        {g.items.map((r, j) => (
+                          <button
+                            key={`${r.almacen}-${j}`}
+                            onClick={() => setAlmacenSeleccionado(r.almacen)}
+                            className="px-3 py-2 rounded-lg border text-sm font-semibold hover:bg-gray-50 transition"
+                            title="Ver detalle"
+                          >
+                            {r.almacen}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            )
-          ))}
+            </div>
+          )
+        ))}
+
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-lg p-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-gray-800">
-              🔎 Detalle: {almacenSeleccionado}
+              🔎 Detalle: {grupoSeleccionado ? `Grupo ${grupoSeleccionado.base}` : almacenSeleccionado}
             </h2>
+
 
             {estatusInventario === 4 && (
               <button
@@ -941,109 +1211,192 @@ export default function Mapa({ drawerRootId }) {
                 Exportar
               </button>
               <button
-                onClick={() => setAlmacenSeleccionado(null)}
+                onClick={() => {
+                  setAlmacenSeleccionado(null);
+                  setGrupoSeleccionado(null);
+                  setDetalle([]);
+                }}
                 className="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition"
               >
                 ⬅️ Volver
               </button>
+
             </div>
           </div>
 
-          {detalle.length === 0 ? (
-            <p className="text-gray-500">Sin registros para este almacén.</p>
-          ) : (
-            <div className="border rounded-lg overflow-hidden">
-              <div className="mb-4">
-                <input
-                  type="text"
-                  placeholder="Buscar por código, nombre, familia..."
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-red-600"
-                />
-              </div>
+         {detalle.length === 0 ? (
+          <p className="text-gray-500">Sin registros para este almacén.</p>
+        ) : (
 
-              <table className="min-w-full text-sm">
-                <thead className="bg-gradient-to-r from-red-800 to-red-600 text-white text-xs uppercase">
-                  <tr>
-                    <th className="px-4 py-2">Código</th>
-                    <th className="px-4 py-2">Nombre</th>
-                    <th className="px-4 py-2">Familia</th>
-                    <th className="px-4 py-2">Subfamilia</th>
-                    <th className="px-4 py-2">Existencia SAP</th>
-                    <th className="px-4 py-2">Conteo 1</th>
-                    <th className="px-4 py-2">Conteo 2</th>
-                    <th className="px-4 py-2">Conteo 3</th>
-                    <th className="px-4 py-2">Diferencia</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-100">
-                  {datosPaginados.map((d, i) => (
-                    <tr key={i} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 font-mono text-red-900">{d.codigo}</td>
-                      <td className="px-4 py-2 text-gray-800">{d.nombre}</td>
-                      <td className="px-4 py-2 text-gray-700">{d.familia ?? "-"}</td>
-                      <td className="px-4 py-2 text-gray-700">{d.subfamilia ?? "-"}</td>
-                      <td className="px-4 py-2 text-center">{d.inventario_sap.toFixed(2)}</td>
-                      <td className="px-4 py-2 text-center">{d.conteo1 ?? "-"}</td>
-                      <td className="px-4 py-2 text-center">{d.conteo2 ?? "-"}</td>
-                      <td className="px-4 py-2 text-center">{d.conteo3 ?? "-"}</td>
-                      <td className="px-4 py-2 text-center">
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-bold ${
-                            d.diferencia === 0
-                              ? "bg-green-100 text-green-700"
-                              : d.diferencia > 0
-                              ? "bg-yellow-100 text-yellow-700"
-                              : "bg-red-100 text-red-700"
-                          }`}
-                        >
-                          {d.diferencia.toFixed(2)}
-                        </span>
+          <div className="border rounded-lg overflow-hidden">
+
+          <div className="flex flex-col md:flex-row gap-3 mb-3">
+              <select
+                value={almacenFiltro}
+                onChange={(e) => {
+                  setAlmacenFiltro(e.target.value);
+                  setPaginaActual(1);
+                }}
+                className="px-3 py-2 border rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-red-600"
+              >
+                <option value="TODOS">📦 Todos los almacenes</option>
+                {almacenesDisponibles.map((alm) => (
+                  <option key={alm} value={alm}>
+                    {alm}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                type="text"
+                placeholder="Buscar por código, nombre, familia..."
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                className="flex-1 px-4 py-2 border rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-red-600"
+              />
+            </div>
+
+            <div className="flex justify-between items-center mb-2 text-sm text-gray-600">
+            <span>
+              Mostrando{" "}
+              <strong>
+                {(paginaActual - 1) * registrosPorPagina + 1}
+                –
+                {Math.min(paginaActual * registrosPorPagina, detalleFiltrado.length)}
+              </strong>{" "}
+              de <strong>{detalleFiltrado.length}</strong> registros
+            </span>
+
+            <span>
+              Página <strong>{paginaActual}</strong> de{" "}
+              <strong>{Math.ceil(detalleFiltrado.length / registrosPorPagina)}</strong>
+            </span>
+          </div>
+
+
+            <table className="min-w-full text-sm">
+              <thead className="bg-gradient-to-r from-red-800 to-red-600 text-white text-xs uppercase">
+                <tr>
+                  <th className="px-4 py-2">Almacén</th>
+                  <th className="px-4 py-2">Código</th>
+                  <th className="px-4 py-2">Nombre</th>
+                  <th className="px-4 py-2">Familia</th>
+                  <th className="px-4 py-2">Subfamilia</th>
+                  <th className="px-4 py-2">Existencia SAP</th>
+                  <th className="px-4 py-2">Conteo 1</th>
+                  <th className="px-4 py-2">Conteo 2</th>
+                  <th className="px-4 py-2">Conteo 3</th>
+                  <th className="px-4 py-2">Diferencia</th>
+                </tr>
+              </thead>
+
+              <tbody className="bg-white divide-y divide-gray-100">
+                {Object.entries(detallePorAlmacen).map(([alm, items]) => (
+                  <React.Fragment key={alm}>
+                    {/* SUB-HEADER DEL ALMACÉN */}
+                    <tr className="bg-slate-200">
+                      <td
+                        colSpan={10}
+                        className="px-4 py-2 font-bold text-slate-800"
+                      >
+                        📦 {alm}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
 
-              {/* Paginación */}
-              <div className="mt-4 flex justify-center items-center gap-4 text-sm text-gray-700 font-medium">
-                <button
-                  onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
-                  disabled={paginaActual === 1}
-                  className={`px-3 py-1 rounded border ${
-                    paginaActual === 1
-                      ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                      : "bg-white hover:bg-red-50 text-red-700"
-                  }`}
-                >
-                  ⬅️ Anterior
-                </button>
+                    {/* FILAS DEL ALMACÉN */}
+                    {items.map((d, i) => (
+                      <tr key={`${alm}-${i}`} className="hover:bg-gray-50">
+                        <td className="px-4 py-2 font-semibold text-slate-700">
+                          {d.almacen}
+                        </td>
+                        <td className="px-4 py-2 font-mono text-red-900">
+                          {d.codigo}
+                        </td>
+                        <td className="px-4 py-2 text-gray-800">
+                          {d.nombre}
+                        </td>
+                        <td className="px-4 py-2 text-gray-700">
+                          {d.familia ?? "-"}
+                        </td>
+                        <td className="px-4 py-2 text-gray-700">
+                          {d.subfamilia ?? "-"}
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                          {d.inventario_sap.toFixed(2)}
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                          {d.conteo1 ?? "-"}
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                          {d.conteo2 ?? "-"}
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                          {d.conteo3 ?? "-"}
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-bold ${
+                              d.diferencia === 0
+                                ? "bg-green-100 text-green-700"
+                                : d.diferencia > 0
+                                ? "bg-yellow-100 text-yellow-700"
+                                : "bg-red-100 text-red-700"
+                            }`}
+                          >
+                            {d.diferencia.toFixed(2)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
 
-                <span>
-                  Página {paginaActual} de {Math.ceil(detalleFiltrado.length / registrosPorPagina)}
-                </span>
+            {/* Paginación */}
+            <div className="mt-4 flex justify-center items-center gap-4 text-sm text-gray-700 font-medium">
+              <button
+                onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
+                disabled={paginaActual === 1}
+                className={`px-3 py-1 rounded border ${
+                  paginaActual === 1
+                    ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                    : "bg-white hover:bg-red-50 text-red-700"
+                }`}
+              >
+                ⬅️ Anterior
+              </button>
 
-                <button
-                  onClick={() =>
-                    setPaginaActual((prev) =>
-                      prev < Math.ceil(detalleFiltrado.length / registrosPorPagina)
-                        ? prev + 1
-                        : prev
-                    )
-                  }
-                  disabled={paginaActual >= Math.ceil(detalleFiltrado.length / registrosPorPagina)}
-                  className={`px-3 py-1 rounded border ${
-                    paginaActual >= Math.ceil(detalleFiltrado.length / registrosPorPagina)
-                      ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                      : "bg-white hover:bg-red-50 text-red-700"
-                  }`}
-                >
-                  Siguiente ➡️
-                </button>
-              </div>
+              <span>
+                Página {paginaActual} de{" "}
+                {Math.ceil(detalleFiltrado.length / registrosPorPagina)}
+              </span>
+
+              <button
+                onClick={() =>
+                  setPaginaActual((prev) =>
+                    prev < Math.ceil(detalleFiltrado.length / registrosPorPagina)
+                      ? prev + 1
+                      : prev
+                  )
+                }
+                disabled={
+                  paginaActual >=
+                  Math.ceil(detalleFiltrado.length / registrosPorPagina)
+                }
+                className={`px-3 py-1 rounded border ${
+                  paginaActual >=
+                  Math.ceil(detalleFiltrado.length / registrosPorPagina)
+                    ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                    : "bg-white hover:bg-red-50 text-red-700"
+                }`}
+              >
+                Siguiente ➡️
+              </button>
             </div>
-          )}
+          </div>
+        )}
+
         </div>
       )}
     </div>

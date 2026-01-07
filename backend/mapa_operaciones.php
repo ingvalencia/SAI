@@ -26,15 +26,15 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-// === Almacenes únicos con estatus más alto ===
+
 $query = "
-  SELECT
+  SELECT DISTINCT
     almacen,
-    MAX(estatus) AS estatus
+    estatus
   FROM CAP_INVENTARIO
   WHERE cias = '$cia'
     AND fecha_inv = '$fecha'
-  GROUP BY almacen
+  ORDER BY estatus DESC, almacen
 ";
 
 $result = mssql_query($query, $conn);
@@ -43,16 +43,28 @@ if (!$result) {
   exit;
 }
 
-$data = [];
+// Agrupar por estatus, pero manteniendo registros individuales (almacen+estatus)
+$bloques = [];
+
 while ($row = mssql_fetch_assoc($result)) {
-  $data[] = [
-    "almacen" => $row["almacen"],
-    "estatus" => intval($row["estatus"]),
+  $estatus = intval($row["estatus"]);
+  $almacen = $row["almacen"];
+
+  if (!isset($bloques[$estatus])) {
+    $bloques[$estatus] = [
+      "estatus" => $estatus,
+      "registros" => []
+    ];
+  }
+
+  $bloques[$estatus]["registros"][] = [
+    "almacen" => $almacen,
+    "estatus" => $estatus
   ];
 }
 
 echo json_encode([
   "success" => true,
-  "data" => $data
+  "data" => array_values($bloques)
 ]);
 exit;

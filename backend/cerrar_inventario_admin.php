@@ -157,6 +157,28 @@ foreach ($items as $codigo => &$it) {
 unset($it);
 
 /* ===============================
+   1.1 VALIDAR SI YA EXISTE CIERRE (ANTI-DUPLICADO)
+================================= */
+
+$qExiste = mssql_query("
+    SELECT TOP 1 id
+    FROM CAP_INVENTARIO_CIERRE
+    WHERE cia = '$cia'
+      AND almacen = '$almacen'
+      AND fecha_inventario = '$fecha'
+", $conn);
+
+if ($qExiste && ($rowExiste = mssql_fetch_assoc($qExiste))) {
+    echo json_encode(array(
+        "success"   => false,
+        "error"     => "Este inventario ya tiene un cierre generado.",
+        "id_cierre" => intval($rowExiste["id"])
+    ));
+    exit;
+}
+
+
+/* ===============================
    6. INSERTAR ENCABEZADO CIERRE
 ================================= */
 
