@@ -37,6 +37,10 @@ export default function Mapa({ drawerRootId }) {
   const [grupoSeleccionado, setGrupoSeleccionado] = useState(null);
   const [almacenFiltro, setAlmacenFiltro] = useState("TODOS");
 
+  const [sapRefrescado, setSapRefrescado] = useState(null); // null | 0 | 1
+  const [procesandoRefresh, setProcesandoRefresh] = useState(false);
+
+
 
 
   const fetchFechasDisponibles = async (ciaSeleccionada) => {
@@ -192,6 +196,23 @@ export default function Mapa({ drawerRootId }) {
         // 🔥 Guardar estatus del inventario
         setEstatusInventario(res.data.estatus);
 
+        //  consultar si SAP ya fue refrescado
+        try {
+          const resp = await axios.get(
+            "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/estado_refresh_sap.php",
+            { params: { almacen: almacenSeleccionado, fecha, cia } }
+          );
+
+          if (resp.data.success) {
+            setSapRefrescado(resp.data.sap_refrescado);
+          } else {
+            setSapRefrescado(null);
+          }
+        } catch {
+          setSapRefrescado(null);
+        }
+
+
         // ✅ Normaliza para que siempre tengas: almacen, sap_final, conteo_final, diferencia_cierre
         const detalleConFinal = normalizarDetalle(res.data.data);
 
@@ -211,81 +232,117 @@ export default function Mapa({ drawerRootId }) {
     }
   };
 
+ const fetchDetalleGrupo = async (grupo) => {
+  if (!cia || !fecha || !grupo?.base || !grupo?.almacenes?.length) return;
 
-  const fetchDetalleGrupo = async (grupo) => {
-    if (!cia || !fecha || !grupo?.base) return;
+  try {
+    Swal.fire({
+      title: "Procesando...",
+      text: `Obteniendo detalle del grupo ${grupo.base}...`,
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+    });
 
+    /* ===============================
+       1. OBTENER DETALLE DEL GRUPO
+    ================================ */
+    const res = await axios.get(
+      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/mapa_detalle_grupo.php",
+      {
+        params: {
+          grupo: grupo.base,
+          fecha,
+          cia,
+          usuario: sessionStorage.getItem("empleado"),
+        },
+      }
+    );
+
+    Swal.close();
+
+    if (!res.data.success) {
+      Swal.fire(
+        "Error",
+        res.data.error || "Error al obtener detalle del grupo",
+        "error"
+      );
+      return;
+    }
+
+    /* ===============================
+       2. ESTATUS DEL INVENTARIO
+    ================================ */
+    setEstatusInventario(res.data.estatus);
+
+    /* ===============================
+       3. CONSULTAR FLAG SAP (GRUPO)
+       → UNA SOLA PETICIÓN
+    ================================ */
     try {
-      Swal.fire({
-        title: "Procesando...",
-        text: `Obteniendo detalle del grupo ${grupo.base}...`,
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading(),
-      });
+      const almacenesCSV = grupo.almacenes.join(",");
 
-      const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/mapa_detalle_grupo.php",
+      const resp = await axios.get(
+        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/estado_refresh_sap.php",
         {
           params: {
-            grupo: grupo.base,
+            almacen: almacenesCSV,
             fecha,
             cia,
-            usuario: sessionStorage.getItem("empleado"),
           },
         }
       );
 
-      Swal.close();
-
-      if (!res.data.success) {
-        Swal.fire(
-          "Error",
-          res.data.error || "Error al obtener detalle del grupo",
-          "error"
-        );
-        return;
+      if (resp.data && resp.data.success) {
+        // El PHP decide si TODO el grupo está refrescado
+        setSapRefrescado(resp.data.sap_refrescado === 1);
+      } else {
+        setSapRefrescado(null);
       }
-
-      //  Guardar estatus del inventario
-      setEstatusInventario(res.data.estatus);
-
-      // 🔥 Normalizar igual que en fetchDetalle (sap_final, conteo_final, diferencia_cierre)
-      const detalleConFinal = (Array.isArray(res.data.data) ? res.data.data : []).map((item) => {
-        let conteo_final = 0;
-
-        if (item.conteo3 && item.conteo3 > 0) {
-          conteo_final = item.conteo3;
-        } else if (item.conteo2 && item.conteo2 > 0) {
-          conteo_final = item.conteo2;
-        } else {
-          conteo_final = item.conteo1;
-        }
-
-        const sap_final = item.inventario_sap ?? 0;
-
-        // Diferencia para cierre: FÍSICO - SAP
-        const diferencia_cierre = (conteo_final ?? 0) - sap_final;
-
-        return {
-          ...item,
-          conteo_final,
-          sap_final,
-          diferencia_cierre,
-        };
-      });
-
-      setDetalle(detalleConFinal);
-      setPaginaActual(1);
-
-      if (detalleConFinal.length === 0) {
-        Swal.fire("Sin datos", "No hay información para este grupo.", "info");
-      }
-    } catch (err) {
-      Swal.close();
-      console.error(err);
-      Swal.fire("Error", "No se pudo obtener el detalle del grupo.", "error");
+    } catch (e) {
+      console.error("Error consultando estado SAP grupo:", e);
+      setSapRefrescado(null);
     }
-  };
+
+    /* ===============================
+       4. NORMALIZAR DETALLE
+    ================================ */
+    const detalleConFinal = (Array.isArray(res.data.data) ? res.data.data : []).map((item) => {
+      let conteo_final = 0;
+
+      if (item.conteo3 && item.conteo3 > 0) {
+        conteo_final = item.conteo3;
+      } else if (item.conteo2 && item.conteo2 > 0) {
+        conteo_final = item.conteo2;
+      } else {
+        conteo_final = item.conteo1;
+      }
+
+      const sap_final = item.inventario_sap ?? 0;
+      const diferencia_cierre = conteo_final - sap_final;
+
+      return {
+        ...item,
+        conteo_final,
+        sap_final,
+        diferencia_cierre,
+      };
+    });
+
+    setDetalle(detalleConFinal);
+    setPaginaActual(1);
+
+    if (detalleConFinal.length === 0) {
+      Swal.fire("Sin datos", "No hay información para este grupo.", "info");
+    }
+
+  } catch (err) {
+    Swal.close();
+    console.error(err);
+    Swal.fire("Error", "No se pudo obtener el detalle del grupo.", "error");
+  }
+};
+
+
 
 
 
@@ -676,7 +733,7 @@ export default function Mapa({ drawerRootId }) {
           {
             params: {
               cia,
-              almacen: alm, // 
+              almacen: alm, //
               fecha,
               usuario: sessionStorage.getItem("empleado"),
               proyecto: value.proyecto,
@@ -723,6 +780,70 @@ export default function Mapa({ drawerRootId }) {
       );
     }
   };
+
+  const refreshSAP = async () => {
+    const confirm = await Swal.fire({
+      title: "¿Actualizar datos desde SAP?",
+      text: "Este proceso solo se puede ejecutar una vez y no tiene vuelta atrás.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, actualizar",
+      cancelButtonText: "Cancelar",
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    try {
+      setProcesandoRefresh(true);
+
+      Swal.fire({
+        title: "Procesando...",
+        text: "Reconsultando datos desde SAP",
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+      });
+
+      //
+      const almacenesRefresh = grupoSeleccionado
+        ? grupoSeleccionado.almacenes.join(",")
+        : almacenSeleccionado;
+
+      const res = await axios.get(
+        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/refresh_sap.php",
+        {
+          params: {
+            almacen: almacenesRefresh,
+            fecha,
+            cia,
+          },
+        }
+      );
+
+      Swal.close();
+
+      if (!res.data || !res.data.success) {
+        throw new Error(res.data?.error || "Error al refrescar SAP");
+      }
+
+      Swal.fire("Listo", res.data.mensaje, "success");
+
+      setSapRefrescado(1);
+
+      //  recargar detalle
+      if (grupoSeleccionado) {
+        fetchDetalleGrupo(grupoSeleccionado);
+      } else {
+        fetchDetalle();
+      }
+
+    } catch (e) {
+      Swal.close();
+      Swal.fire("Error", e.message || "Error al refrescar SAP", "error");
+    } finally {
+      setProcesandoRefresh(false);
+    }
+  };
+
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -1173,13 +1294,13 @@ export default function Mapa({ drawerRootId }) {
               🔎 Detalle: {grupoSeleccionado ? `Grupo ${grupoSeleccionado.base}` : almacenSeleccionado}
             </h2>
 
-
-            {estatusInventario === 4 && (
+            {estatusInventario === 4 && sapRefrescado === false && (
               <button
-                onClick={() => setMostrarDrawer(true)}
+                onClick={refreshSAP}
+                disabled={procesandoRefresh}
                 className="
                   px-5 py-3
-                  bg-slate-700
+                  bg-yellow-600
                   text-white
                   text-sm
                   font-semibold
@@ -1187,19 +1308,24 @@ export default function Mapa({ drawerRootId }) {
                   shadow-md
                   transition-all
                   duration-200
-                  hover:bg-slate-800
-                  hover:shadow-lg
-                  focus:outline-none
-                  focus:ring-2
-                  focus:ring-slate-500
-                  focus:ring-offset-2
-                  active:scale-[0.98]
+                  hover:bg-yellow-700
+                  disabled:opacity-50
                 "
+              >
+                🔄 Actualizar datos de SAP
+              </button>
+            )}
+
+
+           {estatusInventario === 4 && sapRefrescado === true && (
+              <button
+                onClick={() => setMostrarDrawer(true)}
+                className="px-5 py-3 bg-slate-700 text-white text-sm font-semibold rounded-lg shadow-md hover:bg-slate-800"
               >
                 Revisar Cierre del Inventario
               </button>
-
             )}
+
 
 
             <div className="flex gap-3">

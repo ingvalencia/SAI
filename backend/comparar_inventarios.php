@@ -227,7 +227,7 @@ if ($sp) {
 }
 
 /* ============================================================
-   CARGAR CONTEOS DEL USUARIO (MÍO)
+   CARGAR CONTEOS DEL USUARIO 
 ============================================================ */
 $sqlC1 = "
     SELECT c.ItemCode, ct.nro_conteo, ct.cantidad

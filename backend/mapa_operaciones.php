@@ -28,13 +28,15 @@ mssql_select_db($db, $conn);
 
 
 $query = "
-  SELECT DISTINCT
+    SELECT
     almacen,
-    estatus
+    MAX(estatus) AS estatus
   FROM CAP_INVENTARIO
   WHERE cias = '$cia'
     AND fecha_inv = '$fecha'
+  GROUP BY almacen
   ORDER BY estatus DESC, almacen
+
 ";
 
 $result = mssql_query($query, $conn);

@@ -323,8 +323,7 @@ export default function CapturaInventario() {
       });
     }
 
-    //  ESTE ES EL CAMBIO CLAVE:
-    // Si hay asignación, NO usamos lo que diga la BD
+
     let estatusReal = nroAsignado; // 1 o 2 según asignación
 
     if (!asignacionCargada) {
@@ -369,7 +368,7 @@ export default function CapturaInventario() {
           fecha: fecISO,
           empleado: emp,
           cia,
-          nro_conteo: estatusReal, // 👈 AHORA SIEMPRE MANDA 1 o 2 correcto
+          nro_conteo: estatusReal, //
         },
       }
     );
@@ -389,7 +388,7 @@ export default function CapturaInventario() {
 
     setModo(modo);
 
-    // 🔒 Bloquear SIEMPRE que el backend diga "solo lectura"
+    // Bloquear SIEMPRE que el backend diga "solo lectura"
     const debeBloquear = (modo === "solo lectura");
     setBloqueado(debeBloquear);
 
@@ -417,7 +416,7 @@ export default function CapturaInventario() {
           almacen: alm,
           fecha: fecISO,
           empleado: emp,
-          estatus: estatusReal, // 👈 YA COINCIDE
+          estatus: estatusReal, // 
           cia,
         },
       }

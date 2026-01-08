@@ -199,7 +199,7 @@ mssql_query("
   (cia, almacen, fecha_inventario, estatus_cierre, total_items, total_diferencias,
    total_ajustes_unidades, usuario_cierre, fecha_cierre)
   VALUES
-  ('$cia', '$almacen', '$fecha', 2, $tot_items, $tot_dif, $tot_ajuste, '$usuario', GETDATE())
+  ('$cia', '$almacen', '$fecha', 3, $tot_items, $tot_dif, $tot_ajuste, '$usuario', GETDATE())
 ", $conn);
 
 $qr  = mssql_query("SELECT @@IDENTITY AS id", $conn);
@@ -343,7 +343,7 @@ foreach ($items as $codigo => $it) {
         '$tipo',
         'Diferencia inventario físico vs SAP',
         '".str_replace("'", "''", $comentario)."',
-        0,
+        1,
         GETDATE(),
         '$usuario'
       )
