@@ -416,7 +416,7 @@ export default function CapturaInventario() {
           almacen: alm,
           fecha: fecISO,
           empleado: emp,
-          estatus: estatusReal, // 
+          estatus: estatusReal, //
           cia,
         },
       }
@@ -807,32 +807,32 @@ const handleCodigoDetectado = async (codigo) => {
     });
 
     if (cantidad !== undefined) {
-      const nuevo = [...datos];
-      nuevo[index].cant_invfis = cantidad;
-      setDatos(nuevo);
+    const nuevo = [...datos];
 
-      // Guarda en backend inmediato igual que desde la tabla
-      await autoGuardar(producto, cantidad);
+    const actual = parseFloat(nuevo[index].cant_invfis) || 0;
+    const suma = actual + parseFloat(cantidad);
 
-      setBusqueda("");
-      const inputPrincipal = document.getElementById("inputCaptura");
-      if (inputPrincipal) inputPrincipal.focus();
+    nuevo[index].cant_invfis = suma;
+    setDatos(nuevo);
 
-      const elemento = document.getElementById(`fila-${index}`);
-      if (elemento) {
-        elemento.scrollIntoView({ behavior: "smooth", block: "center" });
-        elemento.classList.add("ring-2", "ring-green-400");
-        setTimeout(() => elemento.classList.remove("ring-2", "ring-green-400"), 1500);
-      }
+    // Guarda en backend el TOTAL acumulado
+    await autoGuardar(producto, suma);
 
-      setHistorial((prev) => {
-        const nuevoHistorial = [
-          { codigo: producto.ItemCode, nombre: producto.Itemname, cantidad },
-          ...prev,
-        ];
-        return nuevoHistorial.slice(0, 5);
-      });
+    setBusqueda("");
+    const inputPrincipal = document.getElementById("inputCaptura");
+    if (inputPrincipal) inputPrincipal.focus();
+
+    const elemento = document.getElementById(`fila-${producto.id}`);
+    if (elemento) {
+      elemento.scrollIntoView({ behavior: "smooth", block: "center" });
+      elemento.classList.add("ring-2", "ring-green-400");
+      setTimeout(
+        () => elemento.classList.remove("ring-2", "ring-green-400"),
+        1500
+      );
     }
+  }
+
   } else {
     const inputPrincipal = document.getElementById("inputCaptura");
 

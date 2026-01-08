@@ -363,6 +363,16 @@ mssql_query("
 ", $conn);
 
 /* ===============================
+   9.1 EMITIR SEÑAL SAP (DB SIGNAL)
+================================= */
+
+mssql_query("
+  INSERT INTO dbo.CAP_SAP_SIGNAL (id_cierre)
+  VALUES ($id_cierre)
+", $conn);
+
+
+/* ===============================
    10. RESPUESTA FINAL
 ================================= */
 
