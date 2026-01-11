@@ -92,6 +92,7 @@ foreach ($almacenes as $alm) {
         'conteo1'        => 0,
         'conteo2'        => 0,
         'conteo3'        => 0,
+        'conteo4'        => 0,
       ];
     }
 
@@ -121,16 +122,23 @@ while ($r = mssql_fetch_assoc($q)) {
   $n = (int)$r['nro_conteo'];
   $v = (float)$r['cantidad'];
 
-  if ($n <= 1)      $items[$key]['conteo1'] += $v;
-  else if ($n == 2) $items[$key]['conteo2'] += $v;
-  else              $items[$key]['conteo3'] += $v;
+  if ($n <= 1) {
+    $items[$key]['conteo1'] += $v;
+  } else if ($n == 2) {
+    $items[$key]['conteo2'] += $v;
+  } else if ($n == 3) {
+    $items[$key]['conteo3'] += $v;
+  } else if ($n == 7) {
+    $items[$key]['conteo4'] += $v;
+  }
+
 }
 
 /* ============================
    5. ESTATUS DEL GRUPO (MIN)
 ============================ */
 $re = mssql_query("
-  SELECT MIN(estatus) AS estatus
+  SELECT MAX(estatus) AS estatus
   FROM CAP_INVENTARIO
   WHERE almacen IN ($listaAlmacenes)
     AND fecha_inv = '$fecha'
@@ -150,7 +158,9 @@ $out = [];
 
 foreach ($items as $it) {
 
-  if ($it['conteo3'] > 0) {
+  if ($it['conteo4'] > 0) {
+    $conteo_final = $it['conteo4'];
+  } elseif ($it['conteo3'] > 0) {
     $conteo_final = $it['conteo3'];
   } elseif ($it['conteo2'] > 0) {
     $conteo_final = $it['conteo2'];
@@ -159,7 +169,8 @@ foreach ($items as $it) {
   }
 
   $it['conteo_final'] = $conteo_final;
-  $it['diferencia']   = $conteo_final - $it['inventario_sap'];
+  $it['diferencia']   = $conteo_final - $it['inventario_sap']; // 
+
 
   $out[] = $it;
 }

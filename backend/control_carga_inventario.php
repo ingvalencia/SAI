@@ -139,7 +139,7 @@ if ($resEstatus && $row = mssql_fetch_assoc($resEstatus)) {
   $estatus_inv = intval($row['estatus']);
 
   // Si el proceso ya está cerrado (4)
-  if ($estatus_inv >= 4) {
+  if ($estatus_inv >= 4 && $estatus_inv != 7) {
 
     echo json_encode([
       'success'    => true,

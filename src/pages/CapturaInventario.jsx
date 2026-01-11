@@ -64,6 +64,12 @@ export default function CapturaInventario() {
   const [compaListo, setCompaListo] = useState(false);
   const [bloquearSeleccion, setBloquearSeleccion] = useState(false);
 
+
+  // === Regla: SOLO para conteo 3 y 4 (en tu flujo: 4to = estatus 7) y SOLO en brigada
+  const esTercerOCuarto = Number(estatus) === 3 || Number(estatus) === 7;
+  const aplicarVistaDiferenciasBrigada = esBrigada && esTercerOCuarto;
+
+
  useEffect(() => {
     const empleado = sessionStorage.getItem("empleado");
     if (!empleado) return;
@@ -467,6 +473,28 @@ export default function CapturaInventario() {
     }
   };
 
+  const calcularTotalDesdeInput = (rawInput, actualValue) => {
+    let raw = (rawInput ?? "").toString().trim().replace(/\s+/g, ""); // soporta "+ 10"
+    if (raw === "") return { ok: true, total: "" }; // permite limpiar
+
+    // formato: 40, +40, -10, 10.5
+    if (!/^[-+]?\d+(\.\d+)?$/.test(raw)) {
+      return { ok: false, error: "Formato inválido. Usa 40, +40 o -10" };
+    }
+
+    const n = parseFloat(raw);
+    const actual = parseFloat(actualValue) || 0;
+
+    let total;
+    if (raw.startsWith("+") || raw.startsWith("-")) total = actual + n;
+    else total = n;
+
+    if (total < 0) return { ok: false, error: "La cantidad no puede ser negativa" };
+
+    return { ok: true, total };
+  };
+
+
 
  const autoGuardar = async (item, cantidad) => {
   try {
@@ -713,6 +741,8 @@ export default function CapturaInventario() {
   }));
 
   //
+  const valorPrevioRef = useRef({});
+
   const inputRefs = useRef([]);
 
   //
@@ -723,7 +753,7 @@ let tiempoUltimo = 0;
 let bufferCodigo = "";
 
 const handleCodigoDetectado = async (codigo) => {
-  if (modalActivo) return; // evita múltiples ejecuciones mientras hay modal
+  if (modalActivo) return;
   setModalActivo(true);
 
   const codigoNormalizado = (codigo || "")
@@ -749,16 +779,21 @@ const handleCodigoDetectado = async (codigo) => {
           <p>🧾 <strong>Código:</strong> ${producto.ItemCode}</p>
           <p>🏬 <strong>Almacén:</strong> ${producto.almacen}</p>
           <p>📁 <strong>Familia:</strong> ${producto.nom_fam}</p>
+          <p class="mt-2 text-blue-700 font-semibold">
+            📦 Cantidad actual: ${parseFloat(producto.cant_invfis) || 0}
+          </p>
+          <p class="text-xs text-gray-500 mt-1">
+            Usa <strong>+ / -</strong> para sumar o restar (ej: +10, -5)
+          </p>
         </div>
+
         <input
-          type="number"
+          type="text"
           id="cantidad"
           class="swal2-input text-center text-lg font-bold"
           placeholder="Cantidad"
-          min="0"
-          step="any"
-          maxlength="6"
-          oninput="if(this.value.length > 6) this.value = this.value.slice(0, 6)"
+          inputmode="numeric"
+          maxlength="7"
         />
       `,
       focusConfirm: false,
@@ -766,23 +801,23 @@ const handleCodigoDetectado = async (codigo) => {
       showCancelButton: true,
       cancelButtonText: "Cancelar",
       allowOutsideClick: false,
+
       didOpen: () => {
         const input = document.getElementById("cantidad");
         if (input) {
           input.focus();
           input.addEventListener("keydown", (e) => {
-            // Si la entrada es manual, se usa Enter
             const ahora = Date.now();
             const delta = ahora - tiempoUltimo;
             tiempoUltimo = ahora;
 
-            // Escáner: entrada muy rápida → autoguarda
+            // Escáner: entrada rápida (solo dígitos) → autoguarda
             if (delta < 35 && /^[0-9]$/.test(e.key)) {
               bufferCodigo += e.key;
               clearTimeout(window.timerScanner);
               window.timerScanner = setTimeout(() => {
                 if (bufferCodigo.length >= 6) {
-                  document.querySelector(".swal2-confirm").click();
+                  document.querySelector(".swal2-confirm")?.click();
                 }
                 bufferCodigo = "";
               }, 80);
@@ -791,56 +826,72 @@ const handleCodigoDetectado = async (codigo) => {
             // Manual: Enter explícito
             if (e.key === "Enter") {
               e.preventDefault();
-              document.querySelector(".swal2-confirm").click();
+              document.querySelector(".swal2-confirm")?.click();
             }
           });
         }
       },
+
       preConfirm: () => {
-        const valor = document.getElementById("cantidad").value;
-        if (!valor || isNaN(valor) || parseFloat(valor) < 0) {
-          Swal.showValidationMessage("Ingrese una cantidad válida.");
+        let raw = document.getElementById("cantidad").value || "";
+        raw = raw.trim().replace(/\s+/g, ""); // ✅ soporta "+ 10"
+
+        if (!raw) {
+          Swal.showValidationMessage("Ingresa una cantidad");
           return false;
         }
-        return parseFloat(valor);
+
+        // 40, +40, -10, 10.5, +10.5
+        if (!/^[-+]?\d+(\.\d+)?$/.test(raw)) {
+          Swal.showValidationMessage("Usa 40, +40 o -10");
+          return false;
+        }
+
+        const delta = parseFloat(raw);
+        const actual = parseFloat(producto.cant_invfis) || 0;
+
+        let nuevoTotal;
+        if (raw.startsWith("+") || raw.startsWith("-")) {
+          nuevoTotal = actual + delta; // delta ya trae signo
+        } else {
+          nuevoTotal = delta; // reemplaza
+        }
+
+        if (nuevoTotal < 0) {
+          Swal.showValidationMessage("La cantidad no puede ser negativa");
+          return false;
+        }
+
+        return nuevoTotal; // ✅ devuelve TOTAL FINAL
       },
     });
 
     if (cantidad !== undefined) {
-    const nuevo = [...datos];
+      const nuevo = [...datos];
 
-    const actual = parseFloat(nuevo[index].cant_invfis) || 0;
-    const suma = actual + parseFloat(cantidad);
+      // ✅ AQUÍ ESTABA EL ERROR: NO SUMES, YA ES TOTAL
+      nuevo[index].cant_invfis = cantidad;
+      setDatos(nuevo);
 
-    nuevo[index].cant_invfis = suma;
-    setDatos(nuevo);
+      // ✅ guarda el TOTAL
+      await autoGuardar(producto, cantidad);
 
-    // Guarda en backend el TOTAL acumulado
-    await autoGuardar(producto, suma);
+      setBusqueda("");
+      const inputPrincipal = document.getElementById("inputCaptura");
+      if (inputPrincipal) inputPrincipal.focus();
 
-    setBusqueda("");
-    const inputPrincipal = document.getElementById("inputCaptura");
-    if (inputPrincipal) inputPrincipal.focus();
-
-    const elemento = document.getElementById(`fila-${producto.id}`);
-    if (elemento) {
-      elemento.scrollIntoView({ behavior: "smooth", block: "center" });
-      elemento.classList.add("ring-2", "ring-green-400");
-      setTimeout(
-        () => elemento.classList.remove("ring-2", "ring-green-400"),
-        1500
-      );
+      const elemento = document.getElementById(`fila-${producto.id}`);
+      if (elemento) {
+        elemento.scrollIntoView({ behavior: "smooth", block: "center" });
+        elemento.classList.add("ring-2", "ring-green-400");
+        setTimeout(() => elemento.classList.remove("ring-2", "ring-green-400"), 1500);
+      }
     }
-  }
-
   } else {
     const inputPrincipal = document.getElementById("inputCaptura");
-
-    // pausa entradas mientras hay modal
     setLectorActivo(false);
     inputPrincipal?.blur();
 
-    // traga el Enter residual del escáner
     await new Promise((r) => setTimeout(r, 150));
 
     await MySwal.fire({
@@ -857,8 +908,9 @@ const handleCodigoDetectado = async (codigo) => {
     inputPrincipal?.focus();
   }
 
-  setModalActivo(false); // desbloquea al terminar
+  setModalActivo(false);
 };
+
 
 
 
@@ -876,9 +928,17 @@ const handleCodigoDetectado = async (codigo) => {
         const matchFamilia = !familiaSeleccionada || item.nom_fam === familiaSeleccionada;
         const matchSubfamilia = !subfamiliaSeleccionada || item.nom_subfam === subfamiliaSeleccionada;
 
+        // SOLO brigada + conteo 3/4: mostrar únicamente artículos con diferencias entre conteos A y B
+        if (aplicarVistaDiferenciasBrigada) {
+          const a = Number(item.conteo_1 ?? 0);
+          const b = Number(item.conteo_2 ?? 0);
+          if (a === b) return false;
+        }
+
+
         return matchBusqueda && matchFamilia && matchSubfamilia;
       });
-  }, [datos, busqueda, familiaSeleccionada, subfamiliaSeleccionada]);
+  }, [datos, busqueda, familiaSeleccionada, subfamiliaSeleccionada,aplicarVistaDiferenciasBrigada]);
 
 
   const indiceInicial = (paginaActual - 1) * registrosPorPagina;
@@ -1394,80 +1454,133 @@ const handleCodigoDetectado = async (codigo) => {
                     <th className="p-3 text-left">Código</th>
                     <th className="p-3 text-left w-64 max-w-[16rem]">NOMBRE</th>
                     <th className="p-3 text-left">Código de Barras</th>
+
+                    {aplicarVistaDiferenciasBrigada && (
+                      <>
+                        <th className="p-3 text-left bg-blue-100 text-blue-800">
+                          Conteo 1
+                        </th>
+                        <th className="p-3 text-left bg-amber-100 text-amber-800">
+                          Conteo 2
+                        </th>
+
+                        {Number(estatus) === 7 && (
+                          <th className="p-3 text-left bg-yellow-200 text-yellow-900">
+                            Conteo 3
+                          </th>
+                        )}
+                      </>
+                    )}
+
+
+
                     <th className="p-3 text-left">Inventario Físico</th>
                   </tr>
                 </thead>
+
                 <tbody className="bg-white divide-y divide-gray-100">
-        {datosPaginados.map((item, i) => {
-          const k = `${item.ItemCode}-${item.almacen}`;
-          const valor = item.cant_invfis ?? ""; // siempre string
-          const editado = parseFloat(valor) > 0;
-          const invalido =
-            valor === "" || isNaN(Number(valor)) || parseFloat(valor) <= 0;
+                  {datosPaginados.map((item, i) => {
+                    const k = `${item.ItemCode}-${item.almacen}`;
+                    const valor = item.cant_invfis ?? ""; // siempre string
+                    const editado = parseFloat(valor) > 0;
+                    const invalido = valor === "" || isNaN(Number(valor)) || parseFloat(valor) <= 0;
 
-          return (
-            <tr
-              key={k}
-              id={`fila-${item.id}`}
-              className="hover:bg-red-50 transition duration-150 ease-in-out"
-            >
-              <td className="p-3 text-sm text-gray-500 font-semibold whitespace-nowrap">
-                {indiceInicial + i + 1}
-              </td>
-              <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-                {item.cias}
-              </td>
-              <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-                {item.almacen}
-              </td>
-              <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-                {item.nom_fam}
-              </td>
-              <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-                {item.nom_subfam}
-              </td>
-              <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-                {item.ItemCode}
-              </td>
-              <td className="p-3 text-sm text-gray-700 whitespace-nowrap truncate max-w-[16rem]">
-                {item.Itemname}
-              </td>
-              <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-                {item.codebars}
-              </td>
-              <td className="p-3">
-                {(bloqueado || estatus === 4) ? (
-                  <span className="text-gray-600 text-sm font-medium">{valor}</span>
-                ) : (
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={valor}
-                    onChange={(e) => cambiarCantidad(item.id, e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        e.currentTarget.blur(); // dispara onBlur -> 1 solo guardado
-                      }
-                    }}
-                    onBlur={(e) => {
-                      setTimeout(() => setLectorActivo(true), 200);
-                      if (!bloqueado) autoGuardar(item, e.target.value);
+                    return (
+                      <tr
+                        key={k}
+                        id={`fila-${item.id}`}
+                        className="hover:bg-red-50 transition duration-150 ease-in-out"
+                      >
+                        <td className="p-3 text-sm text-gray-500 font-semibold whitespace-nowrap">
+                          {indiceInicial + i + 1}
+                        </td>
 
-                    }}
-                  />
+                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.cias}</td>
+                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.almacen}</td>
+                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.nom_fam}</td>
+                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.nom_subfam}</td>
+                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.ItemCode}</td>
 
+                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap truncate max-w-[16rem]">
+                          {item.Itemname}
+                        </td>
 
+                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.codebars}</td>
 
+                        {aplicarVistaDiferenciasBrigada && (
+                          <>
+                            <td className="p-3 text-sm font-semibold text-blue-800 bg-blue-50 text-center">
+                              {Number(item.conteo_1 ?? 0).toFixed(2)}
+                            </td>
 
+                            <td className="p-3 text-sm font-semibold text-amber-800 bg-amber-50 text-center">
+                              {Number(item.conteo_2 ?? 0).toFixed(2)}
+                            </td>
+
+                            {Number(estatus) === 7 && (
+                              <td className="p-3 text-sm font-semibold text-yellow-900 bg-yellow-50 text-center">
+                                {Number(item.conteo_3 ?? item.conteo3 ?? 0).toFixed(2)}
+                              </td>
+                            )}
+                          </>
                         )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
 
+
+
+                        <td className="p-3">
+                          {bloqueado || estatus === 4 ? (
+                            <span className="text-gray-600 text-sm font-medium">{valor}</span>
+                          ) : (
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={valor}
+                              onFocus={() => {
+                                // guarda el valor numérico REAL antes de que el user escriba +10/-5
+                                valorPrevioRef.current[item.id] = parseFloat(item.cant_invfis) || 0;
+                                setLectorActivo(false);
+                              }}
+                              onChange={(e) => cambiarCantidad(item.id, e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  e.currentTarget.blur(); // dispara onBlur
+                                }
+                              }}
+                              onBlur={async (e) => {
+                                setTimeout(() => setLectorActivo(true), 200);
+                                if (bloqueado) return;
+
+                                const base = valorPrevioRef.current[item.id] ?? 0; // ✅ valor anterior real
+                                const { ok, total, error } = calcularTotalDesdeInput(e.target.value, base);
+
+                                const nuevo = [...datos];
+                                const idx = nuevo.findIndex((x) => x.id === item.id);
+                                if (idx === -1) return;
+
+                                if (!ok) {
+                                  await MySwal.fire("Cantidad inválida", error, "warning");
+                                  // regresa al valor anterior real
+                                  nuevo[idx].cant_invfis = base;
+                                  setDatos(nuevo);
+                                  return;
+                                }
+
+                                const totalFinal = total === "" ? "" : total;
+                                nuevo[idx].cant_invfis = totalFinal;
+                                setDatos(nuevo);
+
+                                await autoGuardar(item, totalFinal === "" ? 0 : totalFinal);
+                              }}
+                            />
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
               </table>
+
             </div>
           )}
 

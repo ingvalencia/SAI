@@ -57,8 +57,9 @@ export default function CompararInventario() {
     // Encabezados
     const headers = [
       "#", "No Empleado", "Almacén", "CIA", "Código", "Nombre",
-      "Código de Barras", "Captura SAP", "Conteo 1", "Conteo 2", "Conteo 3", "Diferencia"
+      "Código de Barras", "Captura SAP", "Conteo 1", "Conteo 2", "Conteo 3", "Conteo 4", "Diferencia"
     ];
+
 
     worksheet.addRow(headers);
 
@@ -82,12 +83,15 @@ export default function CompararInventario() {
       const conteo1 = item.conteo1 ?? 0;
       const conteo2 = item.conteo2 ?? 0;
       const conteo3 = item.conteo3 ?? 0;
+      const conteo4 = item.conteo4 ?? 0;
       const sap = item.cant_sap ?? 0;
 
       const conteoActual =
-        estatus === 3 ? conteo3 :
-        estatus === 2 ? conteo2 :
+        estatusCalc === 7 ? conteo4 :
+        estatusCalc === 3 ? conteo3 :
+        estatusCalc === 2 ? conteo2 :
         conteo1;
+
 
       const diferencia = parseFloat((sap - conteoActual).toFixed(2));
 
@@ -103,12 +107,13 @@ export default function CompararInventario() {
         conteo1,
         conteo2,
         conteo3,
+        conteo4,
         diferencia,
       ]);
 
       // Estilo diferencia negativa
       if (diferencia < 0) {
-        const diffCell = row.getCell(12); // columna "Diferencia"
+        const diffCell = row.getCell(13); // columna "Diferencia"
         diffCell.font = { color: { argb: "000000" } };
       }
     });
@@ -137,8 +142,14 @@ export default function CompararInventario() {
       const c1 = item.conteo1 ?? 0;
       const c2 = item.conteo2 ?? 0;
       const c3 = item.conteo3 ?? 0;
+      const c4 = item.conteo4 ?? 0;
       const sap = item.cant_sap ?? item.sap ?? 0;
-      const conteoActual = estatus === 3 ? c3 : estatus === 2 ? c2 : c1;
+      const conteoActual =
+      estatusCalc === 7 ? c4 :
+      estatusCalc === 3 ? c3 :
+      estatusCalc === 2 ? c2 :
+      c1;
+
       const dif = Number((sap - conteoActual).toFixed(2));
 
       return [
@@ -153,6 +164,7 @@ export default function CompararInventario() {
         c1.toFixed(2),
         c2.toFixed(2),
         c3.toFixed(2),
+        c4.toFixed(2),
         { text: dif.toFixed(2), color: dif > 0 ? "orange" : dif < 0 ? "red" : "green", bold: true }
       ];
     }),
@@ -186,9 +198,10 @@ export default function CompararInventario() {
         table: {
           headerRows: 1,
           widths: [
-            "auto", "auto", "auto", "auto", "auto", "*", "auto",
-            "auto", "auto", "auto", "auto", "auto"
-          ],
+          "auto", "auto", "auto", "auto", "auto", "*", "auto",
+          "auto", "auto", "auto", "auto", "auto", "auto"
+        ],
+
           body,
         },
         layout: "lightHorizontalLines",
@@ -270,19 +283,33 @@ export default function CompararInventario() {
 
           // 🔹 Procesar datos
           const datosFinal = res.data.data.map((item) => {
-            const c1 = Number(item.conteo_mio ?? 0);
-            const c2 = Number(item.conteo_comp ?? 0);
             const sap = Number(item.cant_sap ?? 0);
+
+            //
+            const c1 = Number(item.conteo1 ?? 0);
+            const c2 = Number(item.conteo2 ?? 0);
+            const c3 = Number(item.conteo3 ?? 0);
+            const c4 = Number(item.conteo4 ?? 0);
+
+
+            //
+            const conteoActual = estatusActual === 3 ? c3 : estatusActual === 2 ? c2 : c1;
 
             return {
               ...item,
               cant_sap: sap,
               conteo1: c1,
               conteo2: c2,
-              diferencia: Number((sap - c1).toFixed(2)),
+              conteo3: c3,
+              conteo4: c4,
+              diferencia: Number((sap - conteoActual).toFixed(2)),
+
+              // si quieres mantenerla: compara c1 vs c2 (brigada clásica)
               diferenciaBrigada: Number((c1 - c2).toFixed(2)),
             };
           });
+
+
 
           setDatos(datosFinal);
 
@@ -381,6 +408,10 @@ export default function CompararInventario() {
       return "green";
     }
 
+  const estatusCalc = Number(estatus) === 4
+  ? Number(resGlobal?.nro_conteo ?? 1)   // aquí debe venir 7 si el último fue Conteo 4
+  : Number(estatus);
+
       // === PAGINACIÓN: filtrar, paginar y numerar ===
       let datosFiltrados = datos.filter((item) => {
       const texto = busqueda.toLowerCase();
@@ -421,15 +452,66 @@ export default function CompararInventario() {
         const resModal = await Swal.fire({
           title: "¿Quién realizará el Tercer Conteo?",
           html: `
-            <div style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
-              <button id="btnA" class="swal2-confirm swal2-styled" style="background:#2563eb;">
-                Usuario ${resGlobal.mi_empleado}
+            <div style="
+              display:flex;
+              flex-direction:column;
+              gap:14px;
+              margin-top:16px;
+              font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            ">
+
+              <div style="
+                text-align:center;
+                font-size:14px;
+                color:#374151;
+                margin-bottom:6px;
+              ">
+                Selecciona quién realizará el <strong>Tercer Conteo</strong>
+              </div>
+
+              <button
+                id="btnA"
+                class="swal2-confirm swal2-styled"
+                style="
+                  background:#1d4ed8;
+                  padding:14px;
+                  border-radius:10px;
+                  display:flex;
+                  flex-direction:column;
+                  align-items:center;
+                  gap:4px;
+                  box-shadow:0 4px 10px rgba(0,0,0,0.15);
+                "
+              >
+                <span style="font-size:12px; opacity:0.85;">Usuario asignado</span>
+                <span style="font-size:16px; font-weight:600;">
+                  ${resGlobal.mi_empleado}
+                </span>
               </button>
-              <button id="btnB" class="swal2-confirm swal2-styled" style="background:#16a34a;">
-                Usuario ${resGlobal.empleado_companero}
+
+              <button
+                id="btnB"
+                class="swal2-confirm swal2-styled"
+                style="
+                  background:#047857;
+                  padding:14px;
+                  border-radius:10px;
+                  display:flex;
+                  flex-direction:column;
+                  align-items:center;
+                  gap:4px;
+                  box-shadow:0 4px 10px rgba(0,0,0,0.15);
+                "
+              >
+                <span style="font-size:12px; opacity:0.85;">Usuario compañero</span>
+                <span style="font-size:16px; font-weight:600;">
+                  ${resGlobal.empleado_companero}
+                </span>
               </button>
+
             </div>
           `,
+
           showConfirmButton: false,
           allowOutsideClick: false,
           didRender: () => {
@@ -544,6 +626,17 @@ export default function CompararInventario() {
       Swal.fire("Error", "No se pudo iniciar el cuarto conteo.", "error");
     }
   };
+
+  const labelConteo = (nro) => {
+    switch (Number(nro)) {
+      case 1: return "Primer conteo";
+      case 2: return "Segundo conteo";
+      case 3: return "Tercer conteo";
+      case 4: return "Cuarto conteo";
+      default: return "";
+    }
+  };
+
 
   return (
     <div className="max-w-7xl mx-auto p-6">
@@ -791,34 +884,68 @@ export default function CompararInventario() {
 
       <div className="relative overflow-auto max-h-[70vh] border rounded-lg shadow-md">
 
-      <table className="min-w-full text-sm table-auto">
-            <thead className="sticky top-0 bg-gradient-to-r from-red-100 via-white to-red-100 text-gray-800 text-xs uppercase tracking-wider shadow-md z-10">
-              <tr>
-                <th className="p-3 text-left w-10">#</th>
-                <th className="p-3 text-left">No Empleado</th>
-                <th className="p-3 text-left">Almacen</th>
-                <th className="p-3 text-left">CIA</th>
-                <th className="p-3 text-left">Código</th>
-                <th className="p-3 text-left w-64 max-w-[16rem]">NOMBRE</th>
-                <th className="p-3 text-left">Código de Barras</th>
-                <th className="p-3 text-right">Existencia SAP</th>
+        <table className="min-w-full text-sm table-auto">
+          <thead className="sticky top-0 bg-gradient-to-r from-red-100 via-white to-red-100 text-gray-800 text-xs uppercase tracking-wider shadow-md z-10">
+            <tr>
+              <th className="p-3 text-left w-10">#</th>
+              <th className="p-3 text-left">No Empleado</th>
+              <th className="p-3 text-left">Almacen</th>
+              <th className="p-3 text-left">CIA</th>
+              <th className="p-3 text-left">Código</th>
+              <th className="p-3 text-left w-64 max-w-[16rem]">NOMBRE</th>
+              <th className="p-3 text-left">Código de Barras</th>
+              <th className="p-3 text-right">Existencia SAP</th>
 
-                {/* SOLO mostrar el conteo activo */}
-                <th className="p-3 text-right">Mi conteo</th>
-                <th className="p-3 text-right">Diferencia SAP</th>
-                {esBrigada && (
-                  <>
-                    <th className="p-3 text-right">Conteo compañero</th>
-                    <th className="p-3 text-right">Dif. Brigada</th>
-                  </>
-                )}
+              {/* HISTORIAL DE CONTEOS + resaltar el conteo activo */}
+              <th className={`p-3 text-right ${estatus === 1 ? "bg-yellow-100 text-gray-900 font-extrabold" : ""}`}>
+                Conteo 1
+              </th>
+
+              <th className={`p-3 text-right ${estatus === 2 ? "bg-yellow-100 text-gray-900 font-extrabold" : ""}`}>
+                Conteo 2
+              </th>
+
+              <th className={`p-3 text-right ${estatus === 3 ? "bg-yellow-100 text-gray-900 font-extrabold" : ""}`}>
+                Conteo 3
+              </th>
+
+              <th className={`p-3 text-right ${estatus === 7 ? "bg-yellow-100 text-gray-900 font-extrabold" : ""}`}>
+                Conteo 4
+              </th>
 
 
-              </tr>
-            </thead>
+              <th className="p-3 text-right">Diferencia SAP</th>
 
-            <tbody className="bg-white divide-y divide-gray-100">
-              {datosPaginados.map((item, i) => (
+              {esBrigada && (
+                <>
+                  <th className="p-3 text-right">Dif. Brigada</th>
+                </>
+              )}
+            </tr>
+          </thead>
+
+          <tbody className="bg-white divide-y divide-gray-100">
+            {datosPaginados.map((item, i) => {
+              const c1 = Number(item.conteo1 ?? item.conteo_mio ?? 0);
+              const c2 = Number(item.conteo2 ?? item.conteo_comp ?? 0);
+              const c3 = Number(item.conteo3 ?? 0); //
+              const c4 = Number(item.conteo4 ?? 0);
+              const sap = Number(item.cant_sap ?? 0);
+
+              const conteoActual =
+              estatusCalc === 7 ? c4 :
+              estatusCalc === 3 ? c3 :
+              estatusCalc === 2 ? c2 :
+              c1;
+
+              const difSap = Number((sap - conteoActual).toFixed(2));
+
+              const claseConteo = (n) =>
+                `p-3 text-sm text-right font-semibold ${
+                  estatus === n ? "bg-yellow-100 text-gray-900 ring-2 ring-yellow-400" : "bg-gray-50 text-gray-700"
+                }`;
+
+              return (
                 <tr
                   key={i}
                   className="hover:bg-red-50 transition duration-150 ease-in-out"
@@ -831,66 +958,97 @@ export default function CompararInventario() {
                   <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
                     {item.usuario ?? "-"}
                   </td>
+
                   <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
                     {item.almacen ?? "-"}
                   </td>
+
                   <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
                     {item.cias ?? "-"}
                   </td>
+
                   <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
                     {item.ItemCode ?? "-"}
                   </td>
+
                   <td className="p-3 text-sm text-gray-700 whitespace-nowrap truncate max-w-[16rem]">
                     {item.Itemname ?? "-"}
                   </td>
+
                   <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
                     {item.codebars ?? "-"}
                   </td>
 
                   {/* SAP */}
                   <td className="p-3 text-sm text-right text-gray-700">
-                    {(item.cant_sap ?? 0).toFixed(2)}
+                    {sap.toFixed(2)}
                   </td>
 
-              {(() => {
-                    const miConteo = Number(item.conteo_mio ?? item.conteo1 ?? 0);
-                    const difSapMiConteo = Number(((item.cant_sap ?? 0) - miConteo).toFixed(2));
+                  {/* Conteo 1 */}
+                  <td className={claseConteo(1)}>
+                    <div>{c1.toFixed(2)}</div>
+                    {estatus === 1 && (
+                      <div className="text-[10px] text-gray-500">
+                        Conteo activo
+                      </div>
+                    )}
+                  </td>
 
-                    return (
-                      <>
-                        <td className="p-3 text-sm text-right bg-red-50 text-red-800 font-semibold">
-                          {miConteo.toFixed(2)}
-                        </td>
+                  {/* Conteo 2 */}
+                  <td className={claseConteo(2)}>
+                    <div>{c2.toFixed(2)}</div>
+                    {estatus === 2 && (
+                      <div className="text-[10px] text-gray-500">
+                        Conteo activo
+                      </div>
+                    )}
+                  </td>
 
-                        <td
-                          className="p-3 text-sm text-right font-bold"
-                          style={{ color: getColor(difSapMiConteo) }}
-                        >
-                          {difSapMiConteo.toFixed(2)}
-                        </td>
-                      </>
-                    );
-                  })()}
+                  {/* Conteo 3 */}
+                  <td className={claseConteo(3)}>
+                    <div>{c3.toFixed(2)}</div>
+                    {estatus === 3 && (
+                      <div className="text-[10px] text-gray-500">
+                        Conteo activo
+                      </div>
+                    )}
+                  </td>
 
+                  {/* Conteo 4 */}
+                  <td className={claseConteo(7)}>
+                    <div>{c4.toFixed(2)}</div>
+                    {estatus === 7 && (
+                      <div className="text-[10px] text-gray-500">
+                        Conteo activo
+                      </div>
+                    )}
+                  </td>
+
+
+                  {/* Diferencia SAP (con conteo activo) */}
+                  <td
+                    className="p-3 text-sm text-right font-bold"
+                    style={{ color: getColor(difSap) }}
+                  >
+                    {difSap.toFixed(2)}
+                  </td>
+
+                  {/* Dif. Brigada (si aplica) */}
                   {esBrigada && (
-                    <>
-                      <td className="p-3 text-sm text-right bg-blue-50 text-blue-800 font-semibold">
-                        {Number(item.conteo_comp ?? item.conteo2 ?? 0).toFixed(2)}
-                      </td>
-
-                      <td className="p-3 text-sm text-right font-bold"
-                          style={{ color: item.diferenciaBrigada === 0 ? "green" : "red" }}>
-                        {item.diferenciaBrigada.toFixed(2)}
-                      </td>
-                    </>
+                    <td
+                      className="p-3 text-sm text-right font-bold"
+                      style={{ color: Number(item.diferenciaBrigada ?? 0) === 0 ? "green" : "red" }}
+                    >
+                      {Number(item.diferenciaBrigada ?? 0).toFixed(2)}
+                    </td>
                   )}
-
-
-
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              );
+            })}
+          </tbody>
+        </table>
+
+
 
 
          <div className="mt-4 flex justify-center items-center gap-4 text-sm text-gray-700 font-medium">

@@ -40,6 +40,9 @@ export default function Mapa({ drawerRootId }) {
   const [sapRefrescado, setSapRefrescado] = useState(null); // null | 0 | 1
   const [procesandoRefresh, setProcesandoRefresh] = useState(false);
 
+  const [mostrarConteo4, setMostrarConteo4] = useState(false);
+
+
 
 
 
@@ -194,7 +197,7 @@ export default function Mapa({ drawerRootId }) {
 
       if (res.data.success) {
         // 🔥 Guardar estatus del inventario
-        setEstatusInventario(res.data.estatus);
+        setEstatusInventario(Number(res.data.estatus));
 
         //  consultar si SAP ya fue refrescado
         try {
@@ -204,7 +207,8 @@ export default function Mapa({ drawerRootId }) {
           );
 
           if (resp.data.success) {
-            setSapRefrescado(resp.data.sap_refrescado);
+            setSapRefrescado(Number(resp.data.sap_refrescado) === 1);
+
           } else {
             setSapRefrescado(null);
           }
@@ -258,6 +262,12 @@ export default function Mapa({ drawerRootId }) {
       }
     );
 
+    const hayConteo4 = res.data.data?.some(
+      (row) => Number(row.conteo4 ?? 0) > 0
+    );
+
+    setMostrarConteo4(hayConteo4);
+
     Swal.close();
 
     if (!res.data.success) {
@@ -272,7 +282,7 @@ export default function Mapa({ drawerRootId }) {
     /* ===============================
        2. ESTATUS DEL INVENTARIO
     ================================ */
-    setEstatusInventario(res.data.estatus);
+    setEstatusInventario(Number(res.data.estatus));
 
     /* ===============================
        3. CONSULTAR FLAG SAP (GRUPO)
@@ -307,26 +317,33 @@ export default function Mapa({ drawerRootId }) {
        4. NORMALIZAR DETALLE
     ================================ */
     const detalleConFinal = (Array.isArray(res.data.data) ? res.data.data : []).map((item) => {
-      let conteo_final = 0;
+      const c1 = Number(item.conteo1 ?? 0);
+      const c2 = Number(item.conteo2 ?? 0);
+      const c3 = Number(item.conteo3 ?? 0);
+      const c4 = Number(item.conteo4 ?? 0);
 
-      if (item.conteo3 && item.conteo3 > 0) {
-        conteo_final = item.conteo3;
-      } else if (item.conteo2 && item.conteo2 > 0) {
-        conteo_final = item.conteo2;
-      } else {
-        conteo_final = item.conteo1;
-      }
+      // ÚLTIMO CONTEO REAL
+      const conteo_final =
+        c4 > 0 ? c4 :
+        c3 > 0 ? c3 :
+        c2 > 0 ? c2 :
+        c1;
 
-      const sap_final = item.inventario_sap ?? 0;
-      const diferencia_cierre = conteo_final - sap_final;
+      const sap_final = Number(item.inventario_sap ?? 0);
+      const diferencia_cierre = Number((sap_final - conteo_final).toFixed(2));
 
       return {
         ...item,
+        conteo1: c1,
+        conteo2: c2,
+        conteo3: c3,
+        conteo4: c4,
         conteo_final,
         sap_final,
         diferencia_cierre,
       };
     });
+
 
     setDetalle(detalleConFinal);
     setPaginaActual(1);
@@ -505,23 +522,34 @@ export default function Mapa({ drawerRootId }) {
   const exportarExcelMapa = async () => {
     const datosExportar = detalleFiltrado;
 
+    // HEADERS dinámicos
     const headers = [
-      "#", "ALMACÉN", "CÓDIGO", "NOMBRE", "FAMILIA", "SUBFAMILIA",
-      "EXISTENCIA SAP", "CONTEO 1", "CONTEO 2", "CONTEO 3", "DIFERENCIA"
+      "#",
+      "ALMACÉN",
+      "CÓDIGO",
+      "NOMBRE",
+      "FAMILIA",
+      "SUBFAMILIA",
+      "EXISTENCIA SAP",
+      "CONTEO 1",
+      "CONTEO 2",
+      "CONTEO 3",
+      ...(mostrarConteo4 ? ["CONTEO 4"] : []),
+      "DIFERENCIA",
     ];
-
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Mapa Operaciones");
 
     worksheet.addRow(headers);
 
+    // Estilo encabezados
     headers.forEach((_, idx) => {
       const cell = worksheet.getRow(1).getCell(idx + 1);
       cell.fill = {
         type: "pattern",
         pattern: "solid",
-        fgColor: { argb: "9B1C1C" }, // rojo elegante
+        fgColor: { argb: "9B1C1C" },
       };
       cell.font = {
         color: { argb: "FFFFFF" },
@@ -529,20 +557,39 @@ export default function Mapa({ drawerRootId }) {
       };
     });
 
+    // Filas
     datosExportar.forEach((item, i) => {
-      worksheet.addRow([
+      const c1 = Number(item.conteo1 ?? 0);
+      const c2 = Number(item.conteo2 ?? 0);
+      const c3 = Number(item.conteo3 ?? 0);
+      const c4 = Number(item.conteo4 ?? 0);
+      const sap = Number(item.inventario_sap ?? 0);
+
+      // 🔴 DIFERENCIA SIEMPRE VS ÚLTIMO CONTEO
+      const ultimoConteo =
+        c4 > 0 ? c4 :
+        c3 > 0 ? c3 :
+        c2 > 0 ? c2 :
+        c1;
+
+      const diferencia = Number((sap - ultimoConteo).toFixed(2));
+
+      const row = [
         i + 1,
         item.almacen ?? "-",
-        item.codigo,
-        item.nombre,
+        item.codigo ?? "-",
+        item.nombre ?? "-",
         item.familia ?? "-",
         item.subfamilia ?? "-",
-        item.inventario_sap ?? 0,
-        item.conteo1 ?? 0,
-        item.conteo2 ?? 0,
-        item.conteo3 ?? 0,
-        item.diferencia ?? 0,
-      ]);
+        sap,
+        c1,
+        c2,
+        c3,
+        ...(mostrarConteo4 ? [c4] : []),
+        diferencia,
+      ];
+
+      worksheet.addRow(row);
     });
 
     worksheet.autoFilter = {
@@ -555,8 +602,12 @@ export default function Mapa({ drawerRootId }) {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
 
-    saveAs(blob, `mapa_${almacenSeleccionado || "almacen"}_${fecha}.xlsx`);
+    saveAs(
+      blob,
+      `mapa_${almacenSeleccionado || "almacen"}_${fecha}.xlsx`
+    );
   };
+
 
   const grupos = {
       0: almacenes.filter(a => a.estatus === 0),
@@ -1024,11 +1075,17 @@ export default function Mapa({ drawerRootId }) {
                             <th className="px-3 py-2 text-center">C1</th>
                             <th className="px-3 py-2 text-center">C2</th>
                             <th className="px-3 py-2 text-center">C3</th>
+
+                            {mostrarConteo4 && (
+                              <th className="px-3 py-2 text-center">C4</th>
+                            )}
+
                             <th className="px-3 py-2 text-center">Final</th>
                             <th className="px-3 py-2 text-center">Dif</th>
                             <th className="px-3 py-2 text-center">Ajuste</th>
                           </tr>
                         </thead>
+
                         <tbody className="bg-white divide-y">
                           {detalle.map((d, i) => {
                             const dif = d.diferencia_cierre ?? 0;
@@ -1036,14 +1093,44 @@ export default function Mapa({ drawerRootId }) {
 
                             return (
                               <tr key={i} className="hover:bg-gray-50">
-                                <td className="px-3 py-2 font-mono text-red-900">{d.codigo}</td>
-                                <td className="px-3 py-2">{d.nombre}</td>
-                                <td className="px-3 py-2 text-center">{d.sap_final}</td>
-                                <td className="px-3 py-2 text-center">{d.conteo1}</td>
-                                <td className="px-3 py-2 text-center">{d.conteo2}</td>
-                                <td className="px-3 py-2 text-center">{d.conteo3}</td>
-                                <td className="px-3 py-2 text-center">{d.conteo_final}</td>
-                                <td className="px-3 py-2 text-center">{dif}</td>
+                                <td className="px-3 py-2 font-mono text-red-900">
+                                  {d.codigo}
+                                </td>
+
+                                <td className="px-3 py-2">
+                                  {d.nombre}
+                                </td>
+
+                                <td className="px-3 py-2 text-center">
+                                  {d.sap_final}
+                                </td>
+
+                                <td className="px-3 py-2 text-center">
+                                  {d.conteo1}
+                                </td>
+
+                                <td className="px-3 py-2 text-center">
+                                  {d.conteo2}
+                                </td>
+
+                                <td className="px-3 py-2 text-center">
+                                  {d.conteo3}
+                                </td>
+
+                                {mostrarConteo4 && (
+                                  <td className="px-3 py-2 text-center">
+                                    {d.conteo4}
+                                  </td>
+                                )}
+
+                                <td className="px-3 py-2 text-center font-semibold">
+                                  {d.conteo_final}
+                                </td>
+
+                                <td className="px-3 py-2 text-center font-semibold">
+                                  {dif}
+                                </td>
+
                                 <td className="px-3 py-2 text-center">
                                   <span
                                     className={`px-2 py-1 rounded-full text-xs font-semibold ${
@@ -1064,6 +1151,7 @@ export default function Mapa({ drawerRootId }) {
                       </table>
                     </div>
                   </div>
+
                 </>
               )}
 
@@ -1399,7 +1487,6 @@ export default function Mapa({ drawerRootId }) {
             </span>
           </div>
 
-
             <table className="min-w-full text-sm">
               <thead className="bg-gradient-to-r from-red-800 to-red-600 text-white text-xs uppercase">
                 <tr>
@@ -1412,6 +1499,11 @@ export default function Mapa({ drawerRootId }) {
                   <th className="px-4 py-2">Conteo 1</th>
                   <th className="px-4 py-2">Conteo 2</th>
                   <th className="px-4 py-2">Conteo 3</th>
+
+                  {mostrarConteo4 && (
+                    <th className="px-4 py-2">Conteo 4</th>
+                  )}
+
                   <th className="px-4 py-2">Diferencia</th>
                 </tr>
               </thead>
@@ -1422,62 +1514,82 @@ export default function Mapa({ drawerRootId }) {
                     {/* SUB-HEADER DEL ALMACÉN */}
                     <tr className="bg-slate-200">
                       <td
-                        colSpan={10}
+                        colSpan={mostrarConteo4 ? 11 : 10}
                         className="px-4 py-2 font-bold text-slate-800"
                       >
                         📦 {alm}
                       </td>
                     </tr>
 
-                    {/* FILAS DEL ALMACÉN */}
-                    {items.map((d, i) => (
-                      <tr key={`${alm}-${i}`} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 font-semibold text-slate-700">
-                          {d.almacen}
-                        </td>
-                        <td className="px-4 py-2 font-mono text-red-900">
-                          {d.codigo}
-                        </td>
-                        <td className="px-4 py-2 text-gray-800">
-                          {d.nombre}
-                        </td>
-                        <td className="px-4 py-2 text-gray-700">
-                          {d.familia ?? "-"}
-                        </td>
-                        <td className="px-4 py-2 text-gray-700">
-                          {d.subfamilia ?? "-"}
-                        </td>
-                        <td className="px-4 py-2 text-center">
-                          {d.inventario_sap.toFixed(2)}
-                        </td>
-                        <td className="px-4 py-2 text-center">
-                          {d.conteo1 ?? "-"}
-                        </td>
-                        <td className="px-4 py-2 text-center">
-                          {d.conteo2 ?? "-"}
-                        </td>
-                        <td className="px-4 py-2 text-center">
-                          {d.conteo3 ?? "-"}
-                        </td>
-                        <td className="px-4 py-2 text-center">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-bold ${
-                              d.diferencia === 0
-                                ? "bg-green-100 text-green-700"
-                                : d.diferencia > 0
-                                ? "bg-yellow-100 text-yellow-700"
-                                : "bg-red-100 text-red-700"
-                            }`}
-                          >
-                            {d.diferencia.toFixed(2)}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                    {/* FILAS */}
+                    {items.map((d, i) => {
+                      // 🔴 DIFERENCIA SIEMPRE VS ÚLTIMO CONTEO DISPONIBLE
+                      const ultimoConteo =
+                        Number(d.conteo4 ?? 0) > 0
+                          ? Number(d.conteo4)
+                          : Number(d.conteo3 ?? 0) > 0
+                          ? Number(d.conteo3)
+                          : Number(d.conteo2 ?? 0) > 0
+                          ? Number(d.conteo2)
+                          : Number(d.conteo1 ?? 0);
+
+                      const diferencia = Number(
+                        (d.inventario_sap - ultimoConteo).toFixed(2)
+                      );
+
+                      return (
+                        <tr key={`${alm}-${i}`} className="hover:bg-gray-50">
+                          <td className="px-4 py-2 font-semibold text-slate-700">
+                            {d.almacen}
+                          </td>
+                          <td className="px-4 py-2 font-mono text-red-900">
+                            {d.codigo}
+                          </td>
+                          <td className="px-4 py-2 text-gray-800">
+                            {d.nombre}
+                          </td>
+                          <td className="px-4 py-2 text-gray-700">
+                            {d.familia ?? "-"}
+                          </td>
+                          <td className="px-4 py-2 text-gray-700">
+                            {d.subfamilia ?? "-"}
+                          </td>
+                          <td className="px-4 py-2 text-center">
+                            {d.inventario_sap.toFixed(2)}
+                          </td>
+
+                          <td className="px-4 py-2 text-center">{d.conteo1 ?? "-"}</td>
+                          <td className="px-4 py-2 text-center">{d.conteo2 ?? "-"}</td>
+                          <td className="px-4 py-2 text-center">{d.conteo3 ?? "-"}</td>
+
+                          {mostrarConteo4 && (
+                            <td className="px-4 py-2 text-center">
+                              {d.conteo4 ?? "-"}
+                            </td>
+                          )}
+
+                          <td className="px-4 py-2 text-center">
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                diferencia === 0
+                                  ? "bg-green-100 text-green-700"
+                                  : diferencia > 0
+                                  ? "bg-yellow-100 text-yellow-700"
+                                  : "bg-red-100 text-red-700"
+                              }`}
+                            >
+                              {diferencia.toFixed(2)}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </React.Fragment>
                 ))}
               </tbody>
             </table>
+
+
 
             {/* Paginación */}
             <div className="mt-4 flex justify-center items-center gap-4 text-sm text-gray-700 font-medium">

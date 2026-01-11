@@ -150,6 +150,11 @@ $tercer_conteo_asignado = false;
 $empleado_tercer_conteo = null;
 $estatus_tercer_conteo  = null;
 
+$cuarto_conteo_asignado = false;
+$empleado_cuarto_conteo = null;
+$estatus_cuarto_conteo  = null;
+
+
 $sqlTercero = "
   SELECT TOP 1 usuarios_asignados, estatus
   FROM CAP_CONTEO_CONFIG
@@ -178,6 +183,34 @@ if ($resTercero && mssql_num_rows($resTercero) > 0) {
         }
     }
 }
+
+$sql4 = "
+  SELECT TOP 1 usuarios_asignados, estatus
+  FROM CAP_CONTEO_CONFIG
+  WHERE cia='$cia_safe'
+    AND almacen='$almacen_safe'
+    AND nro_conteo=7
+";
+$r4 = mssql_query($sql4, $conn);
+if ($r4 && ($row4 = mssql_fetch_assoc($r4))) {
+  $cuarto_conteo_asignado = true;
+  $estatus_cuarto_conteo  = intval($row4['estatus']);
+
+  // sacar un empleado asignado (igual que tu lógica actual)
+  $ua = $row4['usuarios_asignados']; // ejemplo: "[12][15]"
+  preg_match_all('/\[(\d+)\]/', $ua, $m);
+ if (!empty($m[1])) {
+    $idCuarto = intval($m[1][0]); // esto SI es usuarios.id
+
+    $sqlE4 = "SELECT TOP 1 empleado FROM usuarios WHERE id = $idCuarto";
+    $resE4 = mssql_query($sqlE4, $conn);
+    if ($resE4 && ($rowE4 = mssql_fetch_assoc($resE4))) {
+        $empleado_cuarto_conteo = $rowE4['empleado']; // ✅ empleado real
+    }
+}
+
+}
+
 
 /* ============================================================
    ESTATUS GLOBAL DEL PROCESO (desde CAP_INVENTARIO)
@@ -221,13 +254,17 @@ if ($sp) {
             'codebars'   => $r['CodeBars'],
             'cant_sap'   => floatval($r['Inventario_sap']),
             'conteo_mio' => 0,
-            'conteo_comp'=> 0,
+
+            'conteo1'     => 0,
+            'conteo2'     => 0,
+            'conteo3'     => 0,
+            'conteo4'     => 0,
         ];
     }
 }
 
 /* ============================================================
-   CARGAR CONTEOS DEL USUARIO 
+   CARGAR CONTEOS DEL USUARIO
 ============================================================ */
 $sqlC1 = "
     SELECT c.ItemCode, ct.nro_conteo, ct.cantidad
@@ -246,6 +283,12 @@ if ($resC1) {
         $cant   = floatval($r['cantidad']);
 
         if (!isset($base[$codigo])) continue;
+
+        if ($nro === 1) $base[$codigo]['conteo1'] = $cant;
+        if ($nro === 2) $base[$codigo]['conteo2'] = $cant;
+        if ($nro === 3) $base[$codigo]['conteo3'] = $cant;
+        if ($nro === 7) $base[$codigo]['conteo4'] = $cant;
+
 
         // Solo el conteo que me corresponde (1 ó 2, según CAP_CONTEO_CONFIG)
         if ($nro_conteo_mio !== null && $nro_conteo_mio === $nro) {
@@ -277,10 +320,72 @@ if ($empleado_companero) {
             if (!isset($base[$codigo])) continue;
 
             // Conteo compañero (normalmente el conteo opuesto: 1 vs 2)
+            if ($nro === 1) $base[$codigo]['conteo1'] = $cant;
+            if ($nro === 2) $base[$codigo]['conteo2'] = $cant;
             $base[$codigo]['conteo_comp'] = $cant;
         }
     }
 }
+
+/* ============================================================
+   CARGAR CONTEO 3 DEL EMPLEADO ASIGNADO A TERCER CONTEO
+============================================================ */
+if ($empleado_tercer_conteo) {
+    $sqlC3 = "
+        SELECT c.ItemCode, ct.nro_conteo, ct.cantidad
+        FROM CAP_INVENTARIO c
+        LEFT JOIN CAP_INVENTARIO_CONTEOS ct ON c.id = ct.id_inventario
+        WHERE c.almacen   = '$almacen_safe'
+          AND c.fecha_inv = '$fecha'
+          AND c.usuario   = '$empleado_tercer_conteo'
+    ";
+    $resC3 = mssql_query($sqlC3, $conn);
+
+    if ($resC3) {
+        while ($r = mssql_fetch_assoc($resC3)) {
+            $codigo = trim($r['ItemCode']);
+            $nro    = intval($r['nro_conteo']);
+            $cant   = floatval($r['cantidad']);
+
+            if (!isset($base[$codigo])) continue;
+
+            if ($nro === 3) {
+                $base[$codigo]['conteo3'] = $cant;
+            }
+        }
+    }
+}
+
+/* ============================================================
+   CARGAR CONTEO 4 (nro_conteo=7) DEL EMPLEADO ASIGNADO
+============================================================ */
+if ($empleado_cuarto_conteo) {
+    $sqlC4 = "
+        SELECT c.ItemCode, ct.nro_conteo, ct.cantidad
+        FROM CAP_INVENTARIO c
+        LEFT JOIN CAP_INVENTARIO_CONTEOS ct ON c.id = ct.id_inventario
+        WHERE c.almacen   = '$almacen_safe'
+          AND c.fecha_inv = '$fecha'
+          AND c.usuario   = '$empleado_cuarto_conteo'
+    ";
+    $resC4 = mssql_query($sqlC4, $conn);
+
+    if ($resC4) {
+        while ($r = mssql_fetch_assoc($resC4)) {
+            $codigo = trim($r['ItemCode']);
+            $nro    = intval($r['nro_conteo']);
+            $cant   = floatval($r['cantidad']);
+
+            if (!isset($base[$codigo])) continue;
+
+            if ($nro === 7) {
+                $base[$codigo]['conteo4'] = $cant;
+            }
+        }
+    }
+}
+
+
 
 /* ============================================================
    CALCULAR DIFERENCIAS
@@ -315,6 +420,11 @@ foreach ($base as $item) {
         'cant_sap'        => $sap,
         'conteo_mio'      => $mio,
         'conteo_comp'     => $comp,
+        'conteo1'     => floatval($item['conteo1']),
+        'conteo2'     => floatval($item['conteo2']),
+        'conteo3'     => floatval($item['conteo3']),
+        'conteo4'     => floatval($item['conteo4']),
+
         'dif_mio_vs_sap'  => $dif_mio_vs_sap,
         'dif_comp_vs_sap' => $dif_comp_vs_sap,
         'dif_mio_vs_comp' => $dif_mio_vs_comp,

@@ -194,7 +194,7 @@ if ($estatus === 2 && !$esBrigada) {
     return "'" . addslashes($c) . "'";
   }, $diffCodes);
 
-  $itemCodeIn = " AND ItemCode IN (" . implode(",", $codesEsc) . ") ";
+  $itemCodeIn = " AND c.ItemCode IN (" . implode(",", $codesEsc) . ") ";
 }
 
 
@@ -276,7 +276,7 @@ if ($estatus === 7) {
     return "'" . addslashes($c) . "'";
   }, $diffCodes);
 
-  $itemCodeIn = " AND ItemCode IN (" . implode(",", $codesEsc) . ") ";
+  $itemCodeIn = " AND c.ItemCode IN (" . implode(",", $codesEsc) . ") ";
 }
 
 
@@ -354,22 +354,104 @@ if ($estatus === 3) {
     return "'" . addslashes($c) . "'";
   }, $codes);
 
-  $itemCodeIn = " AND ItemCode IN (" . implode(",", $codesEsc) . ") ";
+  $itemCodeIn = " AND c.ItemCode IN (" . implode(",", $codesEsc) . ") ";
 }
 
+$extraSelect = "";
+$extraJoins  = "";
+$extraJoinsC3 = "";
+$extraSelectC3 = "";
+
+if ($estatus === 3 || $estatus === 7) {
+
+  if ($esBrigada && $usuarioConteo1 && $usuarioConteo2) {
+
+    $extraSelect = ",
+      ISNULL(c1.cant_invfis, 0) AS conteo_1,
+      ISNULL(c2.cant_invfis, 0) AS conteo_2
+    ";
+
+    $extraJoins = "
+      LEFT JOIN CAP_INVENTARIO c1
+        ON c1.almacen   = c.almacen
+       AND c1.fecha_inv = c.fecha_inv
+       AND c1.cias      = c.cias
+       AND c1.ItemCode  = c.ItemCode
+       AND c1.estatus   = 1
+       AND c1.usuario   = $usuarioConteo1
+
+      LEFT JOIN CAP_INVENTARIO c2
+        ON c2.almacen   = c.almacen
+       AND c2.fecha_inv = c.fecha_inv
+       AND c2.cias      = c.cias
+       AND c2.ItemCode  = c.ItemCode
+       AND c2.estatus   = 2
+       AND c2.usuario   = $usuarioConteo2
+    ";
+
+  } else {
+
+    $extraSelect = ",
+      ISNULL(c1.cant_invfis, 0) AS conteo_1,
+      ISNULL(c2.cant_invfis, 0) AS conteo_2
+    ";
+
+    $extraJoins = "
+      LEFT JOIN CAP_INVENTARIO c1
+        ON c1.almacen   = c.almacen
+       AND c1.fecha_inv = c.fecha_inv
+       AND c1.cias      = c.cias
+       AND c1.ItemCode  = c.ItemCode
+       AND c1.estatus   = 1
+       AND c1.usuario   = $empleado
+
+      LEFT JOIN CAP_INVENTARIO c2
+        ON c2.almacen   = c.almacen
+       AND c2.fecha_inv = c.fecha_inv
+       AND c2.cias      = c.cias
+       AND c2.ItemCode  = c.ItemCode
+       AND c2.estatus   = 2
+       AND c2.usuario   = $empleado
+    ";
+  }
+
+  // SOLO EN CUARTO CONTEO: traer el conteo 3 (desde CAP_INVENTARIO_CONTEOS nro_conteo=3 ligado al inventario estatus=3)
+  if ($estatus === 7) {
+    $extraSelect .= ",
+      ISNULL(ct3.cantidad, 0) AS conteo_3
+    ";
+
+    $extraJoins .= "
+      LEFT JOIN CAP_INVENTARIO i3
+        ON i3.almacen   = c.almacen
+       AND i3.fecha_inv = c.fecha_inv
+       AND i3.cias      = c.cias
+       AND i3.ItemCode  = c.ItemCode
+       AND i3.estatus   = 3
+       AND i3.usuario   = $empleado
+
+      LEFT JOIN CAP_INVENTARIO_CONTEOS ct3
+        ON ct3.id_inventario = i3.id
+       AND ct3.nro_conteo    = 3
+    ";
+  }
+}
 // ============================
 // Consulta principal (con filtro opcional por ItemCode)
 // ============================
 $sql = "
-  SELECT *
-  FROM CAP_INVENTARIO
-  WHERE almacen   = '$almacen'
-    AND fecha_inv = '$fecha'
-    AND cias      = '$cia'
-    AND usuario   = $empleado
-    AND estatus   = $estatus
+  SELECT c.* $extraSelect
+  FROM CAP_INVENTARIO c
+  $extraJoins
+  $extraJoinsC3
+  WHERE c.almacen   = '$almacen'
+    AND c.fecha_inv = '$fecha'
+    AND c.cias      = '$cia'
+    AND c.usuario   = $empleado
+    AND c.estatus   = $estatus
     $itemCodeIn
 ";
+
 
 $res = mssql_query($sql, $conn);
 if (!$res) {

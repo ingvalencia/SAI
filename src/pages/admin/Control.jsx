@@ -689,7 +689,14 @@ export default function Control() {
                   <tbody className="divide-y divide-slate-200">
                     {configuracionesFiltradas.map((c, i) => {
 
-                      const ultimoConteo = Number(String(c.conteos || "").split(",").pop());
+                     const ultimoConteo = Number(
+                        String(c.conteos || "")
+                          .split(",")
+                          .map(v => Number(v))
+                          .filter(v => v !== 7)
+                          .pop()
+                      );
+
 
                       const etiquetaConteo =
                         {
