@@ -34,8 +34,12 @@ export default function Usuarios() {
   //
   const [tabRegistro, setTabRegistro] = useState("operador");
 
+  //
 
+  const [usuariosDisponibles, setUsuariosDisponibles] = useState([]);
+  const [usuariosSeleccionados, setUsuariosSeleccionados] = useState([]);
 
+  //
 
   const [form, setForm] = useState({
     empleado: "",
@@ -46,6 +50,29 @@ export default function Usuarios() {
     locales: [],
     cia: "",
   });
+
+  //Usuarios disponibles
+  const fetchUsuariosDisponibles = async () => {
+    try {
+      const res = await axios.get(
+        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/usuarios_disponibles.php"
+      );
+      if (res.data.success) {
+        setUsuariosDisponibles(res.data.data);
+      }
+    } catch (e) {
+      setUsuariosDisponibles([]);
+    }
+  };
+
+  useEffect(() => {
+    if (tabRegistro === "operador") {
+      fetchUsuariosDisponibles();
+      setUsuariosSeleccionados([]);
+    }
+  }, [tabRegistro, tipoConteo]);
+
+
 
   // === Fetch usuarios ===
   const fetchUsuarios = async () => {
@@ -93,185 +120,70 @@ export default function Usuarios() {
   }, []);
 
   // === Crear usuario ===
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
 
-    try {
-      const rolesSesion = JSON.parse(sessionStorage.getItem("roles") || "[]");
-      const rol_creador = rolesSesion.length > 0 ? rolesSesion[0].id : 4;
-      const empleadoSesion = sessionStorage.getItem("empleado") || "";
+  try {
+    const empleadoSesion = sessionStorage.getItem("empleado") || "";
 
-      // === VALIDACIONES GENERALES ===
-      if (!fechaAsignacion) throw new Error("Debes seleccionar la fecha de asignación.");
-      if (!form.cia && !ciaSeleccionada) throw new Error("Debes seleccionar la CIA.");
-      if (!form.locales || form.locales.length === 0) {
-        throw new Error("Debes seleccionar al menos un almacén.");
-      }
+    // =========================
+    // VALIDACIONES
+    // =========================
+    if (!fechaAsignacion) throw new Error("Debes seleccionar la fecha.");
+    if (!ciaSeleccionada) throw new Error("Debes seleccionar la CIA.");
+    if (!form.locales.length) throw new Error("Selecciona al menos un almacén.");
 
-      // === VALIDACIONES POR TIPO DE CAPTURA ===
-      if (tipoConteo === "Individual") {
-        // Solo Conteo 1 permitido
-        if (nivelConteo1 !== 1) throw new Error("El conteo individual solo puede ser nivel 1.");
-      }
-
-      if (tipoConteo === "Brigada") {
-        // Dos capturistas, niveles distintos
-        if (!brigadista2?.empleado || !brigadista2?.nombre) {
-          throw new Error("Debes capturar los datos del segundo capturista.");
-        }
-        if (nivelConteo1 === nivelConteo2) {
-          throw new Error("Los capturistas no pueden tener el mismo nivel de conteo.");
-        }
-      }
-
-      const cia = form.cia || ciaSeleccionada;
-
-      // =========================================
-      // 1) CREAR CAPTURISTA(S)
-      // =========================================
-
-      let usuariosCreados = [];
-
-      // --- Capturista 1 ---
-      const res1 = await axios.post(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/crear_usuario.php",
-        { ...form, rol_creador, creado_por: empleadoSesion },
-        { withCredentials: true }
-      );
-
-      if (!res1.data.success) {
-        throw new Error(res1.data.error || "No se pudo registrar el primer usuario.");
-      }
-
-      // Obtener ID del primer capturista
-      let idCapturista1 = null;
-      const resList1 = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/usuarios.php"
-      );
-      if (resList1.data?.success) {
-        const lista = resList1.data.data || [];
-        const encontrado = lista.find(
-          (u) => String(u.empleado) === String(form.empleado)
-        );
-        idCapturista1 = encontrado?.id;
-      }
-      if (!idCapturista1) throw new Error("No se pudo obtener el ID del primer capturista.");
-
-      usuariosCreados.push({ id: idCapturista1, nivel: nivelConteo1 });
-
-      // --- Capturista 2 (solo si brigada) ---
-      let idCapturista2 = null;
-      if (tipoConteo === "Brigada") {
-        const dataCapt2 = {
-          empleado: brigadista2.empleado,
-          nombre: brigadista2.nombre,
-          email: brigadista2.email || "",
-          password: brigadista2.password || "",
-          rol_id: 4,
-          locales: form.locales,
-          cia: cia,
-        };
-
-        const res2 = await axios.post(
-          "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/crear_usuario.php",
-          { ...dataCapt2, rol_creador, creado_por: empleadoSesion },
-          { withCredentials: true }
-        );
-
-        if (!res2.data.success) {
-          throw new Error(res2.data.error || "No se pudo registrar el segundo usuario.");
-        }
-
-        const resList2 = await axios.get(
-          "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/usuarios.php"
-        );
-        if (resList2.data?.success) {
-          const lista2 = resList2.data.data || [];
-          const encontrado2 = lista2.find(
-            (u) => String(u.empleado) === String(brigadista2.empleado)
-          );
-          idCapturista2 = encontrado2?.id;
-        }
-        if (!idCapturista2) throw new Error("No se pudo obtener el ID del segundo capturista.");
-
-        usuariosCreados.push({ id: idCapturista2, nivel: nivelConteo2 });
-      }
-
-      // =========================================
-      // 2) CREAR ASIGNACIÓN(ES)
-      // =========================================
-      for (const almacenSel of form.locales) {
-        const usuariosAsignados = usuariosCreados.map((u) => u.id);
-
-        // Conteo = nivel del capturista 1 en Individual, o ambos en Brigada
-        for (const usuario of usuariosCreados) {
-          const payload = {
-            tipo_conteo: tipoConteo,
-            nro_conteo: usuario.nivel,
-            usuarios: usuariosAsignados,
-            cia,
-            almacen: almacenSel,
-            fecha: fechaAsignacion,
-            usuario: empleadoSesion,
-          };
-
-          const resCfg = await axios.post(
-            "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/guardar_config_conteo.php",
-            payload
-          );
-
-          if (!resCfg.data?.success) {
-            throw new Error(
-              `Error al asignar el almacén ${almacenSel}: ${resCfg.data?.error || "no se pudo crear la configuración."}`
-            );
-          }
-        }
-      }
-
-      // =========================================
-      // 3) ÉXITO TOTAL
-      // =========================================
-      await MySwal.fire({
-        icon: "success",
-        title: "Usuarios registrados",
-        text:
-          tipoConteo === "Individual"
-            ? `Capturista individual creado y asignado correctamente.`
-            : `Brigada creada correctamente con ambos capturistas asignados.`,
-        timer: 2500,
-        showConfirmButton: false,
-      });
-
-      // Reset
-      await fetchUsuarios();
-      setForm({
-        empleado: "",
-        nombre: "",
-        email: "",
-        password: "",
-        rol_id: 4,
-        locales: [],
-        cia: "",
-      });
-      setCiaSeleccionada("");
-      setLocales([]);
-      setTipoConteo("Individual");
-      setNivelConteo1(1);
-      setNivelConteo2(2);
-      setFechaAsignacion("");
-      setBrigadista2({});
-
-    } catch (err) {
-      await MySwal.fire({
-        icon: "error",
-        title: "Error",
-        text: err.message || "Ocurrió un error",
-      });
-    } finally {
-      setLoading(false);
+    if (tipoConteo === "Individual" && usuariosSeleccionados.length !== 1) {
+      throw new Error("Individual requiere 1 operador.");
     }
-  };
+
+    if (tipoConteo === "Brigada" && usuariosSeleccionados.length !== 2) {
+      throw new Error("Brigada requiere 2 operadores.");
+    }
+
+    // =========================
+    // PETICIÓN GET
+    // =========================
+    const res = await axios.get(
+      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/asignar_operador_existente.php",
+      {
+        params: {
+          tipo_conteo: tipoConteo,
+          usuarios: usuariosSeleccionados.join(","),   // 👈 CLAVE
+          almacenes: form.locales.join(","),           // 👈 CLAVE
+          cia: ciaSeleccionada,
+          fecha: fechaAsignacion,
+          creado_por: empleadoSesion,
+        },
+      }
+    );
+
+    if (!res.data?.success) {
+      throw new Error(res.data?.error || "Error en asignación");
+    }
+
+    await MySwal.fire({
+      icon: "success",
+      title: "Asignación correcta",
+      timer: 2000,
+      showConfirmButton: false,
+    });
+
+    // Reset
+    setUsuariosSeleccionados([]);
+    setForm((p) => ({ ...p, locales: [] }));
+    setFechaAsignacion("");
+    setTipoConteo("Individual");
+
+  } catch (err) {
+    MySwal.fire("Error", err.message, "error");
+  } finally {
+    setLoading(false);
+  }
+};
+
+
 
 
 
@@ -362,38 +274,171 @@ export default function Usuarios() {
     return base;
   }, [usuarios, rolLogueado, filtroRol, empleadoSesion]);
 
+  const buscarUsuarioMysql = async (empleado) => {
+    if (!empleado) return;
+
+    try {
+      const res = await axios.get(
+        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/mysql_buscar_usuario.php",
+        { params: { empleado } }
+      );
+
+      if (!res.data.success) {
+        throw new Error(res.data.error);
+      }
+
+      const u = res.data.data;
+      setForm({
+        ...form,
+        empleado: u.empleado,
+        nombre: u.nombre,
+        email: u.email || "",
+        password: u.password || "",
+      });
+    } catch (err) {
+      MySwal.fire("No encontrado", err.message, "warning");
+      setForm({ empleado, nombre: "", email: "", password: "", rol_id: 4, locales: [], cia: "" });
+    }
+  };
+
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-3xl font-extrabold text-gray-900 mb-8">👥 Gestión de Usuarios</h1>
 
       <div className="flex gap-4 mb-6">
-  <button
-    type="button"
-    onClick={() => setTabRegistro("operador")}
-    className={`px-4 py-2 rounded font-semibold ${
-      tabRegistro === "operador"
-        ? "bg-red-600 text-white"
-        : "bg-gray-200 text-gray-700"
-    }`}
-  >
-    Registro Operador Inventario
-  </button>
+        <button
+          type="button"
+          onClick={() => setTabRegistro("base")}
+          className={`px-4 py-2 rounded font-semibold ${
+            tabRegistro === "base"
+              ? "bg-red-600 text-white"
+              : "bg-gray-200 text-gray-700"
+          }`}
+        >
+          Registros de Usuarios
+        </button>
 
-  <button
-    type="button"
-    onClick={() => setTabRegistro("admin")}
-    className={`px-4 py-2 rounded font-semibold ${
-      tabRegistro === "admin"
-        ? "bg-red-600 text-white"
-        : "bg-gray-200 text-gray-700"
-    }`}
-  >
-    Registro Administrador
-  </button>
+        <button
+          type="button"
+          onClick={() => setTabRegistro("operador")}
+          className={`px-4 py-2 rounded font-semibold ${
+            tabRegistro === "operador"
+              ? "bg-red-600 text-white"
+              : "bg-gray-200 text-gray-700"
+          }`}
+        >
+          Registro Operador Inventario
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setTabRegistro("admin")}
+          className={`px-4 py-2 rounded font-semibold ${
+            tabRegistro === "admin"
+              ? "bg-red-600 text-white"
+              : "bg-gray-200 text-gray-700"
+          }`}
+        >
+          Registro Administrador
+        </button>
       </div>
 
 
+
       {/* Formulario */}
+      {tabRegistro === "base" && (
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setLoading(true);
+            try {
+              const res = await axios.post(
+                "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/registrar_usuario_base.php",
+                {
+                  empleado: form.empleado,
+                  nombre: form.nombre,
+                  email: form.email,
+                  password: form.password,
+                  creado_por: empleadoSesion,
+                }
+              );
+
+              if (!res.data.success) throw new Error(res.data.error);
+
+              await MySwal.fire("Éxito", "Usuario base registrado correctamente", "success");
+
+              setForm({
+                empleado: "",
+                nombre: "",
+                email: "",
+                password: "",
+                rol_id: 4,
+                locales: [],
+                cia: "",
+              });
+            } catch (err) {
+              MySwal.fire("Error", err.message, "error");
+            } finally {
+              setLoading(false);
+            }
+          }}
+          className="bg-white p-6 rounded-xl shadow-lg mb-10"
+        >
+          <h2 className="text-lg font-bold mb-6 text-gray-800">
+            Registro base de usuarios
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input
+              type="text"
+              required
+              placeholder="Empleado"
+              className="border rounded-lg px-3 py-2"
+              value={form.empleado}
+              onBlur={(e) => buscarUsuarioMysql(e.target.value)}
+              onChange={(e) => setForm({ ...form, empleado: e.target.value })}
+            />
+
+            <input
+              type="text"
+              placeholder="Nombre"
+              readOnly
+              className="border rounded-lg px-3 py-2 bg-gray-100"
+              value={form.nombre}
+            />
+
+            <input
+              type="email"
+              placeholder="Correo"
+              readOnly
+              className="border rounded-lg px-3 py-2 bg-gray-100"
+              value={form.email}
+            />
+
+            <input
+              type="password"
+              placeholder="Contraseña"
+              readOnly
+              className="border rounded-lg px-3 py-2 bg-gray-100"
+              value={form.password}
+            />
+          </div>
+
+          <div className="mt-6 flex justify-center">
+            <button
+              type="submit"
+              disabled={loading}
+              className={`px-6 py-3 rounded-lg text-white font-semibold ${
+                loading ? "bg-gray-400" : "bg-red-600 hover:bg-red-700"
+              }`}
+            >
+              {loading ? "Registrando..." : "Registrar usuario base"}
+            </button>
+          </div>
+        </form>
+      )}
+
       {tabRegistro === "operador" && (
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-lg mb-10">
           <h2 className="text-lg font-bold mb-6 text-gray-800">Registrar nuevo usuario</h2>
@@ -461,154 +506,110 @@ export default function Usuarios() {
           {/* Si es Individual, mostramos los campos actuales */}
           {tipoConteo === "Individual" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input type="text" required placeholder="Empleado"
-                className="border rounded-lg px-3 py-2 w-full shadow-sm focus:ring-2 focus:ring-red-600"
-                value={form.empleado}
-                onChange={(e) => setForm({ ...form, empleado: e.target.value })}
-              />
-              <input type="text" required placeholder="Nombre"
-                className="border rounded-lg px-3 py-2 w-full shadow-sm focus:ring-2 focus:ring-red-600"
-                value={form.nombre}
-                onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-              />
-              {(rolLogueado === 1 || rolLogueado === 2) && (
-                <input type="email" required placeholder="Correo electrónico"
-                  className="border rounded-lg px-3 py-2 w-full shadow-sm focus:ring-2 focus:ring-red-600"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                />
-              )}
-              <input type="password" required placeholder="Contraseña"
-                className="border rounded-lg px-3 py-2 w-full shadow-sm focus:ring-2 focus:ring-red-600"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-              />
-
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Nivel de conteo
+              {/* ✅ NUEVO: selector de usuario (reemplaza Empleado/Nombre/Email/Password) */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Operador inventario
                 </label>
-                <input
-                  type="text"
-                  value="Conteo 1"
-                  readOnly
-                  className="w-full px-3 py-2 border rounded-lg text-sm bg-gray-100 text-gray-700"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  El conteo individual siempre es de nivel 1.
-                </p>
+
+                <select
+                  required
+                  value={usuariosSeleccionados[0] || ""}
+                  onChange={(e) => setUsuariosSeleccionados([parseInt(e.target.value)])}
+                  className="border rounded-lg px-3 py-2 w-full shadow-sm focus:ring-2 focus:ring-red-600"
+                >
+                  <option value="">— Selecciona usuario —</option>
+                  {usuariosDisponibles.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.empleado} - {u.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* ✅ SE QUEDA IGUAL */}
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Nivel de conteo
+              </label>
+
+              <input
+                type="text"
+                value="Conteo 1"
+                readOnly
+                className="w-full px-3 py-2 border rounded-lg text-sm bg-gray-100 text-gray-700"
+              />
+
+              <p className="text-xs text-gray-500 mt-1 md:col-span-2">
+                El conteo individual siempre es de nivel 1.
+              </p>
             </div>
-
-
           )}
+
 
           {/* Si es Brigada, mostramos dos juegos de campos */}
           {tipoConteo === "Brigada" && (
             <div className="space-y-6">
-              {/* Primer capturista */}
+              {/* ✅ NUEVO: selección de brigada (2 usuarios) */}
               <div>
-                <h3 className="font-semibold text-gray-700 mb-2">Capturista 1</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <input type="text" required placeholder="Empleado"
-                    className="border rounded-lg px-3 py-2 w-full shadow-sm focus:ring-2 focus:ring-red-600"
-                    value={form.empleado}
-                    onChange={(e) => setForm({ ...form, empleado: e.target.value })}
-                  />
-                  <input type="text" required placeholder="Nombre"
-                    className="border rounded-lg px-3 py-2 w-full shadow-sm focus:ring-2 focus:ring-red-600"
-                    value={form.nombre}
-                    onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-                  />
-                  {(rolLogueado === 1 || rolLogueado === 2) && (
-                    <input type="email" required placeholder="Correo electrónico"
-                      className="border rounded-lg px-3 py-2 w-full shadow-sm focus:ring-2 focus:ring-red-600"
-                      value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    />
-                  )}
-                  <input type="password" required placeholder="Contraseña"
-                    className="border rounded-lg px-3 py-2 w-full shadow-sm focus:ring-2 focus:ring-red-600"
-                    value={form.password}
-                    onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  />
+                <h3 className="font-semibold text-gray-700 mb-2">Selecciona Brigada (2 operadores)</h3>
+
+                <div className="grid grid-cols-1 gap-2 border rounded-lg p-3 bg-gray-50">
+                  {usuariosDisponibles.map((u) => (
+                    <label key={u.id} className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={usuariosSeleccionados.includes(u.id)}
+                        disabled={
+                          !usuariosSeleccionados.includes(u.id) &&
+                          usuariosSeleccionados.length >= 2
+                        }
+                        onChange={() => {
+                          setUsuariosSeleccionados((prev) =>
+                            prev.includes(u.id)
+                              ? prev.filter((x) => x !== u.id)
+                              : [...prev, u.id]
+                          );
+                        }}
+                      />
+                      {u.empleado} - {u.nombre}
+                    </label>
+                  ))}
                 </div>
 
-                {/* Nivel de conteo para Capturista 1 */}
-                <div className="mt-2">
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    Nivel de conteo (Capturista 1)
-                  </label>
-                  <select
-                    value={nivelConteo1}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      if (val === nivelConteo2) {
-                        Swal.fire("Error", "Los capturistas no pueden tener el mismo nivel de conteo", "error");
-                        return;
-                      }
-                      setNivelConteo1(val);
-                    }}
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
-                  >
-                    <option value={1}>Conteo 1</option>
-                    <option value={2}>Conteo 2</option>
-                  </select>
-                </div>
-
+                <p className="text-xs text-gray-500 mt-2">
+                  Debes seleccionar exactamente 2 operadores para brigada.
+                </p>
               </div>
 
-              {/* Segundo capturista */}
-              <div>
-                <h3 className="font-semibold text-gray-700 mb-2">Capturista 2</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <input type="text" placeholder="Empleado"
-                    className="border rounded-lg px-3 py-2 w-full shadow-sm focus:ring-2 focus:ring-blue-600"
-                    value={brigadista2?.empleado || ""}
-                    onChange={(e) => setBrigadista2({ ...(brigadista2 || {}), empleado: e.target.value })}
-                  />
-                  <input type="text" placeholder="Nombre"
-                    className="border rounded-lg px-3 py-2 w-full shadow-sm focus:ring-2 focus:ring-blue-600"
-                    value={brigadista2?.nombre || ""}
-                    onChange={(e) => setBrigadista2({ ...(brigadista2 || {}), nombre: e.target.value })}
-                  />
-                  {(rolLogueado === 1 || rolLogueado === 2) && (
-                    <input type="email" placeholder="Correo electrónico"
-                      className="border rounded-lg px-3 py-2 w-full shadow-sm focus:ring-2 focus:ring-blue-600"
-                      value={brigadista2?.email || ""}
-                      onChange={(e) => setBrigadista2({ ...(brigadista2 || {}), email: e.target.value })}
-                    />
-                  )}
-                  <input type="password" placeholder="Contraseña"
-                    className="border rounded-lg px-3 py-2 w-full shadow-sm focus:ring-2 focus:ring-blue-600"
-                    value={brigadista2?.password || ""}
-                    onChange={(e) => setBrigadista2({ ...(brigadista2 || {}), password: e.target.value })}
-                  />
-                </div>
-
-                {/* Nivel de conteo para Capturista 2 */}
-                <div className="mt-2">
+              {/* ✅ SE QUEDA IGUAL: niveles solo informativos */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    Nivel de conteo (Capturista 2)
+                    Nivel de conteo (Operador 1)
                   </label>
-                  <select
-                    value={nivelConteo2}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      if (val === nivelConteo1) {
-                        Swal.fire("Error", "Los capturistas no pueden tener el mismo nivel de conteo", "error");
-                        return;
-                      }
-                      setNivelConteo2(val);
-                    }}
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
-                  >
-                    <option value={1}>Conteo 1</option>
-                    <option value={2}>Conteo 2</option>
-                  </select>
+                  <input
+                    type="text"
+                    value="Conteo 1"
+                    readOnly
+                    className="w-full px-3 py-2 border rounded-lg text-sm bg-gray-100 text-gray-700"
+                  />
                 </div>
 
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Nivel de conteo (Operador 2)
+                  </label>
+                  <input
+                    type="text"
+                    value="Conteo 2"
+                    readOnly
+                    className="w-full px-3 py-2 border rounded-lg text-sm bg-gray-100 text-gray-700"
+                  />
+                </div>
               </div>
             </div>
           )}
+
 
 
           {/* Rol */}

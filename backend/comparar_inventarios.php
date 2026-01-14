@@ -273,6 +273,8 @@ $sqlC1 = "
     WHERE c.almacen   = '$almacen_safe'
       AND c.fecha_inv = '$fecha'
       AND c.usuario   = '$usuario'
+      AND c.cias = '$cia_safe'
+
 ";
 $resC1 = mssql_query($sqlC1, $conn);
 
@@ -308,6 +310,8 @@ if ($empleado_companero) {
         WHERE c.almacen   = '$almacen_safe'
           AND c.fecha_inv = '$fecha'
           AND c.usuario   = '$empleado_companero'
+          AND c.cias = '$cia_safe'
+
     ";
     $resC2 = mssql_query($sqlC2, $conn);
 
@@ -338,6 +342,8 @@ if ($empleado_tercer_conteo) {
         WHERE c.almacen   = '$almacen_safe'
           AND c.fecha_inv = '$fecha'
           AND c.usuario   = '$empleado_tercer_conteo'
+          AND c.cias = '$cia_safe'
+
     ";
     $resC3 = mssql_query($sqlC3, $conn);
 
@@ -367,6 +373,8 @@ if ($empleado_cuarto_conteo) {
         WHERE c.almacen   = '$almacen_safe'
           AND c.fecha_inv = '$fecha'
           AND c.usuario   = '$empleado_cuarto_conteo'
+          AND c.cias = '$cia_safe'
+
     ";
     $resC4 = mssql_query($sqlC4, $conn);
 

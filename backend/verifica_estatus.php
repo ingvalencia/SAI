@@ -135,7 +135,7 @@ $sqlCheckConteo = "
             WHERE almacen = '$almacen'
               AND fecha_inv = '$fecha'
               AND cias = '$cia'
-              
+
         )
 ";
 

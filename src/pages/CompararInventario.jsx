@@ -41,6 +41,8 @@ export default function CompararInventario() {
   const [nroConteoComp, setNroConteoComp] = useState(2);
   const [bloqueado, setBloqueado] = useState(false);
   const [mostrarCuartoConteo, setMostrarCuartoConteo] = useState(false);
+  const [modoResuelto, setModoResuelto] = useState(false);
+
 
 
 
@@ -276,6 +278,8 @@ export default function CompararInventario() {
 
           // 🔹 Marcar brigada
           setEsBrigada(esBrig);
+          setModoResuelto(true);
+
 
           // 🔥 Nueva condición corregida para mostrar botón "Iniciar Tercer Conteo"
           const mostrarTercer = esBrig && hayDif && !tercerAsignado;
@@ -444,9 +448,6 @@ export default function CompararInventario() {
     const indiceFinal = indiceInicial + registrosPorPagina;
 
     const datosPaginados = datosFiltrados.slice(indiceInicial, indiceFinal);
-
-
-
 
     const iniciarTercerConteo = async () => {
         const resModal = await Swal.fire({
@@ -657,7 +658,8 @@ export default function CompararInventario() {
       </h1>
 
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-      {!bloqueado && !esBrigada && (
+      {modoResuelto && !bloqueado && !esBrigada && (
+
         <div className="flex items-center gap-2">
           {["Primer Conteo", "Segundo Conteo", "Tercer Conteo"].map((label, index) => {
             const conteoNumero = index + 1;
@@ -938,7 +940,13 @@ export default function CompararInventario() {
               estatusCalc === 2 ? c2 :
               c1;
 
-              const difSap = Number((sap - conteoActual).toFixed(2));
+              const difRaw = sap - conteoActual;
+              const difSap = Math.abs(Number(difRaw.toFixed(2)));
+              const colorDifSap =
+                difRaw > 0 ? "green" :
+                difRaw < 0 ? "red" :
+                "gray";
+
 
               const claseConteo = (n) =>
                 `p-3 text-sm text-right font-semibold ${
@@ -1028,10 +1036,11 @@ export default function CompararInventario() {
                   {/* Diferencia SAP (con conteo activo) */}
                   <td
                     className="p-3 text-sm text-right font-bold"
-                    style={{ color: getColor(difSap) }}
+                    style={{ color: colorDifSap }}
                   >
                     {difSap.toFixed(2)}
                   </td>
+
 
                   {/* Dif. Brigada (si aplica) */}
                   {esBrigada && (

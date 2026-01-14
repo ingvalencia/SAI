@@ -206,17 +206,171 @@ if ($estatus === 2 && !$esBrigada) {
 // =====================================================
 if ($estatus === 7) {
 
-  // 1) Base SAP
+  // =====================================================
+  // 1) Base SAP (SAP MANDA)
+  // =====================================================
+  $spSap = mssql_query("EXEC USP_INVEN_SAP '$almacen', '$fecha', $empleado, '$cia'", $conn);
+  if (!$spSap) {
+    echo json_encode([
+      'success' => false,
+      'error' => 'Error ejecutando USP_INVEN_SAP: ' . mssql_get_last_message()
+    ]);
+    exit;
+  }
+
+  $sapMap = []; // ItemCode => cant_sap (solo SAP != 0)
+  while ($r = mssql_fetch_assoc($spSap)) {
+    $code = trim($r['Codigo sap']);
+    $sap  = floatval($r['Inventario_sap']);
+
+    if ($sap != 0) {
+      $sapMap[$code] = $sap;
+    }
+  }
+
+  if (count($sapMap) === 0) {
+    echo json_encode([
+      'success'    => true,
+      'data'       => [],
+      'nro_conteo' => $estatus,
+      'brigada'    => $esBrigada ? 1 : 0
+    ]);
+    exit;
+  }
+
+  // =====================================================
+  // 2) Conteo 1 (puede NO existir)
+  // =====================================================
+  $c1Map = [];
+  $resC1 = mssql_query("
+    SELECT ItemCode, cant_invfis
+    FROM CAP_INVENTARIO
+    WHERE almacen   = '$almacen'
+      AND fecha_inv = '$fecha'
+      AND cias      = '$cia'
+      AND estatus   = 1
+  ", $conn);
+
+  while ($r = mssql_fetch_assoc($resC1)) {
+    $c1Map[trim($r['ItemCode'])] = floatval($r['cant_invfis']);
+  }
+
+  // =====================================================
+  // 3) Conteo 2 (puede NO existir)
+  // =====================================================
+  $c2Map = [];
+  $resC2 = mssql_query("
+    SELECT ItemCode, cant_invfis
+    FROM CAP_INVENTARIO
+    WHERE almacen   = '$almacen'
+      AND fecha_inv = '$fecha'
+      AND cias      = '$cia'
+      AND estatus   = 2
+  ", $conn);
+
+  while ($r = mssql_fetch_assoc($resC2)) {
+    $c2Map[trim($r['ItemCode'])] = floatval($r['cant_invfis']);
+  }
+
+  // =====================================================
+  // 4) Conteo 3 (puede NO existir)
+  // =====================================================
+  $conteo3Map = [];
+  $resC3 = mssql_query("
+    SELECT c.ItemCode, ct.cantidad
+    FROM CAP_INVENTARIO c
+    LEFT JOIN CAP_INVENTARIO_CONTEOS ct
+      ON ct.id_inventario = c.id
+     AND ct.nro_conteo = 3
+    WHERE c.almacen   = '$almacen'
+      AND c.fecha_inv = '$fecha'
+      AND c.cias      = '$cia'
+      AND c.estatus   = 3
+  ", $conn);
+
+  while ($r = mssql_fetch_assoc($resC3)) {
+    $conteo3Map[trim($r['ItemCode'])] = floatval($r['cantidad']);
+  }
+
+  // =====================================================
+  // 5) DIFERENCIA REAL PARA CUARTO CONTEO
+  // Regla FINAL:
+  // - SAP != 0
+  // - NO conciliado en conteo 2 (c1=c2=SAP => SE EXCLUYE)
+  // - Y (no existe conteo 3 OR conteo 3 != SAP)
+  // =====================================================
+  $diffCodes = [];
+
+  foreach ($sapMap as $code => $sap) {
+
+    // 🔕 Si ya quedó conciliado en conteo 2 vs SAP, SE IGNORA
+    if (
+      isset($c1Map[$code]) &&
+      isset($c2Map[$code]) &&
+      round($c1Map[$code] - $c2Map[$code], 2) == 0 &&
+      round($c2Map[$code] - $sap, 2) == 0
+    ) {
+      continue;
+    }
+
+    // Si no existe conteo 3 → DIFERENCIA
+    if (!isset($conteo3Map[$code])) {
+      $diffCodes[] = $code;
+      continue;
+    }
+
+    // Si conteo 3 ≠ SAP → DIFERENCIA
+    if (round($conteo3Map[$code] - $sap, 2) != 0) {
+      $diffCodes[] = $code;
+    }
+  }
+
+  if (count($diffCodes) === 0) {
+    echo json_encode([
+      'success'    => true,
+      'data'       => [],
+      'nro_conteo' => $estatus,
+      'brigada'    => $esBrigada ? 1 : 0
+    ]);
+    exit;
+  }
+
+  // =====================================================
+  // 6) Filtro final por ItemCode
+  // =====================================================
+  $codesEsc = array_map(function($c) {
+    return "'" . addslashes($c) . "'";
+  }, array_unique($diffCodes));
+
+  $itemCodeIn = " AND c.ItemCode IN (" . implode(",", $codesEsc) . ") ";
+}
+
+
+
+// =====================================================
+// ESTATUS 3 (TERCER CONTEO): DIFERENCIAS REALES CON SAP COMO BASE
+// Regla:
+// SAP ≠ 0
+// y (NO existe conteo 1 OR NO existe conteo 2 OR conteo 1 ≠ conteo 2)
+// NULL cuenta como diferencia
+// Aplica igual para INDIVIDUAL y BRIGADA
+// =====================================================
+if ($estatus === 3) {
+
+  // 1) Base SAP (SAP MANDA)
   $spSap = mssql_query("EXEC USP_INVEN_SAP '$almacen', '$fecha', $empleado, '$cia'", $conn);
   if (!$spSap) {
     echo json_encode(['success' => false, 'error' => 'Error ejecutando USP_INVEN_SAP: ' . mssql_get_last_message()]);
     exit;
   }
 
-  $sapMap = []; // ItemCode => cant_sap
+  $sapMap = []; // ItemCode => cant_sap (solo SAP ≠ 0)
   while ($r = mssql_fetch_assoc($spSap)) {
     $code = trim($r['Codigo sap']);
-    $sapMap[$code] = floatval($r['Inventario_sap']);
+    $sap  = floatval($r['Inventario_sap']);
+    if ($sap != 0) {
+      $sapMap[$code] = $sap;
+    }
   }
 
   if (count($sapMap) === 0) {
@@ -229,36 +383,62 @@ if ($estatus === 7) {
     exit;
   }
 
-  // 2) Conteo 3 del usuario (desde CAP_INVENTARIO_CONTEOS)
-  //    OJO: se lee desde estatus=3, nro_conteo=3
-  $sqlC3 = "
-    SELECT c.ItemCode, ISNULL(ct.cantidad, 0) AS cantidad
-    FROM CAP_INVENTARIO c
-    LEFT JOIN CAP_INVENTARIO_CONTEOS ct
-      ON c.id = ct.id_inventario
-     AND ct.nro_conteo = 3
-    WHERE c.almacen   = '$almacen'
-      AND c.fecha_inv = '$fecha'
-      AND c.cias      = '$cia'
-      AND c.usuario   = $empleado
-      AND c.estatus   = 3
+  // 2) Conteo 1 (puede NO existir)
+  $sqlC1 = "
+    SELECT ItemCode, cant_invfis
+    FROM CAP_INVENTARIO
+    WHERE almacen   = '$almacen'
+      AND fecha_inv = '$fecha'
+      AND cias      = '$cia'
+      AND estatus   = 1
+      AND usuario   = " . ($esBrigada ? intval($usuarioConteo1) : intval($empleado)) . "
   ";
-  $resC3 = mssql_query($sqlC3, $conn);
-  if (!$resC3) {
-    echo json_encode(['success' => false, 'error' => 'Error consultando conteo 3: ' . mssql_get_last_message()]);
+  $resC1 = mssql_query($sqlC1, $conn);
+  if (!$resC1) {
+    echo json_encode(['success' => false, 'error' => mssql_get_last_message()]);
     exit;
   }
 
+  $c1Map = []; // ItemCode => cantidad
+  while ($r = mssql_fetch_assoc($resC1)) {
+    $c1Map[trim($r['ItemCode'])] = floatval($r['cant_invfis']);
+  }
+
+  // 3) Conteo 2 (puede NO existir)
+  $sqlC2 = "
+    SELECT ItemCode, cant_invfis
+    FROM CAP_INVENTARIO
+    WHERE almacen   = '$almacen'
+      AND fecha_inv = '$fecha'
+      AND cias      = '$cia'
+      AND estatus   = 2
+      AND usuario   = " . ($esBrigada ? intval($usuarioConteo2) : intval($empleado)) . "
+  ";
+  $resC2 = mssql_query($sqlC2, $conn);
+  if (!$resC2) {
+    echo json_encode(['success' => false, 'error' => mssql_get_last_message()]);
+    exit;
+  }
+
+  $c2Map = []; // ItemCode => cantidad
+  while ($r = mssql_fetch_assoc($resC2)) {
+    $c2Map[trim($r['ItemCode'])] = floatval($r['cant_invfis']);
+  }
+
+  // 4) Diferencias reales: SAP vs (conteo1 / conteo2)
   $diffCodes = [];
-  while ($r = mssql_fetch_assoc($resC3)) {
-    $code = trim($r['ItemCode']);
-    if (!isset($sapMap[$code])) continue;
 
-    $conteo3 = floatval($r['cantidad']);
-    $sap     = floatval($sapMap[$code]);
-    $dif     = round($conteo3 - $sap, 2);
+  foreach ($sapMap as $code => $sap) {
+    // Si falta cualquiera de los conteos -> diferencia
+    if (!isset($c1Map[$code]) || !isset($c2Map[$code])) {
+      $diffCodes[] = $code;
+      continue;
+    }
 
-    if ($dif != 0) $diffCodes[] = $code;
+    // Si conteo 1 ≠ conteo 2 -> diferencia
+    if (round($c1Map[$code] - $c2Map[$code], 2) != 0) {
+      $diffCodes[] = $code;
+    }
   }
 
   if (count($diffCodes) === 0) {
@@ -271,91 +451,14 @@ if ($estatus === 7) {
     exit;
   }
 
-  $diffCodes = array_values(array_unique($diffCodes));
   $codesEsc = array_map(function($c) {
     return "'" . addslashes($c) . "'";
-  }, $diffCodes);
+  }, array_unique($diffCodes));
 
+  // 5) Filtro final por ItemCode
   $itemCodeIn = " AND c.ItemCode IN (" . implode(",", $codesEsc) . ") ";
 }
 
-
-
-// =====================================================
-// ESTATUS 3: SOLO DIFERENCIAS
-// - Brigada: (conteo 1 usuario A) vs (conteo 2 usuario B) en CAP_INVENTARIO (cant_invfis)
-// - Individual: (estatus 1) vs (estatus 2) del mismo usuario en CAP_INVENTARIO (cant_invfis)
-// =====================================================
-if ($estatus === 3) {
-
-  if ($esBrigada) {
-    // BRIGADA: comparar SOLO la pareja usuarioConteo1 vs usuarioConteo2
-    $sqlDiff = "
-      SELECT DISTINCT i1.ItemCode
-      FROM CAP_INVENTARIO i1
-      JOIN CAP_INVENTARIO i2
-        ON i2.almacen   = i1.almacen
-       AND i2.fecha_inv = i1.fecha_inv
-       AND i2.cias      = i1.cias
-       AND i2.ItemCode  = i1.ItemCode
-       AND i2.estatus   = 2
-       AND i2.usuario   = $usuarioConteo2
-      WHERE i1.almacen   = '$almacen'
-        AND i1.fecha_inv = '$fecha'
-        AND i1.cias      = '$cia'
-        AND i1.estatus   = 1
-        AND i1.usuario   = $usuarioConteo1
-        AND ISNULL(i1.cant_invfis,0) <> ISNULL(i2.cant_invfis,0)
-    ";
-  } else {
-    // INDIVIDUAL: comparar estatus 1 vs estatus 2 del mismo usuario
-    $sqlDiff = "
-      SELECT DISTINCT i1.ItemCode
-      FROM CAP_INVENTARIO i1
-      JOIN CAP_INVENTARIO i2
-        ON i2.almacen   = i1.almacen
-       AND i2.fecha_inv = i1.fecha_inv
-       AND i2.cias      = i1.cias
-       AND i2.ItemCode  = i1.ItemCode
-       AND i2.usuario   = i1.usuario
-       AND i2.estatus   = 2
-      WHERE i1.almacen   = '$almacen'
-        AND i1.fecha_inv = '$fecha'
-        AND i1.cias      = '$cia'
-        AND i1.usuario   = $empleado
-        AND i1.estatus   = 1
-        AND ISNULL(i1.cant_invfis,0) <> ISNULL(i2.cant_invfis,0)
-    ";
-  }
-
-  $resDiff = mssql_query($sqlDiff, $conn);
-  if (!$resDiff) {
-    echo json_encode(['success' => false, 'error' => mssql_get_last_message()]);
-    exit;
-  }
-
-  $codes = [];
-  while ($r = mssql_fetch_assoc($resDiff)) {
-    $codes[] = $r['ItemCode'];
-  }
-
-  if (count($codes) === 0) {
-    echo json_encode([
-      'success' => true,
-      'data' => [],
-      'nro_conteo' => $estatus,
-      'brigada' => $esBrigada ? 1 : 0
-    ]);
-    exit;
-  }
-
-  $codes = array_values(array_unique($codes));
-  $codesEsc = array_map(function($c) {
-    return "'" . addslashes($c) . "'";
-  }, $codes);
-
-  $itemCodeIn = " AND c.ItemCode IN (" . implode(",", $codesEsc) . ") ";
-}
 
 $extraSelect = "";
 $extraJoins  = "";

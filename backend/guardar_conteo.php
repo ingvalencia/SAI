@@ -25,7 +25,8 @@ if ($id_inventario === null || $nro_conteo === null || $cantidad === null || $us
 }
 
 // --- Validar rango de conteo ---
-if (!in_array($nro_conteo, [1, 2, 3])) {
+if (!in_array($nro_conteo, [1, 2, 3, 7])) {
+
     echo json_encode(["success" => false, "error" => "Número de conteo inválido"]);
     exit;
 }

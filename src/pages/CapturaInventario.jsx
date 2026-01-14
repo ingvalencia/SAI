@@ -66,8 +66,13 @@ export default function CapturaInventario() {
 
 
   // === Regla: SOLO para conteo 3 y 4 (en tu flujo: 4to = estatus 7) y SOLO en brigada
-  const esTercerOCuarto = Number(estatus) === 3 || Number(estatus) === 7;
-  const aplicarVistaDiferenciasBrigada = esBrigada && esTercerOCuarto;
+  const esCuartoConteo = Number(estatus) === 7;
+  const aplicarVistaDiferenciasBrigada =esBrigada && (Number(estatus) === 3 || Number(estatus) === 7);
+  const [historialConteo, setHistorialConteo] = useState({});
+
+
+
+
 
 
  useEffect(() => {
@@ -316,18 +321,21 @@ export default function CapturaInventario() {
     // Si ya existe el conteo, NO capturar.
     // Redirigir DIRECTO a comparar.
     // ======================================================
-    if (estatusRes.data.existe_conteo === true) {
-      Swal.close();
-      return navigate("/comparar", {
-        state: {
-          almacen: alm,
-          fecha: fecISO,
-          empleado: emp,
-          cia,
-          estatus: estatusRes.data.nro_conteo
-        },
-      });
-    }
+    if (
+        estatusRes.data.existe_conteo === true &&
+        Number(estatusRes.data.nro_conteo) === 4
+      ) {
+        Swal.close();
+        return navigate("/comparar", {
+          state: {
+            almacen: alm,
+            fecha: fecISO,
+            empleado: emp,
+            cia,
+            estatus: estatusRes.data.nro_conteo
+          },
+        });
+      }
 
 
     let estatusReal = nroAsignado; // 1 o 2 según asignación
@@ -474,25 +482,39 @@ export default function CapturaInventario() {
   };
 
   const calcularTotalDesdeInput = (rawInput, actualValue) => {
-    let raw = (rawInput ?? "").toString().trim().replace(/\s+/g, ""); // soporta "+ 10"
-    if (raw === "") return { ok: true, total: "" }; // permite limpiar
+    let raw = (rawInput ?? "").toString().trim().replace(/\s+/g, "");
+    if (raw === "") return { ok: true, total: "" };
 
-    // formato: 40, +40, -10, 10.5
-    if (!/^[-+]?\d+(\.\d+)?$/.test(raw)) {
-      return { ok: false, error: "Formato inválido. Usa 40, +40 o -10" };
+    // Solo números y + -
+    if (!/^[0-9+\-\.]+$/.test(raw)) {
+      return { ok: false, error: "Formato inválido. Usa 10+20, +5 o -3" };
     }
 
-    const n = parseFloat(raw);
-    const actual = parseFloat(actualValue) || 0;
-
     let total;
-    if (raw.startsWith("+") || raw.startsWith("-")) total = actual + n;
-    else total = n;
 
-    if (total < 0) return { ok: false, error: "La cantidad no puede ser negativa" };
+    try {
+      // Caso: empieza con + o - → parte del valor anterior
+      if (raw.startsWith("+") || raw.startsWith("-")) {
+        total = actualValue + Function(`return ${raw}`)();
+      } else {
+        // Caso: expresión directa 10+30+30
+        total = Function(`return ${raw}`)();
+      }
+    } catch {
+      return { ok: false, error: "Expresión inválida" };
+    }
+
+    if (isNaN(total)) {
+      return { ok: false, error: "Resultado inválido" };
+    }
+
+    if (total < 0) {
+      return { ok: false, error: "La cantidad no puede ser negativa" };
+    }
 
     return { ok: true, total };
   };
+
 
 
 
@@ -500,10 +522,24 @@ export default function CapturaInventario() {
   try {
     const form = new FormData();
     form.append("id_inventario", item.id);
-    form.append("nro_conteo", asignacionCargada ? parseInt(nroConteo) : parseInt(estatus));
+    const conteoFinal =
+      asignacionCargada && Number.isFinite(Number(nroConteo))
+        ? Number(nroConteo)
+        : Number(estatus) > 0
+          ? Number(estatus)
+          : 1; // fallback seguro
+
+    form.append("nro_conteo", conteoFinal);
 
 
-    form.append("cantidad", cantidad === "" ? 0 : parseInt(cantidad, 10));
+
+    const cantidadFinal = Number(cantidad);
+
+    form.append(
+      "cantidad",
+      Number.isFinite(cantidadFinal) ? cantidadFinal : 0
+    );
+
     form.append("usuario", empleado);
 
     const res = await axios.post(
@@ -752,193 +788,186 @@ export default function CapturaInventario() {
 let tiempoUltimo = 0;
 let bufferCodigo = "";
 
-const handleCodigoDetectado = async (codigo) => {
-  if (modalActivo) return;
-  setModalActivo(true);
+  const handleCodigoDetectado = async (codigo) => {
+    if (modalActivo) return;
+    setModalActivo(true);
 
-  const codigoNormalizado = (codigo || "")
-    .toString()
-    .trim()
-    .replace(/[\s\r\n]+/g, "")
-    .toLowerCase();
+    const codigoNormalizado = (codigo || "")
+      .toString()
+      .trim()
+      .replace(/[\s\r\n]+/g, "")
+      .toLowerCase();
 
-  const index = datos.findIndex(
-    (item) => item.codebars?.toLowerCase().trim() === codigoNormalizado
-  );
+    const index = datos.findIndex(
+      (item) => item.codebars?.toLowerCase().trim() === codigoNormalizado
+    );
 
-  if (index !== -1) {
-    const producto = datos[index];
-    setBusqueda(producto.ItemCode);
+    if (index !== -1) {
+      const producto = datos[index];
+      setBusqueda(producto.ItemCode);
 
-    const { value: cantidad } = await MySwal.fire({
-      title: `<div class="text-xl font-bold text-gray-800 text-center">
-                Producto encontrado: ${producto.Itemname}
-              </div>`,
-      html: `
-        <div class="text-left text-sm text-gray-700 leading-relaxed mb-2">
-          <p>🧾 <strong>Código:</strong> ${producto.ItemCode}</p>
-          <p>🏬 <strong>Almacén:</strong> ${producto.almacen}</p>
-          <p>📁 <strong>Familia:</strong> ${producto.nom_fam}</p>
-          <p class="mt-2 text-blue-700 font-semibold">
-            📦 Cantidad actual: ${parseFloat(producto.cant_invfis) || 0}
-          </p>
-          <p class="text-xs text-gray-500 mt-1">
-            Usa <strong>+ / -</strong> para sumar o restar (ej: +10, -5)
-          </p>
-        </div>
+      const { value: cantidad } = await MySwal.fire({
+        title: `<div class="text-xl font-bold text-gray-800 text-center">
+                  Producto encontrado: ${producto.Itemname}
+                </div>`,
+        html: `
+          <div class="text-left text-sm text-gray-700 leading-relaxed mb-2">
+            <p>🧾 <strong>Código:</strong> ${producto.ItemCode}</p>
+            <p>🏬 <strong>Almacén:</strong> ${producto.almacen}</p>
+            <p>📁 <strong>Familia:</strong> ${producto.nom_fam}</p>
+            <p class="mt-2 text-blue-700 font-semibold">
+              📦 Cantidad actual: ${parseFloat(producto.cant_invfis) || 0}
+            </p>
+            <p class="text-xs text-gray-500 mt-1">
+              Usa <strong>+ / -</strong> para sumar o restar (ej: +10, -5)
+            </p>
+          </div>
 
-        <input
-          type="text"
-          id="cantidad"
-          class="swal2-input text-center text-lg font-bold"
-          placeholder="Cantidad"
-          inputmode="numeric"
-          maxlength="7"
-        />
-      `,
-      focusConfirm: false,
-      confirmButtonText: "Guardar",
-      showCancelButton: true,
-      cancelButtonText: "Cancelar",
-      allowOutsideClick: false,
+          <input
+            type="text"
+            id="cantidad"
+            class="swal2-input text-center text-lg font-bold"
+            placeholder="Ej: 10+20+30 o +5"
+            inputmode="text"
+          />
 
-      didOpen: () => {
-        const input = document.getElementById("cantidad");
-        if (input) {
-          input.focus();
-          input.addEventListener("keydown", (e) => {
-            const ahora = Date.now();
-            const delta = ahora - tiempoUltimo;
-            tiempoUltimo = ahora;
+        `,
+        focusConfirm: false,
+        confirmButtonText: "Guardar",
+        showCancelButton: true,
+        cancelButtonText: "Cancelar",
+        allowOutsideClick: false,
 
-            // Escáner: entrada rápida (solo dígitos) → autoguarda
-            if (delta < 35 && /^[0-9]$/.test(e.key)) {
-              bufferCodigo += e.key;
-              clearTimeout(window.timerScanner);
-              window.timerScanner = setTimeout(() => {
-                if (bufferCodigo.length >= 6) {
-                  document.querySelector(".swal2-confirm")?.click();
-                }
-                bufferCodigo = "";
-              }, 80);
-            }
+        didOpen: () => {
+          const input = document.getElementById("cantidad");
+          if (input) {
+            input.focus();
+            input.addEventListener("keydown", (e) => {
+              const ahora = Date.now();
+              const delta = ahora - tiempoUltimo;
+              tiempoUltimo = ahora;
 
-            // Manual: Enter explícito
-            if (e.key === "Enter") {
-              e.preventDefault();
-              document.querySelector(".swal2-confirm")?.click();
-            }
-          });
-        }
-      },
+              // Escáner: entrada rápida (solo dígitos) → autoguarda
+              if (delta < 35 && /^[0-9]$/.test(e.key)) {
+                bufferCodigo += e.key;
+                clearTimeout(window.timerScanner);
+                window.timerScanner = setTimeout(() => {
+                  if (bufferCodigo.length >= 6) {
+                    document.querySelector(".swal2-confirm")?.click();
+                  }
+                  bufferCodigo = "";
+                }, 80);
+              }
 
-      preConfirm: () => {
-        let raw = document.getElementById("cantidad").value || "";
-        raw = raw.trim().replace(/\s+/g, ""); // ✅ soporta "+ 10"
+              // Manual: Enter explícito
+              if (e.key === "Enter") {
+                e.preventDefault();
+                document.querySelector(".swal2-confirm")?.click();
+              }
+            });
+          }
+        },
 
-        if (!raw) {
-          Swal.showValidationMessage("Ingresa una cantidad");
-          return false;
-        }
+        preConfirm: () => {
+          let raw = document.getElementById("cantidad").value || "";
+          raw = raw.trim().replace(/\s+/g, "");
 
-        // 40, +40, -10, 10.5, +10.5
-        if (!/^[-+]?\d+(\.\d+)?$/.test(raw)) {
-          Swal.showValidationMessage("Usa 40, +40 o -10");
-          return false;
-        }
+          if (!raw) {
+            Swal.showValidationMessage("Ingresa una cantidad");
+            return false;
+          }
 
-        const delta = parseFloat(raw);
-        const actual = parseFloat(producto.cant_invfis) || 0;
+          const base = parseFloat(producto.cant_invfis) || 0;
 
-        let nuevoTotal;
-        if (raw.startsWith("+") || raw.startsWith("-")) {
-          nuevoTotal = actual + delta; // delta ya trae signo
-        } else {
-          nuevoTotal = delta; // reemplaza
+          //
+          const { ok, total, error } = calcularTotalDesdeInput(raw, base);
+
+          if (!ok) {
+            Swal.showValidationMessage(error);
+            return false;
+          }
+
+          return total; //
         }
 
-        if (nuevoTotal < 0) {
-          Swal.showValidationMessage("La cantidad no puede ser negativa");
-          return false;
+      });
+
+      if (cantidad !== undefined) {
+        const nuevo = [...datos];
+
+        // ✅ AQUÍ ESTABA EL ERROR: NO SUMES, YA ES TOTAL
+        nuevo[index].cant_invfis = cantidad;
+        setDatos(nuevo);
+
+        // ✅ guarda el TOTAL
+        await autoGuardar(producto, cantidad);
+
+        setBusqueda("");
+        const inputPrincipal = document.getElementById("inputCaptura");
+        if (inputPrincipal) inputPrincipal.focus();
+
+        const elemento = document.getElementById(`fila-${producto.id}`);
+        if (elemento) {
+          elemento.scrollIntoView({ behavior: "smooth", block: "center" });
+          elemento.classList.add("ring-2", "ring-green-400");
+          setTimeout(() => elemento.classList.remove("ring-2", "ring-green-400"), 1500);
         }
-
-        return nuevoTotal; // ✅ devuelve TOTAL FINAL
-      },
-    });
-
-    if (cantidad !== undefined) {
-      const nuevo = [...datos];
-
-      // ✅ AQUÍ ESTABA EL ERROR: NO SUMES, YA ES TOTAL
-      nuevo[index].cant_invfis = cantidad;
-      setDatos(nuevo);
-
-      // ✅ guarda el TOTAL
-      await autoGuardar(producto, cantidad);
-
-      setBusqueda("");
-      const inputPrincipal = document.getElementById("inputCaptura");
-      if (inputPrincipal) inputPrincipal.focus();
-
-      const elemento = document.getElementById(`fila-${producto.id}`);
-      if (elemento) {
-        elemento.scrollIntoView({ behavior: "smooth", block: "center" });
-        elemento.classList.add("ring-2", "ring-green-400");
-        setTimeout(() => elemento.classList.remove("ring-2", "ring-green-400"), 1500);
       }
+    } else {
+      const inputPrincipal = document.getElementById("inputCaptura");
+      setLectorActivo(false);
+      inputPrincipal?.blur();
+
+      await new Promise((r) => setTimeout(r, 150));
+
+      await MySwal.fire({
+        title: "No encontrado",
+        text: `El código ${codigoNormalizado} no está en la tabla actual`,
+        icon: "warning",
+        confirmButtonText: "OK",
+        allowOutsideClick: false,
+        allowEnterKey: false,
+        heightAuto: false,
+      });
+
+      setLectorActivo(true);
+      inputPrincipal?.focus();
     }
-  } else {
-    const inputPrincipal = document.getElementById("inputCaptura");
-    setLectorActivo(false);
-    inputPrincipal?.blur();
 
-    await new Promise((r) => setTimeout(r, 150));
-
-    await MySwal.fire({
-      title: "No encontrado",
-      text: `El código ${codigoNormalizado} no está en la tabla actual`,
-      icon: "warning",
-      confirmButtonText: "OK",
-      allowOutsideClick: false,
-      allowEnterKey: false,
-      heightAuto: false,
-    });
-
-    setLectorActivo(true);
-    inputPrincipal?.focus();
-  }
-
-  setModalActivo(false);
-};
+    setModalActivo(false);
+  };
 
 
 
 
   const datosFiltrados = useMemo(() => {
-      const q = busqueda.trim().toLowerCase();
+    const q = busqueda.trim().toLowerCase();
 
-      return datos.filter((item) => {
-        const matchBusqueda =
-          (item.ItemCode && item.ItemCode.toLowerCase().includes(q)) ||
-          (item.Itemname && item.Itemname.toLowerCase().includes(q)) ||
-          (item.codebars && item.codebars.toLowerCase().includes(q)) ||
-          (item.almacen && item.almacen.toLowerCase().includes(q)) ||
-          (item.cias && item.cias.toLowerCase().includes(q));
+    return datos.filter((item) => {
+      const matchBusqueda =
+        (item.ItemCode && item.ItemCode.toLowerCase().includes(q)) ||
+        (item.Itemname && item.Itemname.toLowerCase().includes(q)) ||
+        (item.codebars && item.codebars.toLowerCase().includes(q));
 
-        const matchFamilia = !familiaSeleccionada || item.nom_fam === familiaSeleccionada;
-        const matchSubfamilia = !subfamiliaSeleccionada || item.nom_subfam === subfamiliaSeleccionada;
+      const matchFamilia =
+        !familiaSeleccionada || item.nom_fam === familiaSeleccionada;
 
-        // SOLO brigada + conteo 3/4: mostrar únicamente artículos con diferencias entre conteos A y B
-        if (aplicarVistaDiferenciasBrigada) {
-          const a = Number(item.conteo_1 ?? 0);
-          const b = Number(item.conteo_2 ?? 0);
-          if (a === b) return false;
-        }
+      const matchSubfamilia =
+        !subfamiliaSeleccionada || item.nom_subfam === subfamiliaSeleccionada;
 
 
-        return matchBusqueda && matchFamilia && matchSubfamilia;
-      });
-  }, [datos, busqueda, familiaSeleccionada, subfamiliaSeleccionada,aplicarVistaDiferenciasBrigada]);
+      // CUARTO CONTEO: NO FILTRA NADA MÁS
+      return matchBusqueda && matchFamilia && matchSubfamilia;
+    });
+  }, [
+    datos,
+    busqueda,
+    familiaSeleccionada,
+    subfamiliaSeleccionada,
+    estatus,
+    esBrigada
+  ]);
+
 
 
   const indiceInicial = (paginaActual - 1) * registrosPorPagina;
@@ -1501,9 +1530,10 @@ const handleCodigoDetectado = async (codigo) => {
                         <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.nom_subfam}</td>
                         <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.ItemCode}</td>
 
-                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap truncate max-w-[16rem]">
+                        <td className="p-3 text-sm text-gray-700 max-w-[16rem] whitespace-normal break-words leading-snug">
                           {item.Itemname}
                         </td>
+
 
                         <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.codebars}</td>
 
@@ -1531,50 +1561,84 @@ const handleCodigoDetectado = async (codigo) => {
                           {bloqueado || estatus === 4 ? (
                             <span className="text-gray-600 text-sm font-medium">{valor}</span>
                           ) : (
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              value={valor}
-                              onFocus={() => {
-                                // guarda el valor numérico REAL antes de que el user escriba +10/-5
-                                valorPrevioRef.current[item.id] = parseFloat(item.cant_invfis) || 0;
-                                setLectorActivo(false);
-                              }}
-                              onChange={(e) => cambiarCantidad(item.id, e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  e.currentTarget.blur(); // dispara onBlur
-                                }
-                              }}
-                              onBlur={async (e) => {
-                                setTimeout(() => setLectorActivo(true), 200);
-                                if (bloqueado) return;
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={valor}
+                                className="w-24 px-2 py-1 border rounded text-sm text-right"
+                                onFocus={(e) => {
+                                  const historial = historialConteo[item.id];
+                                  const actual = parseFloat(item.cant_invfis) || 0;
 
-                                const base = valorPrevioRef.current[item.id] ?? 0; // ✅ valor anterior real
-                                const { ok, total, error } = calcularTotalDesdeInput(e.target.value, base);
+                                  // guardar valor real previo
+                                  valorPrevioRef.current[item.id] = actual;
 
-                                const nuevo = [...datos];
-                                const idx = nuevo.findIndex((x) => x.id === item.id);
-                                if (idx === -1) return;
+                                  // si hay historial, mostrarlo
+                                  if (historial) {
+                                    e.target.value = historial;
+                                    cambiarCantidad(item.id, historial);
+                                  } else if (actual === 0) {
+                                    e.target.value = "";
+                                    cambiarCantidad(item.id, "");
+                                  }
 
-                                if (!ok) {
-                                  await MySwal.fire("Cantidad inválida", error, "warning");
-                                  // regresa al valor anterior real
-                                  nuevo[idx].cant_invfis = base;
+                                  setLectorActivo(false);
+                                }}
+                                onChange={(e) => cambiarCantidad(item.id, e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    e.currentTarget.blur();
+                                  }
+                                }}
+                                onBlur={async (e) => {
+                                  setTimeout(() => setLectorActivo(true), 200);
+                                  if (bloqueado) return;
+
+                                  const raw = e.target.value.trim();
+                                  const base = valorPrevioRef.current[item.id] ?? 0;
+
+                                  const { ok, total, error } = calcularTotalDesdeInput(raw, base);
+
+                                  const nuevo = [...datos];
+                                  const idx = nuevo.findIndex((x) => x.id === item.id);
+                                  if (idx === -1) return;
+
+                                  if (!ok) {
+                                    await MySwal.fire("Cantidad inválida", error, "warning");
+                                    nuevo[idx].cant_invfis = base;
+                                    setDatos(nuevo);
+                                    return;
+                                  }
+
+                                  // guardar historial SOLO si fue expresión
+                                  if (raw !== "" && /[+\-]/.test(raw)) {
+                                    setHistorialConteo((prev) => ({
+                                      ...prev,
+                                      [item.id]: raw.replace(/\s+/g, "")
+                                    }));
+                                  }
+
+                                  const totalFinal = total === "" ? "" : total;
+                                  nuevo[idx].cant_invfis = totalFinal;
                                   setDatos(nuevo);
-                                  return;
-                                }
 
-                                const totalFinal = total === "" ? "" : total;
-                                nuevo[idx].cant_invfis = totalFinal;
-                                setDatos(nuevo);
+                                  await autoGuardar(item, totalFinal === "" ? 0 : totalFinal);
+                                }}
+                              />
 
-                                await autoGuardar(item, totalFinal === "" ? 0 : totalFinal);
-                              }}
-                            />
+                              {/* historial visible */}
+                              {historialConteo[item.id] && (
+                                <span className="text-xs text-gray-400 italic whitespace-nowrap">
+                                  {historialConteo[item.id]}
+                                </span>
+                              )}
+                            </div>
                           )}
                         </td>
+
+
                       </tr>
                     );
                   })}
@@ -1637,10 +1701,19 @@ const handleCodigoDetectado = async (codigo) => {
               {/* Botón Confirmar Inventario */}
               <button
                 onClick={confirmarInventario}
-                className="w-40 h-10 px-3 rounded-full text-sm font-semibold bg-green-600 text-white hover:bg-green-700 flex items-center justify-center gap-2 transition"
+                className="w-44 h-11 px-4 rounded-xl text-sm font-semibold
+                          bg-gradient-to-r from-green-600 to-emerald-600
+                          text-white shadow-md
+                          hover:from-green-700 hover:to-emerald-700
+                          active:scale-[0.98]
+                          focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2
+                          transition-all duration-200
+                          flex items-center justify-center gap-2"
               >
-                ✅ Confirmar
+                <span className="text-base">✔</span>
+                <span>Confirmar inventario</span>
               </button>
+
             </div>
 
 
