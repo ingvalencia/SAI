@@ -63,7 +63,7 @@ OUTER APPLY (
         c.nro_conteo DESC
 ) cfg
 
-ORDER BY u.empleado;
+ORDER BY u.nombre;
 
 
 ;

@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
+import Select from "react-select";
+
 
 const MySwal = withReactContent(Swal);
 
@@ -24,7 +26,8 @@ export default function Control() {
   const [filtroConteo, setFiltroConteo] = useState("");
   const [filtroFecha, setFiltroFecha] = useState("");
   const [busquedaAlmacen, setBusquedaAlmacen] = useState("");
-
+  const porPaginaFechas = 10;
+  const [paginaFechas, setPaginaFechas] = useState(1);
 
 
   // === Usuarios ===
@@ -233,13 +236,32 @@ export default function Control() {
     let base = [];
     if (rolLogueado === 1 || rolLogueado === 2) base = usuarios;
     if (rolLogueado === 3) {
-      base = usuarios.filter((u) => u.rol === 4 && u.creado_por === empleadoSesion);
+      base = usuarios.filter(
+        (u) => u.rol === 4 && u.creado_por === empleadoSesion
+      );
     }
     if (filtroRol) {
       base = base.filter((u) => String(u.rol) === filtroRol);
     }
     return base;
   }, [usuarios, rolLogueado, filtroRol, empleadoSesion]);
+
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [filtroRol, usuarios]);
+
+  const porPagina = 10;
+  const [paginaActual, setPaginaActual] = useState(1);
+
+  const usuariosPaginados = useMemo(() => {
+    const inicio = (paginaActual - 1) * porPagina;
+    const fin = inicio + porPagina;
+    return usuariosFiltrados.slice(inicio, fin);
+  }, [usuariosFiltrados, paginaActual]);
+
+  const totalPaginas = Math.ceil(usuariosFiltrados.length / porPagina);
+
+
 
   // === Toggle almacenes ===
   const toggleAlmacen = (codigo) => {
@@ -394,13 +416,65 @@ export default function Control() {
     const iso = (v) => toISODate(v);
     return configuraciones
       .filter(c => {
-        const coincideAlmacen = filtroAlmacen ? c.almacen?.toLowerCase().includes(filtroAlmacen.toLowerCase()) : true;
-        const coincideConteo  = filtroConteo ? String(c.conteo) === filtroConteo : true;
+        const coincideAlmacen = filtroAlmacen? c.almacen?.startsWith(filtroAlmacen + "-"): true;
+
+        const coincideConteo = filtroConteo? String(c.conteos || "")
+            .split(",")
+            .map(v => Number(v))
+            .pop() === Number(filtroConteo)
+        : true;
+
         const coincideFecha   = filtroFecha ? iso(c.fecha_gestion) === filtroFecha : true;
         return coincideAlmacen && coincideConteo && coincideFecha;
       })
       .sort((a, b) => iso(b.fecha_gestion).localeCompare(iso(a.fecha_gestion))); // más reciente primero
   }, [configuraciones, filtroAlmacen, filtroConteo, filtroFecha]);
+
+  const totalPaginasFechas = Math.ceil(
+    configuracionesFiltradas.length / porPaginaFechas
+  );
+
+  const configuracionesPaginadas = useMemo(() => {
+    const inicio = (paginaFechas - 1) * porPaginaFechas;
+    const fin = inicio + porPaginaFechas;
+    return configuracionesFiltradas.slice(inicio, fin);
+  }, [configuracionesFiltradas, paginaFechas]);
+
+  useEffect(() => {
+    setPaginaFechas(1);
+  }, [filtroAlmacen, filtroConteo, filtroFecha, configuraciones]);
+
+  const almacenesDisponibles = useMemo(() => {
+    return Array.from(
+      new Set(
+        configuraciones
+          .map(c => c.almacen)
+          .filter(Boolean)
+      )
+    ).sort();
+  }, [configuraciones]);
+
+  const familiasAlmacen = useMemo(() => {
+    const familias = configuraciones
+      .map(c => c.almacen)
+      .filter(Boolean)
+      .map(a => a.split("-")[0]); // AAA-CV → AAA
+
+    return Array.from(new Set(familias))
+      .sort()
+      .map(f => ({ value: f, label: f }));
+  }, [configuraciones]);
+
+  const estilosConteo = {
+      1: "bg-blue-100 text-blue-800 border-blue-300",     // Conteo 1
+      2: "bg-yellow-100 text-yellow-800 border-yellow-300", // Conteo 2
+      3: "bg-orange-100 text-orange-800 border-orange-300", // Conteo 3
+      7: "bg-purple-100 text-purple-800 border-purple-300", // Conteo 4
+      4: "bg-green-100 text-green-800 border-green-300",    // Finalizado
+    };
+
+
+
 
 
   return (
@@ -464,26 +538,17 @@ export default function Control() {
                 <tr>
                   <th className="px-4 py-2">Empleado</th>
                   <th className="px-4 py-2">Nombre</th>
-                  <th className="px-4 py-2">Almacenes asignados</th>
-                  <th className="px-4 py-2">Tipo de Conteo</th>
                   <th className="px-4 py-2">Responsable</th>
                   <th className="px-4 py-2">Estado</th>
                   <th className="px-4 py-2">Acciones</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
-                {usuariosFiltrados.map((u, i) => (
+                {usuariosPaginados.map((u, i) => (
+
                   <tr key={i} className="hover:bg-gray-50 transition">
                     <td className="px-4 py-2 font-mono text-red-900">{u.empleado}</td>
                     <td className="px-4 py-2 text-gray-800">{u.nombre}</td>
-                    <td className="px-4 py-2 text-gray-700">
-                      {u.locales?.length > 0 ? (
-                        u.locales.join(", ")
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-gray-700">{u.tipo_conteo || "—"}</td>
                     <td className="px-4 py-2 text-gray-700">{u.responsable_nombre || "—"}</td>
                     <td className="px-4 py-2">
                       {u.activo ? (
@@ -517,6 +582,40 @@ export default function Control() {
                 ))}
               </tbody>
             </table>
+            <div className="flex justify-center mt-6">
+              <div className="flex items-center gap-4 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 shadow-sm">
+
+                <button
+                  disabled={paginaActual === 1}
+                  onClick={() => setPaginaActual(p => p - 1)}
+                  className="px-3 py-1 rounded-md text-sm font-semibold
+                            bg-white border border-gray-300
+                            hover:bg-gray-100
+                            disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  ← Anterior
+                </button>
+
+                <span className="text-sm font-medium text-gray-700">
+                  Página <span className="font-semibold">{paginaActual}</span>
+                  {" "}de{" "}
+                  <span className="font-semibold">{totalPaginas || 1}</span>
+                </span>
+
+                <button
+                  disabled={paginaActual === totalPaginas || totalPaginas === 0}
+                  onClick={() => setPaginaActual(p => p + 1)}
+                  className="px-3 py-1 rounded-md text-sm font-semibold
+                            bg-white border border-gray-300
+                            hover:bg-gray-100
+                            disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Siguiente →
+                </button>
+
+              </div>
+            </div>
+
           </div>
         </div>
       )}
@@ -624,13 +723,22 @@ export default function Control() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Filtrar por almacén</label>
-                <input
-                  type="text"
-                  value={filtroAlmacen}
-                  onChange={(e) => setFiltroAlmacen(e.target.value)}
-                  placeholder="Ej. MGP-G"
-                  className="w-full px-3 py-2 border rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500"
+                <Select
+                  options={familiasAlmacen}
+                  value={
+                    filtroAlmacen
+                      ? { value: filtroAlmacen, label: filtroAlmacen }
+                      : null
+                  }
+                  onChange={(opcion) => {
+                    setFiltroAlmacen(opcion ? opcion.value : "");
+                  }}
+                  isClearable
+                  placeholder="Todos"
+                  classNamePrefix="react-select"
                 />
+
+
               </div>
 
               <div>
@@ -641,10 +749,13 @@ export default function Control() {
                   className="w-full px-3 py-2 border rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Todos</option>
-                  <option value="0">Conteo 1</option>
+                  <option value="1">Conteo 1</option>
                   <option value="2">Conteo 2</option>
                   <option value="3">Conteo 3</option>
+                  <option value="7">Conteo 4</option>
+                  <option value="4">Conteo Finalizado</option>
                 </select>
+
               </div>
 
               <div>
@@ -687,24 +798,23 @@ export default function Control() {
                   </thead>
 
                   <tbody className="divide-y divide-slate-200">
-                    {configuracionesFiltradas.map((c, i) => {
+                    {configuracionesPaginadas.map((c, i) => {
 
-                     const ultimoConteo = Number(
+                      const ultimoConteo = Number(
                         String(c.conteos || "")
                           .split(",")
                           .map(v => Number(v))
-                          .filter(v => v !== 7)
                           .pop()
                       );
 
 
                       const etiquetaConteo =
                         {
-                          0: "Conteo 1",
+                          1: "Conteo 1",
                           2: "Conteo 2",
                           3: "Conteo 3",
-                          4: "Cierre de conteo",
-                          7: "",
+                          4: "Conteo Finalizado",
+                          7: "Contero 4",
                         }[ultimoConteo] || "—";
 
                       return (
@@ -733,9 +843,15 @@ export default function Control() {
                           </td>
 
 
-                          <td className="px-4 py-2 font-semibold text-slate-800">
-                            {etiquetaConteo}
+                          <td className="px-4 py-2">
+                            <span
+                              className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold
+                                ${estilosConteo[ultimoConteo] || "bg-gray-100 text-gray-700 border-gray-300"}`}
+                            >
+                              {etiquetaConteo}
+                            </span>
                           </td>
+
 
                           <td className="px-4 py-2 text-slate-700 whitespace-pre-wrap">
                             {c.equipo || "—"}
@@ -745,6 +861,40 @@ export default function Control() {
                     })}
                   </tbody>
                 </table>
+                <div className="flex justify-center mt-6">
+                  <div className="flex items-center gap-4 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 shadow-sm">
+
+                    <button
+                      disabled={paginaFechas === 1}
+                      onClick={() => setPaginaFechas(p => p - 1)}
+                      className="px-3 py-1 rounded-md text-sm font-semibold
+                                bg-white border border-gray-300
+                                hover:bg-gray-100
+                                disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      ← Anterior
+                    </button>
+
+                    <span className="text-sm font-medium text-gray-700">
+                      Página <span className="font-semibold">{paginaFechas}</span>
+                      {" "}de{" "}
+                      <span className="font-semibold">{totalPaginasFechas || 1}</span>
+                    </span>
+
+                    <button
+                      disabled={paginaFechas === totalPaginasFechas || totalPaginasFechas === 0}
+                      onClick={() => setPaginaFechas(p => p + 1)}
+                      className="px-3 py-1 rounded-md text-sm font-semibold
+                                bg-white border border-gray-300
+                                hover:bg-gray-100
+                                disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Siguiente →
+                    </button>
+
+                  </div>
+                </div>
+
               </div>
             </div>
 

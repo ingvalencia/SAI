@@ -41,6 +41,10 @@ export default function Usuarios() {
 
   //
 
+  //
+  const [busquedaOperador, setBusquedaOperador] = useState("");
+
+
   const [form, setForm] = useState({
     empleado: "",
     nombre: "",
@@ -396,9 +400,28 @@ export default function Usuarios() {
               placeholder="Empleado"
               className="border rounded-lg px-3 py-2"
               value={form.empleado}
+              onChange={(e) => {
+                const value = e.target.value;
+
+                // si se limpia, se limpia todo el formulario
+                if (!value) {
+                  setForm({
+                    empleado: "",
+                    nombre: "",
+                    email: "",
+                    password: "",
+                    rol_id: form.rol_id,
+                    locales: [],
+                    cia: "",
+                  });
+                  return;
+                }
+
+                setForm({ ...form, empleado: value });
+              }}
               onBlur={(e) => buscarUsuarioMysql(e.target.value)}
-              onChange={(e) => setForm({ ...form, empleado: e.target.value })}
             />
+
 
             <input
               type="text"
@@ -506,28 +529,45 @@ export default function Usuarios() {
           {/* Si es Individual, mostramos los campos actuales */}
           {tipoConteo === "Individual" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* ✅ NUEVO: selector de usuario (reemplaza Empleado/Nombre/Email/Password) */}
+              {/* selector de usuario (reemplaza Empleado/Nombre/Email/Password) */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Operador inventario
                 </label>
 
-                <select
-                  required
-                  value={usuariosSeleccionados[0] || ""}
-                  onChange={(e) => setUsuariosSeleccionados([parseInt(e.target.value)])}
+                <input
+                  type="text"
+                  list="usuarios-list"
+                  placeholder="Buscar por empleado o nombre"
                   className="border rounded-lg px-3 py-2 w-full shadow-sm focus:ring-2 focus:ring-red-600"
-                >
-                  <option value="">— Selecciona usuario —</option>
+                  onChange={(e) => {
+                    const value = e.target.value;
+
+                    const encontrado = usuariosDisponibles.find(
+                      (u) =>
+                        `${u.empleado} - ${u.nombre}`.toLowerCase() === value.toLowerCase()
+                    );
+
+                    if (encontrado) {
+                      setUsuariosSeleccionados([encontrado.id]);
+                    } else {
+                      setUsuariosSeleccionados([]);
+                    }
+                  }}
+                />
+
+                <datalist id="usuarios-list">
                   {usuariosDisponibles.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.empleado} - {u.nombre}
-                    </option>
+                    <option
+                      key={u.id}
+                      value={`${u.empleado} - ${u.nombre}`}
+                    />
                   ))}
-                </select>
+                </datalist>
               </div>
 
-              {/* ✅ SE QUEDA IGUAL */}
+
+              {/*  */}
               <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Nivel de conteo
               </label>
@@ -549,12 +589,26 @@ export default function Usuarios() {
           {/* Si es Brigada, mostramos dos juegos de campos */}
           {tipoConteo === "Brigada" && (
             <div className="space-y-6">
-              {/* ✅ NUEVO: selección de brigada (2 usuarios) */}
+              {/* selección de brigada (2 usuarios) */}
               <div>
                 <h3 className="font-semibold text-gray-700 mb-2">Selecciona Brigada (2 operadores)</h3>
+                <input
+                  type="text"
+                  placeholder="Buscar por empleado o nombre"
+                  value={busquedaOperador}
+                  onChange={(e) => setBusquedaOperador(e.target.value)}
+                  className="w-full mb-2 px-3 py-2 border rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-red-600"
+                />
 
                 <div className="grid grid-cols-1 gap-2 border rounded-lg p-3 bg-gray-50">
-                  {usuariosDisponibles.map((u) => (
+                  {usuariosDisponibles
+                    .filter((u) =>
+                      `${u.empleado} ${u.nombre}`
+                        .toLowerCase()
+                        .includes(busquedaOperador.toLowerCase())
+                    )
+                    .map((u) => (
+
                     <label key={u.id} className="flex items-center gap-2 text-sm text-gray-700">
                       <input
                         type="checkbox"
@@ -581,7 +635,7 @@ export default function Usuarios() {
                 </p>
               </div>
 
-              {/* ✅ SE QUEDA IGUAL: niveles solo informativos */}
+              {/*  niveles solo informativos */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -743,35 +797,55 @@ export default function Usuarios() {
             placeholder="Empleado"
             className="border rounded-lg px-3 py-2"
             value={form.empleado}
-            onChange={(e) => setForm({ ...form, empleado: e.target.value })}
+            onChange={(e) => {
+              const value = e.target.value;
+
+              // si se limpia, se limpia todo el formulario
+              if (!value) {
+                setForm({
+                  empleado: "",
+                  nombre: "",
+                  email: "",
+                  password: "",
+                  rol_id: form.rol_id,
+                  locales: [],
+                  cia: "",
+                });
+                return;
+              }
+
+              setForm({ ...form, empleado: value });
+            }}
+            onBlur={(e) => buscarUsuarioMysql(e.target.value)}
           />
 
           <input
             type="text"
             required
             placeholder="Nombre"
-            className="border rounded-lg px-3 py-2"
+            className="border rounded-lg px-3 py-2 bg-gray-100 cursor-not-allowed"
             value={form.nombre}
-            onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+            readOnly
           />
 
           <input
             type="email"
             required
             placeholder="Correo electrónico"
-            className="border rounded-lg px-3 py-2"
+            className="border rounded-lg px-3 py-2 bg-gray-100 cursor-not-allowed"
             value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            readOnly
           />
 
           <input
             type="password"
             required
             placeholder="Contraseña"
-            className="border rounded-lg px-3 py-2"
+            className="border rounded-lg px-3 py-2 bg-gray-100 cursor-not-allowed"
             value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            readOnly
           />
+
 
           <select
             value={form.rol_id}
