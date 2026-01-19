@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   Route,
   BrowserRouter,
@@ -23,32 +23,49 @@ function FullscreenLoader({ text = "Verificando acceso al sistema..." }) {
 }
 
 function AppRoutes() {
-  const [estadoSistema, setEstadoSistema] = useState(null); // null = cargando
+  const [estadoSistema, setEstadoSistema] = useState({
+    habilitado: 1,
+    modo_forzado: false,
+  });
+
   const empleado = sessionStorage.getItem("empleado");
   const nombre = sessionStorage.getItem("nombre");
   const roles = JSON.parse(sessionStorage.getItem("roles") || "[]");
-  const isAdmin = roles.some((r) => r.id === 1 || r.id === 2);
   const location = useLocation();
 
+  const yaVerificado = useRef(false);
+
   useEffect(() => {
+    if (yaVerificado.current) return;
+    yaVerificado.current = true;
+
+    let cancelado = false;
+
     const run = async () => {
       if (!empleado) {
-        setEstadoSistema({ habilitado: 0, modo_forzado: false });
+        setEstadoSistema({ habilitado: 1, modo_forzado: false });
         return;
       }
+
       try {
         const res = await fetch(
           `https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/verifica_estado_sistema.php?empleado=${empleado}`
         );
         const data = await res.json();
-        if (!data.success) throw new Error(data.error);
-        setEstadoSistema(data);
+        if (!data?.success) throw new Error();
+        if (!cancelado) setEstadoSistema(data);
       } catch {
-        sessionStorage.clear();
-        setEstadoSistema({ habilitado: 0, modo_forzado: false });
+        if (!cancelado) {
+          setEstadoSistema({ habilitado: 1, modo_forzado: false });
+        }
       }
     };
+
     run();
+
+    return () => {
+      cancelado = true;
+    };
   }, [empleado]);
 
   const handleLogout = () => {
@@ -58,10 +75,12 @@ function AppRoutes() {
 
   const RequireAuth = ({ children }) => {
     if (!empleado) return <Navigate to="/login" replace />;
-    if (estadoSistema === null) return <FullscreenLoader />;
+
+    if (!estadoSistema) return <FullscreenLoader />;
+
     const { habilitado, modo_forzado } = estadoSistema;
-    const bloqueado = habilitado === 0 && !modo_forzado;
-    if (bloqueado) return <EnMantenimiento />;
+    if (habilitado === 0 && !modo_forzado) return <EnMantenimiento />;
+
     return children;
   };
 
@@ -69,7 +88,6 @@ function AppRoutes() {
 
   return (
     <>
-      {/* Encabezado global */}
       {location.pathname !== "/login" && (
         <div className="flex justify-between items-center bg-red-800 text-white px-4 py-2">
           <span>
@@ -84,23 +102,20 @@ function AppRoutes() {
         </div>
       )}
 
-      {/* Aviso modo desarrollador */}
       {modo_forzado && location.pathname !== "/login" && (
         <div className="bg-yellow-900 text-yellow-300 px-4 py-2 font-mono text-xs text-center border-b border-yellow-700">
           ⚠ Acceso de desarrollador. Sistema en mantenimiento para otros usuarios.
         </div>
       )}
 
-      {/* Rutas */}
       <Routes>
         <Route path="/login" element={<Login />} />
 
-        {/* Home redirige según rol */}
         <Route
           path="/"
           element={
             <RequireAuth>
-              {roles.some((r) => r.id === 1 || r.id === 2 || r.id === 3) ? (
+              {roles.some((r) => [1, 2, 3].includes(r.id)) ? (
                 <Navigate to="/admin" replace />
               ) : (
                 <Navigate to="/captura" replace />
@@ -109,7 +124,6 @@ function AppRoutes() {
           }
         />
 
-        {/* Vista Captura */}
         <Route
           path="/captura"
           element={
@@ -121,7 +135,6 @@ function AppRoutes() {
           }
         />
 
-        {/* Vista Comparación */}
         <Route
           path="/comparar"
           element={
@@ -133,7 +146,6 @@ function AppRoutes() {
           }
         />
 
-        {/* Vista Administrador */}
         <Route
           path="/admin"
           element={
@@ -145,7 +157,6 @@ function AppRoutes() {
           }
         />
 
-        {/* Fallback */}
         <Route
           path="*"
           element={<Navigate to={empleado ? "/" : "/login"} replace />}

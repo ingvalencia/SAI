@@ -28,13 +28,11 @@ $empleado     = isset($input["empleado"]) ? trim($input["empleado"]) : null;
 $nombre       = isset($input["nombre"]) ? trim($input["nombre"]) : null;
 $password     = isset($input["password"]) ? (string) $input["password"] : null;
 $email        = isset($input["email"]) ? trim($input["email"]) : null;
-$rol_id       = isset($input["rol_id"]) ? intval($input["rol_id"]) : 4;
+$rol_id       = isset($input["rol_id"]) ? trim($input["rol_id"]) : null;;
 $cia          = isset($input["cia"]) ? trim($input["cia"]) : null;
 $locales      = isset($input["locales"]) && is_array($input["locales"]) ? $input["locales"] : [];
 $rol_creador  = isset($input["rol_creador"]) ? intval($input["rol_creador"]) : 4;
 $creado_por = isset($input["creado_por"]) ? trim($input["creado_por"]) : null;
-
-
 
 
 if (!$empleado || !$nombre || !$password || !$rol_id) {
@@ -67,11 +65,10 @@ if ($check && mssql_num_rows($check) > 0) {
 }
 
 // ====== CREAR USUARIO ======
-$salt = substr(md5(uniqid()), 0, 8);
-$hash = md5($salt . $password);
+
 
 $campos  = "empleado, nombre, password_hash, salt, activo, creado_por";
-$valores = "'{$empleadoEsc}', '{$nombreEsc}', '{$hash}', '{$salt}', 1,'{$creado_por}'";
+$valores = "'{$empleadoEsc}', '{$nombreEsc}', '{$password}', '', 1,'{$creado_por}'";
 
 if ($emailEsc) {
   $campos  .= ", email";

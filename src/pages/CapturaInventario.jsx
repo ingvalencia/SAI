@@ -70,7 +70,7 @@ export default function CapturaInventario() {
   const aplicarVistaDiferenciasBrigada =esBrigada && (Number(estatus) === 3 || Number(estatus) === 7);
   const [historialConteo, setHistorialConteo] = useState({});
 
-
+  const [editandoCelda, setEditandoCelda] = useState(false);
 
 
 
@@ -472,14 +472,18 @@ export default function CapturaInventario() {
 
 
 
-  const cambiarCantidad = (id, valor) => {
+  const cambiarCantidad = (uid, valor) => {
     const nuevo = [...datos];
-    const idx = nuevo.findIndex(x => x.id === id);
+    const idx = nuevo.findIndex(
+      x => `${x.ItemCode}-${x.almacen}` === uid
+    );
+
     if (idx !== -1) {
       nuevo[idx].cant_invfis = valor;
       setDatos(nuevo);
     }
   };
+
 
   const calcularTotalDesdeInput = (rawInput, actualValue) => {
     let raw = (rawInput ?? "").toString().trim().replace(/\s+/g, "");
@@ -520,14 +524,13 @@ export default function CapturaInventario() {
 
  const autoGuardar = async (item, cantidad) => {
   try {
+
+    console.log("ITEM COMPLETO >>>", item);
     const form = new FormData();
-    form.append("id_inventario", item.id);
-    const conteoFinal =
-      asignacionCargada && Number.isFinite(Number(nroConteo))
-        ? Number(nroConteo)
-        : Number(estatus) > 0
-          ? Number(estatus)
-          : 1; // fallback seguro
+    form.append("id_inventario", item.id_inventario);
+
+
+    const conteoFinal = Number(estatus);
 
     form.append("nro_conteo", conteoFinal);
 
@@ -993,7 +996,8 @@ let bufferCodigo = "";
       activo &&
       (activo.tagName === "INPUT" || activo.tagName === "SELECT" || activo.tagName === "TEXTAREA");
 
-    if (esCampoEditable) return; // 🔒 no robar foco cuando manipulas filtros
+    if (esCampoEditable || editandoCelda) return;
+
 
     const input = document.getElementById("inputCaptura");
     if (input && document.activeElement !== input) input.focus();
@@ -1509,6 +1513,9 @@ let bufferCodigo = "";
 
                 <tbody className="bg-white divide-y divide-gray-100">
                   {datosPaginados.map((item, i) => {
+
+                    const uid = `${item.ItemCode}-${item.almacen}`;
+
                     const k = `${item.ItemCode}-${item.almacen}`;
                     const valor = item.cant_invfis ?? ""; // siempre string
                     const editado = parseFloat(valor) > 0;
@@ -1516,8 +1523,8 @@ let bufferCodigo = "";
 
                     return (
                       <tr
-                        key={k}
-                        id={`fila-${item.id}`}
+                        key={uid}
+                        id={`fila-${uid}`}
                         className="hover:bg-red-50 transition duration-150 ease-in-out"
                       >
                         <td className="p-3 text-sm text-gray-500 font-semibold whitespace-nowrap">
@@ -1568,24 +1575,25 @@ let bufferCodigo = "";
                                 value={valor}
                                 className="w-24 px-2 py-1 border rounded text-sm text-right"
                                 onFocus={(e) => {
-                                  const historial = historialConteo[item.id];
+                                  setEditandoCelda(true);
+                                  setLectorActivo(false);
+
+                                  const historial = historialConteo[uid];
                                   const actual = parseFloat(item.cant_invfis) || 0;
+                                  valorPrevioRef.current[uid] = actual;
 
-                                  // guardar valor real previo
-                                  valorPrevioRef.current[item.id] = actual;
-
-                                  // si hay historial, mostrarlo
                                   if (historial) {
                                     e.target.value = historial;
-                                    cambiarCantidad(item.id, historial);
+                                    cambiarCantidad(uid, historial);
+
                                   } else if (actual === 0) {
                                     e.target.value = "";
-                                    cambiarCantidad(item.id, "");
+                                    cambiarCantidad(uid, "");
                                   }
-
-                                  setLectorActivo(false);
                                 }}
-                                onChange={(e) => cambiarCantidad(item.id, e.target.value)}
+
+                                onChange={(e) => cambiarCantidad(uid, e.target.value)}
+
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter") {
                                     e.preventDefault();
@@ -1593,16 +1601,21 @@ let bufferCodigo = "";
                                   }
                                 }}
                                 onBlur={async (e) => {
+                                  setEditandoCelda(false);
                                   setTimeout(() => setLectorActivo(true), 200);
                                   if (bloqueado) return;
 
                                   const raw = e.target.value.trim();
-                                  const base = valorPrevioRef.current[item.id] ?? 0;
+                                  const base = valorPrevioRef.current[uid] ?? 0;
+
 
                                   const { ok, total, error } = calcularTotalDesdeInput(raw, base);
 
                                   const nuevo = [...datos];
-                                  const idx = nuevo.findIndex((x) => x.id === item.id);
+                                  const idx = nuevo.findIndex(
+                                    (x) => `${x.ItemCode}-${x.almacen}` === uid
+                                  );
+
                                   if (idx === -1) return;
 
                                   if (!ok) {
@@ -1616,7 +1629,8 @@ let bufferCodigo = "";
                                   if (raw !== "" && /[+\-]/.test(raw)) {
                                     setHistorialConteo((prev) => ({
                                       ...prev,
-                                      [item.id]: raw.replace(/\s+/g, "")
+                                      [uid]: raw.replace(/\s+/g, "")
+
                                     }));
                                   }
 
@@ -1629,9 +1643,9 @@ let bufferCodigo = "";
                               />
 
                               {/* historial visible */}
-                              {historialConteo[item.id] && (
+                              {historialConteo[uid] && (
                                 <span className="text-xs text-gray-400 italic whitespace-nowrap">
-                                  {historialConteo[item.id]}
+                                  {historialConteo[uid]}
                                 </span>
                               )}
                             </div>

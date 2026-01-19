@@ -65,20 +65,24 @@ $usuario_id = intval($rowUID['id']);
 /* ===========================================================
    2. Validar si el usuario está BLOQUEADO (estatus = 1)
 =========================================================== */
-$sqlBlock = "
-    SELECT TOP 1 estatus
-    FROM CAP_CONTEO_CONFIG
-    WHERE usuarios_asignados LIKE '%$usuario_id%'
-      AND estatus = 1
-";
-$resBlock = mssql_query($sqlBlock, $conn);
+if ($nro_conteo == 3) {
 
-if ($resBlock && mssql_num_rows($resBlock) > 0) {
-    echo json_encode([
-        "success" => false,
-        "error"   => "Usuario bloqueado: otro usuario realizará el tercer conteo."
-    ]);
-    exit;
+    $sqlBlock = "
+        SELECT TOP 1 estatus
+        FROM CAP_CONTEO_CONFIG
+        WHERE usuarios_asignados LIKE '%$usuario_id%'
+          AND estatus = 1
+    ";
+
+    $resBlock = mssql_query($sqlBlock, $conn);
+
+    if ($resBlock && mssql_num_rows($resBlock) > 0) {
+        echo json_encode([
+            "success" => false,
+            "error"   => "Usuario bloqueado: otro usuario realizará el tercer conteo."
+        ]);
+        exit;
+    }
 }
 
 /* ===========================================================
@@ -89,7 +93,16 @@ $sqlAsign = "
     FROM CAP_CONTEO_CONFIG
     WHERE usuarios_asignados LIKE '%$usuario_id%'
       AND estatus = 0
+      AND cia = (SELECT cias FROM CAP_INVENTARIO WHERE id = $id_inventario)
+      AND almacen = (SELECT almacen FROM CAP_INVENTARIO WHERE id = $id_inventario)
+      AND fecha_asignacion = (
+          SELECT CONVERT(date, fecha_inv)
+          FROM CAP_INVENTARIO
+          WHERE id = $id_inventario
+      )
 ";
+
+
 $resAsign = mssql_query($sqlAsign, $conn);
 
 if (!$resAsign || mssql_num_rows($resAsign) === 0) {

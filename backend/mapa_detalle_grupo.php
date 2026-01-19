@@ -4,10 +4,29 @@ header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 header('Content-Type: application/json');
 
+
+
+function normalizarCodigo($c) {
+  return str_pad(ltrim(trim($c), '0'), 8, '0', STR_PAD_LEFT);
+}
+
+
 $grupo   = isset($_GET['grupo']) ? trim($_GET['grupo']) : null;
 $fecha   = isset($_GET['fecha']) ? trim($_GET['fecha']) : null;
 $cia     = isset($_GET['cia']) ? trim($_GET['cia']) : null;
 $usuario = isset($_GET['usuario']) ? trim($_GET['usuario']) : null;
+
+
+
+/*
+file_put_contents(
+  __DIR__ . '/debug_grupo.log',
+  "ENTRO AL SCRIPT\n",
+  FILE_APPEND
+);
+*/
+
+
 
 if (!$grupo || !$fecha || !$cia) {
   echo json_encode(["success" => false, "error" => "Faltan parámetros"]);
@@ -40,15 +59,24 @@ $resAlm = mssql_query("
     AND cias = '$cia'
 ", $conn);
 
+//$almacenes = array_slice($almacenes, 0, 1);
+
 $almacenes = [];
 while ($r = mssql_fetch_assoc($resAlm)) {
   $almacenes[] = $r['almacen'];
+  //print_r($r);
 }
+//exit();
 
 if (empty($almacenes)) {
-  echo json_encode(["success" => false, "error" => "No hay almacenes para el grupo"]);
+  echo json_encode([
+    "success" => true,
+    "estatus" => 0,
+    "data" => []
+  ]);
   exit;
 }
+
 
 $listaAlmacenes = "'" . implode("','", $almacenes) . "'";
 
@@ -70,15 +98,21 @@ if (!$usuario) {
 }
 
 /* ============================
-   3. INVENTARIO SAP (POR ALMACÉN)
+   3–6. PROCESAR ALMACÉN POR ALMACÉN (SIN ARRAYS GIGANTES)
 ============================ */
-$items = []; // clave: almacen|codigo
+
+$out = [];
 
 foreach ($almacenes as $alm) {
+
+  // ===== 3) SAP SOLO PARA ESTE ALMACÉN =====
+  $items = [];
+
   $sp = mssql_query("EXEC [USP_INVEN_SAP] '$alm', '$fecha', '$usuario', '$cia'", $conn);
+  if (!$sp) continue;
 
   while ($row = mssql_fetch_assoc($sp)) {
-    $cod = trim($row['Codigo sap']);
+    $cod = normalizarCodigo($row['Codigo sap']);
     $key = $alm . '|' . $cod;
 
     if (!isset($items[$key])) {
@@ -88,6 +122,7 @@ foreach ($almacenes as $alm) {
         'nombre'         => $row['Nombre'],
         'familia'        => $row['Familia'],
         'subfamilia'     => $row['Subfamilia'],
+        'precio'         => $row['precio'],
         'inventario_sap' => 0,
         'conteo1'        => 0,
         'conteo2'        => 0,
@@ -95,86 +130,53 @@ foreach ($almacenes as $alm) {
         'conteo4'        => 0,
       ];
     }
-
     $items[$key]['inventario_sap'] += (float)$row['Inventario_sap'];
   }
-}
+  while (mssql_next_result($sp)) {;}
+  mssql_free_result($sp);
 
-/* ============================
-   4. CONSOLIDAR CONTEOS (POR ALMACÉN)
-============================ */
-$q = mssql_query("
-  SELECT c.almacen, c.ItemCode, ct.nro_conteo, ct.cantidad
-  FROM CAP_INVENTARIO c
-  JOIN CAP_INVENTARIO_CONTEOS ct ON c.id = ct.id_inventario
-  WHERE c.almacen IN ($listaAlmacenes)
-    AND c.fecha_inv = '$fecha'
-    AND c.cias = '$cia'
-", $conn);
+  // ===== 4) CONTEOS SOLO PARA ESTE ALMACÉN =====
+  $q = mssql_query("
+    SELECT c.ItemCode, ct.nro_conteo, ct.cantidad
+    FROM CAP_INVENTARIO c
+    JOIN CAP_INVENTARIO_CONTEOS ct ON c.id = ct.id_inventario
+    WHERE c.almacen = '$alm'
+      AND c.fecha_inv = '$fecha'
+      AND c.cias = '$cia'
+  ", $conn);
+  if (!$q) continue;
 
-while ($r = mssql_fetch_assoc($q)) {
-  $alm = $r['almacen'];
-  $cod = trim($r['ItemCode']);
-  $key = $alm . '|' . $cod;
+  while ($r = mssql_fetch_assoc($q)) {
+    $cod = normalizarCodigo($r['ItemCode']);
+    $key = $alm . '|' . $cod;
+    if (!isset($items[$key])) continue;
 
-  if (!isset($items[$key])) continue;
+    $n = (int)$r['nro_conteo'];
+    $v = (float)$r['cantidad'];
 
-  $n = (int)$r['nro_conteo'];
-  $v = (float)$r['cantidad'];
+    if ($n <= 1)      $items[$key]['conteo1'] += $v;
+    elseif ($n == 2)  $items[$key]['conteo2'] += $v;
+    elseif ($n == 3)  $items[$key]['conteo3'] += $v;
+    elseif ($n == 7)  $items[$key]['conteo4'] += $v;
+  }
+  mssql_free_result($q);
 
-  if ($n <= 1) {
-    $items[$key]['conteo1'] += $v;
-  } else if ($n == 2) {
-    $items[$key]['conteo2'] += $v;
-  } else if ($n == 3) {
-    $items[$key]['conteo3'] += $v;
-  } else if ($n == 7) {
-    $items[$key]['conteo4'] += $v;
+  // ===== 6) CALCULAR Y AGREGAR AL RESULTADO FINAL =====
+  foreach ($items as $it) {
+    $conteo_final =
+      ($it['conteo4'] > 0) ? $it['conteo4'] :
+      (($it['conteo3'] > 0) ? $it['conteo3'] :
+      (($it['conteo2'] > 0) ? $it['conteo2'] : $it['conteo1']));
+
+    $it['conteo_final'] = $conteo_final;
+    $it['diferencia']   = $conteo_final - $it['inventario_sap'];
+
+    $out[] = $it;
   }
 
+  unset($items); // libera memoria por almacén
 }
-
-/* ============================
-   5. ESTATUS DEL GRUPO (MIN)
-============================ */
-$re = mssql_query("
-  SELECT MAX(estatus) AS estatus
-  FROM CAP_INVENTARIO
-  WHERE almacen IN ($listaAlmacenes)
-    AND fecha_inv = '$fecha'
-    AND cias = '$cia'
-", $conn);
-
-$estatus = 0;
-if ($re && $e = mssql_fetch_assoc($re)) {
-  $estatus = (int)$e['estatus'];
-}
-
-/* ============================
-   6. CALCULAR DIFERENCIAS
-============================ */
-
-$out = [];
-
-foreach ($items as $it) {
-
-  if ($it['conteo4'] > 0) {
-    $conteo_final = $it['conteo4'];
-  } elseif ($it['conteo3'] > 0) {
-    $conteo_final = $it['conteo3'];
-  } elseif ($it['conteo2'] > 0) {
-    $conteo_final = $it['conteo2'];
-  } else {
-    $conteo_final = $it['conteo1'];
-  }
-
-  $it['conteo_final'] = $conteo_final;
-  $it['diferencia']   = $conteo_final - $it['inventario_sap']; // 
-
-
-  $out[] = $it;
-}
-
+/* ============================ 5. ESTATUS DEL GRUPO (MIN) ============================ */ $re = mssql_query(" SELECT MAX(estatus) AS estatus FROM CAP_INVENTARIO WHERE almacen IN ($listaAlmacenes) AND fecha_inv = '$fecha' AND cias = '$cia' ", $conn); $estatus = 0; if ($re && $e = mssql_fetch_assoc($re)) { $estatus = (int)$e['estatus']; }
 
 /* ============================
    7. RESPONSE

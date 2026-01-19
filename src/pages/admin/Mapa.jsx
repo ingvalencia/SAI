@@ -149,6 +149,22 @@ export default function Mapa({ drawerRootId }) {
           }
         };
 
+    const filtrarArticulosValidos = (data = []) => {
+      return data.filter((item) => {
+        const sap = Number(item.inventario_sap ?? 0);
+
+        const c1 = Number(item.conteo1 ?? 0);
+        const c2 = Number(item.conteo2 ?? 0);
+        const c3 = Number(item.conteo3 ?? 0);
+        const c4 = Number(item.conteo4 ?? 0);
+
+        //
+        // Mostrar SOLO si tiene SAP o algún conteo
+        return sap !== 0 || c1 !== 0 || c2 !== 0 || c3 !== 0 || c4 !== 0;
+      });
+    };
+
+
     const normalizarDetalle = (data = []) => {
       return (Array.isArray(data) ? data : []).map((item) => {
         const c1 = Number(item.conteo1 ?? 0);
@@ -220,7 +236,8 @@ export default function Mapa({ drawerRootId }) {
         // ✅ Normaliza para que siempre tengas: almacen, sap_final, conteo_final, diferencia_cierre
         const detalleConFinal = normalizarDetalle(res.data.data);
 
-        setDetalle(detalleConFinal);
+       setDetalle(filtrarArticulosValidos(detalleConFinal));
+
         setPaginaActual(1);
 
         if (res.data.data.length === 0) {
@@ -345,7 +362,8 @@ export default function Mapa({ drawerRootId }) {
     });
 
 
-    setDetalle(detalleConFinal);
+    setDetalle(filtrarArticulosValidos(detalleConFinal));
+
     setPaginaActual(1);
 
     if (detalleConFinal.length === 0) {
@@ -530,6 +548,7 @@ export default function Mapa({ drawerRootId }) {
       "NOMBRE",
       "FAMILIA",
       "SUBFAMILIA",
+      "PRECIO",
       "EXISTENCIA SAP",
       "CONTEO 1",
       "CONTEO 2",
@@ -581,6 +600,7 @@ export default function Mapa({ drawerRootId }) {
         item.nombre ?? "-",
         item.familia ?? "-",
         item.subfamilia ?? "-",
+        item.precio ?? "-",
         sap,
         c1,
         c2,
@@ -1495,6 +1515,7 @@ export default function Mapa({ drawerRootId }) {
                   <th className="px-4 py-2">Nombre</th>
                   <th className="px-4 py-2">Familia</th>
                   <th className="px-4 py-2">Subfamilia</th>
+                  <th className="px-4 py-2">Precio</th>
                   <th className="px-4 py-2">Existencia SAP</th>
                   <th className="px-4 py-2">Conteo 1</th>
                   <th className="px-4 py-2">Conteo 2</th>
@@ -1523,7 +1544,7 @@ export default function Mapa({ drawerRootId }) {
 
                     {/* FILAS */}
                     {items.map((d, i) => {
-                      // 🔴 DIFERENCIA SIEMPRE VS ÚLTIMO CONTEO DISPONIBLE
+                      // DIFERENCIA SIEMPRE VS ÚLTIMO CONTEO DISPONIBLE
                       const ultimoConteo =
                         Number(d.conteo4 ?? 0) > 0
                           ? Number(d.conteo4)
@@ -1553,6 +1574,9 @@ export default function Mapa({ drawerRootId }) {
                           </td>
                           <td className="px-4 py-2 text-gray-700">
                             {d.subfamilia ?? "-"}
+                          </td>
+                          <td className="px-4 py-2 text-gray-700">
+                            {d.precio ?? "-"}
                           </td>
                           <td className="px-4 py-2 text-center">
                             {d.inventario_sap.toFixed(2)}
