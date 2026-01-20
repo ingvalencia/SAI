@@ -73,10 +73,12 @@ function AppRoutes() {
     window.location.href = "/diniz/inventarios/";
   };
 
+
   const RequireAuth = ({ children }) => {
     if (!empleado) return <Navigate to="/login" replace />;
 
-    if (!estadoSistema) return <FullscreenLoader />;
+    if (!estadoSistema && empleado) return <FullscreenLoader />;
+
 
     const { habilitado, modo_forzado } = estadoSistema;
     if (habilitado === 0 && !modo_forzado) return <EnMantenimiento />;

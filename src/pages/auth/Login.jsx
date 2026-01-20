@@ -26,9 +26,10 @@ const Login = () => {
         const roles = res.data.roles.map((r) => r.id);
 
         if (roles.includes(1) || roles.includes(2) || roles.includes(3)) {
-          navigate("/admin");
+          navigate("/admin", { replace: true });
+
         } else if (roles.includes(4)) {
-          navigate("/captura");
+          navigate("/captura", { replace: true });
         } else {
           setError("No tienes permisos asignados");
         }

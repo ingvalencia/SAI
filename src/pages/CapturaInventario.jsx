@@ -101,11 +101,20 @@ export default function CapturaInventario() {
           setAsignacionCargada(false);
           setBloquearSeleccion(false);
           MySwal.fire({
-            icon: "info",
-            title: "Sin asignación activa",
-            text: "No tienes conteos asignados. Contacta al administrador.",
-            confirmButtonText: "Aceptar"
-          });
+          icon: "info",
+          title: "Sin asignación activa",
+          text: "No tienes conteos asignados. Contacta al administrador.",
+          confirmButtonText: "Aceptar",
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+        }).then((result) => {
+          if (result.isConfirmed) {
+            sessionStorage.clear();
+            localStorage.clear();
+            navigate("/login", { replace: true });
+          }
+        });
+
         }
       } catch (err) {
         console.error("Error al verificar asignación:", err);
@@ -115,28 +124,6 @@ export default function CapturaInventario() {
     fetchAsignacion();
   }, []);
 
-
-
-  useEffect(() => {
-    const cargarCiasPermitidas = async () => {
-      try {
-        const res = await axios.get("https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/catalogo_cias_usuario.php", {
-          params: { empleado: sessionStorage.getItem("empleado") },
-        });
-
-        if (res.data.success && Array.isArray(res.data.data)) {
-          setCiasPermitidas(res.data.data);
-        } else {
-          setCiasPermitidas([]);
-        }
-      } catch (error) {
-        console.error("Error al cargar CIAs permitidas:", error.message);
-        setCiasPermitidas([]);
-      }
-    };
-
-    cargarCiasPermitidas();
-  }, []);
 
   // === Detección de conexión y errores de red ===
   useEffect(() => {
@@ -1041,11 +1028,13 @@ let bufferCodigo = "";
 
       {/* BLOQUE DE SELECCIÓN PRINCIPAL EN ESTILO TARJETA */}
       <div className="bg-white border border-gray-300 rounded-lg shadow-sm p-4 mb-6">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">📌 Selección de captura</h2>
+
 
         {/* Si hay asignación cargada */}
         {asignacionCargada ? (
+
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <h2 className="text-sm font-semibold text-gray-700 mb-4">📌 Selección de captura</h2>
             <p className="text-sm text-gray-700">
               <strong>Tipo de captura:</strong> {tipoConteo}
             </p>
@@ -1080,151 +1069,7 @@ let bufferCodigo = "";
         ) : (
           /* Bloque normal (modo manual si no hay asignación) */
           <>
-            {/* Select de CIA */}
-            <div className="mb-4">
-              <label className="block text-xs font-bold text-gray-700 mb-1 uppercase">CIA a Capturar</label>
-              <select
-                value={ciaSeleccionada}
-                onChange={(e) => {
-                  setCiaSeleccionada(e.target.value);
-                  setAlmacen("");
-                  setFecha("");
-                  setCatalogoAlmacenes([]);
-                  setMostrarCatalogo(false);
-                }}
-                className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
-              >
-                <option value="">-- Selecciona una CIA --</option>
-                {ciasPermitidas.map((cia) => (
-                  <option key={cia} value={cia}>{cia.toUpperCase()}</option>
-                ))}
-              </select>
-            </div>
 
-            {/* Grid: almacén, fecha, empleado, botón */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-              {/* Almacén */}
-              <div className="w-full">
-                <Select
-                  options={catalogoAlmacenes.map((alm) => ({
-                    value: alm.codigo,
-                    label: `${alm.codigo} - ${alm.nombre}`,
-                  }))}
-                  placeholder="Escribe o selecciona un almacén (ej: AAA-G)"
-                  isDisabled={ciaSeleccionada === ""}
-                  onMenuOpen={async () => {
-                    if (ciaSeleccionada === "") {
-                      setMensajeValidacion("⚠ Debes seleccionar una CIA primero.");
-                      return;
-                    }
-                    if (catalogoAlmacenes.length === 0) {
-                      try {
-                        const res = await axios.get(
-                          "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/catalogo_almacenes_usuario.php",
-                          { params: { cia: ciaSeleccionada, empleado: sessionStorage.getItem("empleado") } }
-                        );
-
-                        if (res.data.success && res.data.data) {
-                          setCatalogoAlmacenes(res.data.data);
-                          setMensajeValidacion("");
-                        } else {
-                          setMensajeValidacion("⚠ No se encontraron almacenes para esa CIA.");
-                        }
-                      } catch (error) {
-                        console.error("Error al obtener almacenes:", error.message);
-                        setMensajeValidacion("❌ Error al consultar el catálogo.");
-                      }
-                    }
-                  }}
-                  value={
-                    almacen
-                      ? {
-                          value: almacen,
-                          label:
-                            catalogoAlmacenes.find((a) => a.codigo === almacen)?.codigo +
-                            " - " +
-                            catalogoAlmacenes.find((a) => a.codigo === almacen)?.nombre,
-                        }
-                      : null
-                  }
-                  onChange={async (opcion) => {
-                    const valor = opcion?.value || "";
-                    setAlmacen(valor);
-                    setMensajeValidacion("");
-
-                    try {
-                      const res = await axios.get(
-                        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/catalogo_almacenes_usuario.php",
-                        { params: { cia: ciaSeleccionada, empleado: sessionStorage.getItem("empleado") } }
-                      );
-
-                      if (res.data.success && Array.isArray(res.data.data)) {
-                        setCatalogoAlmacenes(res.data.data);
-
-                        // Buscar la fecha correspondiente al almacén seleccionado
-                        const almacénSeleccionado = res.data.data.find(a => a.codigo === valor);
-                        if (almacénSeleccionado && almacénSeleccionado.fecha_gestion) {
-                          const partes = almacénSeleccionado.fecha_gestion.split("/");
-                          if (partes.length === 3) {
-                            const yyyy_mm_dd = `${partes[2]}-${partes[1].padStart(2, '0')}-${partes[0].padStart(2, '0')}`;
-                            setFecha(yyyy_mm_dd); // formato aceptado por input type="date"
-                          }
-                        } else {
-                          setFecha("");
-                        }
-                      }
-                    } catch (error) {
-                      console.error("Error al obtener almacenes:", error.message);
-                    }
-                  }}
-                  isClearable
-                  noOptionsMessage={() => "No encontrado"}
-                  filterOption={(option, inputValue) =>
-                    option.label.toLowerCase().includes(inputValue.toLowerCase())
-                  }
-                  styles={{
-                    control: (base) => ({
-                      ...base,
-                      borderColor: mensajeValidacion ? "#f87171" : base.borderColor,
-                      boxShadow: mensajeValidacion ? "0 0 0 1px #f87171" : base.boxShadow,
-                      minHeight: "42px",
-                    }),
-                  }}
-                />
-                {mensajeValidacion && (
-                  <div className="mt-1 text-xs text-red-600 font-mono whitespace-nowrap">
-                    {mensajeValidacion}
-                  </div>
-                )}
-              </div>
-
-              {/* Fecha */}
-              <input
-                type="date"
-                value={fecha}
-                readOnly
-                disabled
-                className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm bg-gray-100 text-gray-500 cursor-not-allowed"
-              />
-
-              {/* Empleado */}
-              <input
-                type="number"
-                placeholder="Empleado"
-                value={empleado}
-                readOnly
-                disabled
-                className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm bg-gray-100 text-gray-500 cursor-not-allowed"
-              />
-
-              {/* Botón */}
-              <button
-                onClick={iniciarCaptura}
-                className="w-full px-4 py-2 bg-red-800 hover:bg-red-900 text-white font-semibold rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-red-400 transition"
-              >
-                Iniciar captura
-              </button>
-            </div>
           </>
         )}
       </div>
