@@ -37,6 +37,8 @@ export default function CapturaInventario() {
   const [capturaActiva, setCapturaActiva] = useState(false);
   const ultimaFirma = useRef(null);
 
+
+
   const nombre = sessionStorage.getItem("nombre") || "";
   const empleadoSesion = sessionStorage.getItem("empleado") || "";
 
@@ -93,7 +95,11 @@ export default function CapturaInventario() {
           setNroConteo(a.nro_conteo);
           setCiaAsignada(a.cia);
           setAlmacenAsignado(a.almacen);
-          setFechaAsignada(a.fecha);
+         const fechaNormalizada = toISODate(a.fecha);
+          setFechaAsignada(fechaNormalizada);
+
+
+
           setEsBrigada(a.tipo_conteo === "Brigada");
           setBloquearSeleccion(true);
           setEstatus(a.nro_conteo || 1);
@@ -213,16 +219,33 @@ export default function CapturaInventario() {
   const esMovil = navigator.userAgentData?.mobile ??
                 /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
+
+  const getEmpleadoSeguro = () => {
+    return (
+      sessionStorage.getItem("empleado") ||
+      localStorage.getItem("empleado") ||
+      empleado || // fallback por si viene de estado
+      ""
+    );
+  };
+
+
   const getParametrosEfectivos = () => {
-    const emp = sessionStorage.getItem("empleado") || empleado;
+    const emp = getEmpleadoSeguro();
+
+    const ciaEf = asignacionCargada ? ciaAsignada : ciaSeleccionada;
+    const almEf = asignacionCargada ? almacenAsignado : almacen;
+    const fecEf = asignacionCargada ? fechaAsignada : fecha;
+
     return {
-      cia: asignacionCargada ? ciaAsignada : ciaSeleccionada,
-      almacen: asignacionCargada ? almacenAsignado : almacen,
-      fecha: asignacionCargada ? fechaAsignada : fecha,
-      empleado: emp,
-      estatus: estatus || 0,
+      cia: ciaEf?.toString().trim() || "",
+      almacen: almEf?.toString().trim() || "",
+      fecha: toISODate(fecEf),
+      empleado: emp?.toString().trim() || "",
+      estatus: Number(estatus) || 0,
     };
   };
+
 
   const getFirmaParametros = (p = null) => {
     const { cia, almacen, fecha, empleado, estatus } = p || getParametrosEfectivos();
@@ -236,18 +259,68 @@ export default function CapturaInventario() {
   //
   const toISODate = (v) => {
     if (!v) return "";
-    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v; // ya es yyyy-mm-dd
-    const d = new Date(v);
-    if (isNaN(d)) return "";
-    const pad = (n) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    const s = String(v).trim();
+
+    // YA está en ISO
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+    //
+    const m1 = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m1) return `${m1[1]}-${m1[2]}-${m1[3]}`;
+
+    //
+    const m3 = s.match(
+      /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})\s+(\d{4})/i
+    );
+
+    if (m3) {
+      const meses = {
+        jan: "01", feb: "02", mar: "03", apr: "04",
+        may: "05", jun: "06", jul: "07", aug: "08",
+        sep: "09", oct: "10", nov: "11", dec: "12"
+      };
+
+      const mm = meses[m3[1].toLowerCase()];
+      const dd = String(m3[2]).padStart(2, "0");
+      const yy = m3[3];
+
+      return `${yy}-${mm}-${dd}`;
+    }
+
+    return "";
   };
 
 
+
   const iniciarCaptura = async () => {
-  const cia = asignacionCargada ? ciaAsignada : ciaSeleccionada;
-  const alm = asignacionCargada ? almacenAsignado : almacen;
-  const fec = asignacionCargada ? fechaAsignada : fecha;
+    const cia = asignacionCargada ? ciaAsignada : ciaSeleccionada;
+    const alm = asignacionCargada ? almacenAsignado : almacen;
+    const fec = asignacionCargada ? fechaAsignada : fecha;
+
+
+
+    const fecISO = toISODate(fec);
+    const empSeguro = getEmpleadoSeguro();
+
+    if (!cia || !alm || !fecISO || !empSeguro) {
+      await MySwal.fire({
+        icon: "error",
+        title: "Datos incompletos",
+        html: `
+          <div style="text-align:left;font-size:13px">
+            <b>CIA:</b> ${cia || "❌"}<br/>
+            <b>Almacén:</b> ${alm || "❌"}<br/>
+            <b>Fecha:</b> ${fecISO || "❌"}<br/>
+            <b>Empleado:</b> ${empSeguro || "❌"}
+          </div>
+        `,
+        confirmButtonText: "Aceptar",
+        allowOutsideClick: false,
+      });
+      return;
+    }
+
   const nroAsignado = asignacionCargada ? nroConteo : estatus;
   const emp =
     sessionStorage.getItem("empleado") ||
@@ -259,7 +332,7 @@ export default function CapturaInventario() {
     return;
   }
 
-  const fecISO = toISODate(fec);
+
 
   const firmaActual = getFirmaParametros({
     cia,
