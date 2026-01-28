@@ -31,7 +31,7 @@ AND NOT EXISTS (
   SELECT 1
   FROM usuario_rol ur
   WHERE ur.usuario_id = u.id
-    AND ur.rol_id IN (1,2)
+    AND ur.rol_id IN (1,2,3)
 )
 ORDER BY u.nombre
 ";

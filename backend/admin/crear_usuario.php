@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $raw   = file_get_contents("php://input");
 $input = $raw ? json_decode($raw, true) : $_POST;
 
-8'0'
+
 $empleado     = isset($input["empleado"]) ? trim($input["empleado"]) : null;
 $nombre       = isset($input["nombre"]) ? trim($input["nombre"]) : null;
 $password     = isset($input["password"]) ? (string) $input["password"] : null;

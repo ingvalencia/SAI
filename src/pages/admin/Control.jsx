@@ -496,7 +496,7 @@ export default function Control() {
         </button>
 
         {/* Solo roles 1 y 2 ven este botón */}
-        {(rolLogueado === 1 || rolLogueado === 2) && (
+        {(rolLogueado === 1 || rolLogueado === 2 || rolLogueado === 3) && (
           <button
             onClick={() => setVista("fecha")}
             className={`px-6 py-2 rounded-lg font-medium shadow-sm transition-all ${
