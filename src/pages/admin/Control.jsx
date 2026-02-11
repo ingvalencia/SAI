@@ -424,10 +424,11 @@ export default function Control() {
             .pop() === Number(filtroConteo)
         : true;
 
-        const coincideFecha   = filtroFecha ? iso(c.fecha_gestion) === filtroFecha : true;
+        const coincideFecha   = filtroFecha ? iso(c.fecha_asignacion) === filtroFecha : true;
+
         return coincideAlmacen && coincideConteo && coincideFecha;
       })
-      .sort((a, b) => iso(b.fecha_gestion).localeCompare(iso(a.fecha_gestion))); // más reciente primero
+      .sort((a, b) => iso(b.fecha_asignacion).localeCompare(iso(a.fecha_asignacion))); //
   }, [configuraciones, filtroAlmacen, filtroConteo, filtroFecha]);
 
   const totalPaginasFechas = Math.ceil(
@@ -472,10 +473,6 @@ export default function Control() {
       7: "bg-purple-100 text-purple-800 border-purple-300", // Conteo 4
       4: "bg-green-100 text-green-800 border-green-300",    // Finalizado
     };
-
-
-
-
 
   return (
     <div className="p-6 max-w-7xl mx-auto">

@@ -78,16 +78,19 @@ $idElegido = intval($rowId['id']);
       (el que vamos a mover a conteo 3)
 ========================================== */
 $sqlElegido = "
-    SELECT TOP 1 id, nro_conteo
-    FROM CAP_CONTEO_CONFIG
-    WHERE cia = '$cia'
-      AND almacen = '$almacen'
-      AND tipo_conteo = 'Brigada'
-      AND estatus = 0
-      AND nro_conteo IN (1,2)
-      AND CONVERT(date, fecha_asignacion) = '$fecha'
-      AND usuarios_asignados LIKE '%[$idElegido]%'
+    SELECT TOP 1 c.id, c.nro_conteo
+    FROM CAP_CONTEO_CONFIG c
+    CROSS APPLY OPENJSON(c.usuarios_asignados) uj
+    WHERE c.cia = '$cia'
+      AND c.almacen = '$almacen'
+      AND c.tipo_conteo = 'Brigada'
+      AND c.estatus = 0
+      AND c.nro_conteo IN (1,2)
+      AND CONVERT(date, c.fecha_asignacion) = '$fecha'
+      AND TRY_CONVERT(INT, uj.value) = $idElegido
+    ORDER BY c.nro_conteo ASC, c.id ASC
 ";
+
 $resElegido = mssql_query($sqlElegido, $conn);
 
 if (!$resElegido || mssql_num_rows($resElegido) === 0) {
@@ -124,16 +127,18 @@ if (!$resUpdE) {
       y marcarlo con estatus = 1 (bloqueado)
 ========================================== */
 $sqlOtro = "
-    SELECT TOP 1 id, usuarios_asignados
-    FROM CAP_CONTEO_CONFIG
-    WHERE cia = '$cia'
-      AND almacen = '$almacen'
-      AND tipo_conteo = 'Brigada'
-      AND estatus = 0
-      AND nro_conteo IN (1,2)
-      AND CONVERT(date, fecha_asignacion) = '$fecha'
-      AND id <> $idRowElegido
+    SELECT TOP 1 c.id
+    FROM CAP_CONTEO_CONFIG c
+    WHERE c.cia = '$cia'
+      AND c.almacen = '$almacen'
+      AND c.tipo_conteo = 'Brigada'
+      AND c.estatus = 0
+      AND c.nro_conteo IN (1,2)
+      AND CONVERT(date, c.fecha_asignacion) = '$fecha'
+      AND c.id <> $idRowElegido
+    ORDER BY c.nro_conteo ASC, c.id ASC
 ";
+
 $resOtro = mssql_query($sqlOtro, $conn);
 
 if ($resOtro && mssql_num_rows($resOtro) > 0) {

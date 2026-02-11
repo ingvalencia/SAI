@@ -158,10 +158,12 @@ $estatus_cuarto_conteo  = null;
 $sqlTercero = "
   SELECT TOP 1 usuarios_asignados, estatus
   FROM CAP_CONTEO_CONFIG
-  WHERE almacen  = '$almacen_safe'
-    AND cia      = '$cia_safe'
+  WHERE almacen = '$almacen_safe'
+    AND cia = '$cia_safe'
     AND nro_conteo = 3
+    AND estatus <> 4
 ";
+
 $resTercero = mssql_query($sqlTercero, $conn);
 
 if ($resTercero && mssql_num_rows($resTercero) > 0) {

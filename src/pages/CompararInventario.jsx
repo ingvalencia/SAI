@@ -341,68 +341,68 @@ export default function CompararInventario() {
 
   // Función para confirmar diferencias
   const confirmarDiferencia = async () => {
-  const resultado = await Swal.fire({
-    title: "¿Confirmar diferencias?",
-    text: "¿Deseas confirmar las diferencias proporcionadas?",
-    icon: "warning",
-    showCancelButton: true,
-    confirmButtonText: "Sí, confirmar",
-    cancelButtonText: "No estoy de acuerdo",
-  });
-
-  if (!resultado.isConfirmed) {
-    Swal.fire("Cancelado", "Debe completar el proceso para continuar.", "info");
-    return;
-  }
-
-  try {
-    Swal.fire({
-      title: "Procesando...",
-      text: "Por favor espera",
-      allowOutsideClick: false,
-      didOpen: () => Swal.showLoading(),
+    const resultado = await Swal.fire({
+      title: "¿Confirmar diferencias?",
+      text: "¿Deseas confirmar las diferencias proporcionadas?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, confirmar",
+      cancelButtonText: "No estoy de acuerdo",
     });
 
-    const formData = new FormData();
-    formData.append("almacen", almacen);
-    formData.append("fecha", fecha);
-    formData.append("empleado", empleado);
-    formData.append("cia", cia);
-
-    //
-    formData.append("estatus", resGlobal.nro_conteo);
-
-    const res = await axios.post(
-      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/cerrar_inventario.php",
-      formData
-    );
-
-    Swal.close();
-
-    if (!res.data.success) throw new Error(res.data.error);
-
-    const { mensaje, next_status } = res.data;
-
-    await Swal.fire({
-      title: "Confirmado",
-      text: mensaje,
-      icon: "success",
-      confirmButtonText: "Continuar",
-    });
-
-    if (next_status < 4) {
-      navigate("/captura", {
-        state: { almacen, fecha, cia, empleado, estatus: next_status },
-      });
-    } else {
-      setDiferenciaConfirmada(true);
-      setEstatus(4);
+    if (!resultado.isConfirmed) {
+      Swal.fire("Cancelado", "Debe completar el proceso para continuar.", "info");
+      return;
     }
-  } catch (error) {
-    Swal.close();
-    Swal.fire("Error", error.message, "error");
-  }
-};
+
+    try {
+      Swal.fire({
+        title: "Procesando...",
+        text: "Por favor espera",
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+      });
+
+      const formData = new FormData();
+      formData.append("almacen", almacen);
+      formData.append("fecha", fecha);
+      formData.append("empleado", empleado);
+      formData.append("cia", cia);
+
+      //
+      formData.append("estatus", resGlobal.nro_conteo);
+
+      const res = await axios.post(
+        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/cerrar_inventario.php",
+        formData
+      );
+
+      Swal.close();
+
+      if (!res.data.success) throw new Error(res.data.error);
+
+      const { mensaje, next_status } = res.data;
+
+      await Swal.fire({
+        title: "Confirmado",
+        text: mensaje,
+        icon: "success",
+        confirmButtonText: "Continuar",
+      });
+
+      if (next_status < 4) {
+        navigate("/captura", {
+          state: { almacen, fecha, cia, empleado, estatus: next_status },
+        });
+      } else {
+        setDiferenciaConfirmada(true);
+        setEstatus(4);
+      }
+    } catch (error) {
+      Swal.close();
+      Swal.fire("Error", error.message, "error");
+    }
+  };
 
 
 
@@ -639,6 +639,8 @@ export default function CompararInventario() {
   };
 
 
+
+
   return (
     <div className="max-w-7xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6 text-gray-800 flex items-center gap-2">
@@ -776,17 +778,15 @@ export default function CompararInventario() {
           })}
         </div>
       )}
-        {((!bloqueado && !diferenciaConfirmada) || estatus === 7) && (
+        {!diferenciaConfirmada && estatusCalc === 7 && (
           <button
             onClick={confirmarDiferencia}
             className="px-3 py-1 rounded-full text-sm font-semibold bg-yellow-500 text-white hover:bg-yellow-600 transition"
           >
             Confirmar diferencia
           </button>
-
-
-
         )}
+
 
       </div>
 

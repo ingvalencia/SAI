@@ -154,31 +154,49 @@ if ($max_conteo !== null) {
 ============================================================ */
 if ($usuario_id !== null) {
 
-
   $sqlCfg = "
-        SELECT TOP 1 id
+        SELECT id, usuarios_asignados
         FROM CAP_CONTEO_CONFIG
         WHERE almacen = '$alm_safe'
           AND cia     = '$cia_safe'
-          AND usuarios_asignados LIKE '%$usuario_id%'
-        ORDER BY nro_conteo DESC
-    ";
+          AND fecha_asignacion = '$fecha'
+  ";
 
   $resCfg = mssql_query($sqlCfg, $conn);
 
-  if ($resCfg && $rowCfg = mssql_fetch_assoc($resCfg)) {
+  while ($resCfg && $rowCfg = mssql_fetch_assoc($resCfg)) {
 
-    
     $id_cfg = intval($rowCfg["id"]);
+    $usuariosAsignados = $rowCfg["usuarios_asignados"];
 
+    // Cerrar conteo en configuración
     mssql_query("
-            UPDATE CAP_CONTEO_CONFIG
-            SET nro_conteo = 4
+        UPDATE CAP_CONTEO_CONFIG
+        SET nro_conteo = 4,
+            estatus = 2
+        WHERE id = $id_cfg
+    ", $conn);
 
-            WHERE id = $id_cfg
-        ", $conn);
+    // Extraer usuarios (brigada o individual)
+    $usuariosAsignados = str_replace(['[', ']', ' '], '', $usuariosAsignados);
+    $ids = explode(',', $usuariosAsignados);
+
+    foreach ($ids as $uid) {
+      $uid = intval($uid);
+
+      mssql_query("
+          UPDATE SAP_PROCESOS.dbo.usuario_local
+          SET activo = 0
+          WHERE usuario_id = $uid
+            AND local_codigo = '$alm_safe'
+            AND cia = '$cia_safe'
+      ", $conn);
+    }
   }
 }
+
+
+
 
 /* ============================================================
    RESPUESTA

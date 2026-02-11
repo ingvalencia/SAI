@@ -9,23 +9,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit;
 }
 
-/* ============================
-   PARÁMETROS (GET)
-============================ */
 $tipo_conteo = isset($_GET['tipo_conteo']) ? trim($_GET['tipo_conteo']) : null;
 $usuariosRaw = isset($_GET['usuarios']) ? trim($_GET['usuarios']) : null;
 $almacenesRaw = isset($_GET['almacenes']) ? trim($_GET['almacenes']) : null;
+$almacenesOrdenRaw = isset($_GET['almacenes_orden']) ? $_GET['almacenes_orden'] : null;
 $cia = isset($_GET['cia']) ? trim($_GET['cia']) : null;
 $fecha = isset($_GET['fecha']) ? trim($_GET['fecha']) : null;
 $creado_por = isset($_GET['creado_por']) ? trim($_GET['creado_por']) : null;
 
-/* ============================
-   VALIDACIONES
-============================ */
 if (
   !$tipo_conteo ||
   !$usuariosRaw ||
   !$almacenesRaw ||
+  !$almacenesOrdenRaw ||
   !$cia ||
   !$fecha
 ) {
@@ -35,6 +31,12 @@ if (
 
 $usuarios = array_filter(array_map('intval', explode(',', $usuariosRaw)));
 $almacenes = array_filter(array_map('trim', explode(',', $almacenesRaw)));
+$almacenesOrden = json_decode($almacenesOrdenRaw, true);
+
+if (!is_array($almacenesOrden) || empty($almacenesOrden)) {
+  echo json_encode(['success' => false, 'error' => 'Orden de almacenes inválido']);
+  exit;
+}
 
 if ($tipo_conteo === 'Individual' && count($usuarios) !== 1) {
   echo json_encode(['success' => false, 'error' => 'Individual requiere 1 usuario']);
@@ -46,9 +48,15 @@ if ($tipo_conteo === 'Brigada' && count($usuarios) !== 2) {
   exit;
 }
 
-/* ============================
-   CONEXIÓN SQL SERVER
-============================ */
+$ordenMap = [];
+foreach ($almacenesOrden as $a) {
+  if (!isset($a['almacen'], $a['orden_trabajo'])) {
+    echo json_encode(['success' => false, 'error' => 'Formato de orden inválido']);
+    exit;
+  }
+  $ordenMap[$a['almacen']] = intval($a['orden_trabajo']);
+}
+
 $conn = mssql_connect("192.168.0.174", "sa", "P@ssw0rd");
 if (!$conn) {
   echo json_encode(['success' => false, 'error' => 'No se pudo conectar a SQL Server']);
@@ -56,19 +64,12 @@ if (!$conn) {
 }
 mssql_select_db("SAP_PROCESOS", $conn);
 
-/* ============================
-   TRANSACCIÓN
-============================ */
 mssql_query("BEGIN TRAN", $conn);
 
 try {
 
-  /* ============================
-     ASIGNAR ROLES Y LOCALES
-  ============================ */
   foreach ($usuarios as $usuario_id) {
 
-    // ❌ No permitir roles 1 o 2
     $qr = mssql_query("
       SELECT 1
       FROM usuario_rol
@@ -80,7 +81,6 @@ try {
       throw new Exception("El usuario $usuario_id no puede ser Operador de Inventario");
     }
 
-    // ✅ Asegurar rol 4
     mssql_query("
       IF NOT EXISTS (
         SELECT 1 FROM usuario_rol
@@ -90,7 +90,6 @@ try {
       VALUES ($usuario_id, 4)
     ", $conn);
 
-    // ✅ Asignar locales
     foreach ($almacenes as $alm) {
       $almEsc = str_replace("'", "''", $alm);
       $ciaEsc = str_replace("'", "''", $cia);
@@ -108,10 +107,6 @@ try {
     }
   }
 
-  /* ============================
-     CAP_CONTEO_CONFIG (CLAVE)
-     👉 1 usuario = 1 conteo
-  ============================ */
   $nroConteo = 1;
 
   foreach ($usuarios as $usuario_id) {
@@ -120,11 +115,25 @@ try {
       $almEsc = str_replace("'", "''", $alm);
       $ciaEsc = str_replace("'", "''", $cia);
 
+      if (!isset($ordenMap[$alm])) {
+        throw new Exception("No existe orden para el almacén $alm");
+      }
+
+      $ordenTrabajo = $ordenMap[$alm];
       $usuariosJson = '[' . $usuario_id . ']';
 
       mssql_query("
         INSERT INTO CAP_CONTEO_CONFIG
-          (tipo_conteo, nro_conteo, usuarios_asignados, cia, almacen, fecha_asignacion, estatus)
+          (
+            tipo_conteo,
+            nro_conteo,
+            usuarios_asignados,
+            cia,
+            almacen,
+            orden_trabajo,
+            fecha_asignacion,
+            estatus
+          )
         VALUES
           (
             '$tipo_conteo',
@@ -132,18 +141,17 @@ try {
             '$usuariosJson',
             '$ciaEsc',
             '$almEsc',
+            $ordenTrabajo,
             '$fecha',
             0
           )
       ", $conn);
     }
 
-    // 👉 siguiente usuario = siguiente conteo
     $nroConteo++;
   }
 
   mssql_query("COMMIT", $conn);
-
   echo json_encode(['success' => true]);
 
 } catch (Exception $e) {

@@ -468,18 +468,26 @@ export default function Mapa({ drawerRootId }) {
     let itemsConDiferencia = 0;
     let sobrantes = 0; // fisico > sap
     let faltantes = 0; // sap > fisico
+    let importeTotal = 0;
 
-    detalle.forEach((d) => {
+
+   detalle.forEach((d) => {
       const dif = d.diferencia_cierre ?? 0;
+      const precio = Number(d.precio ?? 0);
+
       if (dif !== 0) {
         itemsConDiferencia++;
+
         if (dif > 0) {
           sobrantes += dif;
         } else {
           faltantes += Math.abs(dif);
         }
+
+        importeTotal += dif * precio;
       }
     });
+
 
     return {
       totalItems,
@@ -487,6 +495,8 @@ export default function Mapa({ drawerRootId }) {
       sobrantes,
       faltantes,
       ajusteTotalAbs: sobrantes + faltantes,
+      importeTotal,
+
     };
   }, [detalle]);
 
@@ -990,7 +1000,7 @@ export default function Mapa({ drawerRootId }) {
               {tabActiva === "resumen" ? (
                 <>
                   {/* CARDS KPI */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-10">
 
                     <div className="bg-white rounded-lg shadow-md p-5">
                       <p className="text-xs text-gray-500">Total artículos</p>
@@ -1020,6 +1030,14 @@ export default function Mapa({ drawerRootId }) {
                       </p>
                     </div>
 
+                    <div className="bg-white rounded-lg shadow-md p-5">
+                      <p className="text-xs text-gray-500">Impacto económico</p>
+                      <p className="text-3xl font-extrabold text-gray-800">
+                        ${resumenCierre.importeTotal.toFixed(2)}
+                      </p>
+                    </div>
+
+
                   </div>
 
                   {/* TABLA RESUMEN */}
@@ -1048,7 +1066,8 @@ export default function Mapa({ drawerRootId }) {
                           <tbody className="bg-white divide-y">
                             {filasDiferencias.map((d, i) => {
                               const dif = d.diferencia_cierre ?? 0;
-                              const tipo = dif > 0 ? "Entrada" : "Salida";
+                              const tipo = dif < 0 ? "Entrada" : dif > 0 ? "Salida" : "-";
+
 
                               return (
                                 <tr key={i} className="hover:bg-gray-50">
@@ -1060,10 +1079,13 @@ export default function Mapa({ drawerRootId }) {
                                   <td className="px-3 py-2 text-center">
                                     <span
                                       className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                        dif > 0
-                                          ? "bg-green-100 text-green-800"
-                                          : "bg-red-100 text-red-800"
+                                        dif < 0
+                                          ? "bg-green-100 text-green-800"   // Entrada
+                                          : dif > 0
+                                          ? "bg-red-100 text-red-800"   // Salida
+                                          : "bg-gray-100 text-gray-500"
                                       }`}
+
                                     >
                                       {tipo}
                                     </span>
@@ -1109,7 +1131,8 @@ export default function Mapa({ drawerRootId }) {
                         <tbody className="bg-white divide-y">
                           {detalle.map((d, i) => {
                             const dif = d.diferencia_cierre ?? 0;
-                            const tipo = dif > 0 ? "Entrada" : dif < 0 ? "Salida" : "-";
+                            const tipo = dif < 0 ? "Entrada" : dif > 0 ? "Salida" : "-";
+
 
                             return (
                               <tr key={i} className="hover:bg-gray-50">
@@ -1156,10 +1179,11 @@ export default function Mapa({ drawerRootId }) {
                                     className={`px-2 py-1 rounded-full text-xs font-semibold ${
                                       dif === 0
                                         ? "bg-gray-100 text-gray-500"
-                                        : dif > 0
-                                        ? "bg-green-100 text-green-700"
-                                        : "bg-red-100 text-red-700"
+                                        : dif < 0
+                                        ? "bg-green-100 text-green-700"   // Entrada
+                                        : "bg-red-100 text-red-700"       // Salida
                                     }`}
+
                                   >
                                     {tipo}
                                   </span>

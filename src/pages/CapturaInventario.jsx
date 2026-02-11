@@ -102,7 +102,8 @@ export default function CapturaInventario() {
 
           setEsBrigada(a.tipo_conteo === "Brigada");
           setBloquearSeleccion(true);
-          setEstatus(a.nro_conteo || 1);
+          setEstatus(Number(a.estatus ?? a.nro_conteo ?? 1));
+
         } else {
           setAsignacionCargada(false);
           setBloquearSeleccion(false);
@@ -381,21 +382,21 @@ export default function CapturaInventario() {
     // Si ya existe el conteo, NO capturar.
     // Redirigir DIRECTO a comparar.
     // ======================================================
-    if (
-        estatusRes.data.existe_conteo === true &&
-        Number(estatusRes.data.nro_conteo) === 4
-      ) {
-        Swal.close();
-        return navigate("/comparar", {
-          state: {
-            almacen: alm,
-            fecha: fecISO,
-            empleado: emp,
-            cia,
-            estatus: estatusRes.data.nro_conteo
-          },
-        });
-      }
+    if (estatusRes.data.existe_conteo === true) {
+      const conteoExistente = Number(estatusRes.data.nro_conteo || 0);
+
+      Swal.close();
+      return navigate("/comparar", {
+        state: {
+          almacen: alm,
+          fecha: fecISO,
+          empleado: emp,
+          cia,
+          estatus: conteoExistente || (asignacionCargada ? Number(nroConteo) : Number(estatus)),
+        },
+      });
+    }
+
 
 
     let estatusReal = nroAsignado; // 1 o 2 según asignación
@@ -1408,15 +1409,15 @@ let bufferCodigo = "";
 
                     {aplicarVistaDiferenciasBrigada && (
                       <>
-                        <th className="p-3 text-left bg-blue-100 text-blue-800">
+                        <th className="p-3 text-left bg-blue-100 text-blue-800 hidden">
                           Conteo 1
                         </th>
-                        <th className="p-3 text-left bg-amber-100 text-amber-800">
+                        <th className="p-3 text-left bg-amber-100 text-amber-800 hidden">
                           Conteo 2
                         </th>
 
                         {Number(estatus) === 7 && (
-                          <th className="p-3 text-left bg-yellow-200 text-yellow-900">
+                          <th className="p-3 text-left bg-yellow-200 text-yellow-900 hidden">
                             Conteo 3
                           </th>
                         )}
@@ -1464,16 +1465,16 @@ let bufferCodigo = "";
 
                         {aplicarVistaDiferenciasBrigada && (
                           <>
-                            <td className="p-3 text-sm font-semibold text-blue-800 bg-blue-50 text-center">
+                            <td className="p-3 text-sm font-semibold text-blue-800 bg-blue-50 text-center hidden">
                               {Number(item.conteo_1 ?? 0).toFixed(2)}
                             </td>
 
-                            <td className="p-3 text-sm font-semibold text-amber-800 bg-amber-50 text-center">
+                            <td className="p-3 text-sm font-semibold text-amber-800 bg-amber-50 text-center hidden">
                               {Number(item.conteo_2 ?? 0).toFixed(2)}
                             </td>
 
                             {Number(estatus) === 7 && (
-                              <td className="p-3 text-sm font-semibold text-yellow-900 bg-yellow-50 text-center">
+                              <td className="p-3 text-sm font-semibold text-yellow-900 bg-yellow-50 text-center hidden">
                                 {Number(item.conteo_3 ?? item.conteo3 ?? 0).toFixed(2)}
                               </td>
                             )}

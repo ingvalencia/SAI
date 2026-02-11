@@ -44,6 +44,10 @@ export default function Usuarios() {
   //
   const [busquedaOperador, setBusquedaOperador] = useState("");
 
+  //
+  const [ordenAlmacenes, setOrdenAlmacenes] = useState({});
+
+
 
   const [form, setForm] = useState({
     empleado: "",
@@ -131,9 +135,6 @@ export default function Usuarios() {
   try {
     const empleadoSesion = sessionStorage.getItem("empleado") || "";
 
-    // =========================
-    // VALIDACIONES
-    // =========================
     if (!fechaAsignacion) throw new Error("Debes seleccionar la fecha.");
     if (!ciaSeleccionada) throw new Error("Debes seleccionar la CIA.");
     if (!form.locales.length) throw new Error("Selecciona al menos un almacén.");
@@ -146,16 +147,28 @@ export default function Usuarios() {
       throw new Error("Brigada requiere 2 operadores.");
     }
 
-    // =========================
-    // PETICIÓN GET
-    // =========================
+    const almacenesOrdenados = form.locales.map((alm) => ({
+      almacen: alm,
+      orden_trabajo: Number(ordenAlmacenes[alm]),
+    }));
+
+    if (almacenesOrdenados.some(a => !a.orden_trabajo || a.orden_trabajo <= 0)) {
+      throw new Error("Todos los almacenes deben tener un orden válido");
+    }
+
+    const ordenes = almacenesOrdenados.map(a => a.orden_trabajo);
+    if (new Set(ordenes).size !== ordenes.length) {
+      throw new Error("El orden de almacenes no puede repetirse");
+    }
+
     const res = await axios.get(
       "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/asignar_operador_existente.php",
       {
         params: {
           tipo_conteo: tipoConteo,
-          usuarios: usuariosSeleccionados.join(","),   // 👈 CLAVE
-          almacenes: form.locales.join(","),           // 👈 CLAVE
+          usuarios: usuariosSeleccionados.join(","),
+          almacenes: form.locales.join(","),
+          almacenes_orden: JSON.stringify(almacenesOrdenados),
           cia: ciaSeleccionada,
           fecha: fechaAsignacion,
           creado_por: empleadoSesion,
@@ -174,9 +187,9 @@ export default function Usuarios() {
       showConfirmButton: false,
     });
 
-    // Reset
     setUsuariosSeleccionados([]);
     setForm((p) => ({ ...p, locales: [] }));
+    setOrdenAlmacenes({});
     setFechaAsignacion("");
     setTipoConteo("Individual");
 
@@ -185,7 +198,8 @@ export default function Usuarios() {
   } finally {
     setLoading(false);
   }
-};
+  };
+
 
 
 
@@ -711,9 +725,40 @@ export default function Usuarios() {
                       <input
                         type="checkbox"
                         checked={form.locales.includes(l.codigo)}
-                        onChange={() => handleLocalesChange(l.codigo)}
+                        onChange={() => {
+                          handleLocalesChange(l.codigo);
+
+                          setOrdenAlmacenes(prev => {
+                            const copy = { ...prev };
+                            if (!form.locales.includes(l.codigo)) {
+                              const usados = Object.values(copy).map(Number).filter(n => n > 0);
+                              const siguiente = usados.length ? Math.max(...usados) + 1 : 1;
+                              copy[l.codigo] = siguiente;
+                            }
+                            else {
+                              delete copy[l.codigo];
+                            }
+                            return copy;
+                          });
+                        }}
                       />
-                      {l.codigo} - {l.nombre}
+
+                      <span>{l.codigo} - {l.nombre}</span>
+
+                      <input
+                        type="number"
+                        min="1"
+                        className="w-14 ml-2 border rounded px-1 text-xs"
+                        disabled={!form.locales.includes(l.codigo)}
+                        value={ordenAlmacenes[l.codigo] ?? ""}
+                        onChange={(e) =>
+                          setOrdenAlmacenes(prev => ({
+                            ...prev,
+                            [l.codigo]: e.target.value
+                          }))
+                        }
+                      />
+
                     </label>
                   ))}
               </div>

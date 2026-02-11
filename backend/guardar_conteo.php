@@ -72,6 +72,13 @@ if ($nro_conteo == 3) {
         FROM CAP_CONTEO_CONFIG
         WHERE usuarios_asignados LIKE '%$usuario_id%'
           AND estatus = 1
+          AND cia = (SELECT cias FROM CAP_INVENTARIO WHERE id = $id_inventario)
+          AND almacen = (SELECT almacen FROM CAP_INVENTARIO WHERE id = $id_inventario)
+          AND fecha_asignacion = (
+              SELECT CONVERT(date, fecha_inv)
+              FROM CAP_INVENTARIO
+              WHERE id = $id_inventario
+          )
     ";
 
     $resBlock = mssql_query($sqlBlock, $conn);
@@ -85,9 +92,6 @@ if ($nro_conteo == 3) {
     }
 }
 
-/* ===========================================================
-   3. Validar que el usuario está capturando SU conteo asignado
-=========================================================== */
 $sqlAsign = "
     SELECT TOP 1 nro_conteo
     FROM CAP_CONTEO_CONFIG
@@ -100,8 +104,8 @@ $sqlAsign = "
           FROM CAP_INVENTARIO
           WHERE id = $id_inventario
       )
+    ORDER BY id DESC
 ";
-
 
 $resAsign = mssql_query($sqlAsign, $conn);
 
@@ -116,7 +120,6 @@ if (!$resAsign || mssql_num_rows($resAsign) === 0) {
 $rowAsign = mssql_fetch_assoc($resAsign);
 $nro_conteo_asignado = intval($rowAsign['nro_conteo']);
 
-// ❗Usuario intenta capturar otro conteo
 if ($nro_conteo_asignado !== $nro_conteo) {
     echo json_encode([
         "success" => false,
