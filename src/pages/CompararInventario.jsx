@@ -249,10 +249,13 @@ export default function CompararInventario() {
 
           setResGlobal(res.data);
 
-          // 🔒 Bloqueo forzado si el backend dice solo lectura
-          if (res.data.modo === "solo lectura" || res.data.error?.includes("bloqueado")) {
+          //  Bloqueo forzado si el backend dice solo lectura
+         if (res.data.error?.includes("bloqueado")) {
             setBloqueado(true);
+          } else {
+            setBloqueado(false);
           }
+
 
           // 🔹 Normalizar booleans recibidos del backend
           const esBrig = res.data.brigada == true || res.data.brigada == "1";
@@ -265,9 +268,17 @@ export default function CompararInventario() {
           setNroConteoComp(Number(res.data.nro_conteo_companero));
           setHayDiferenciasBrigada(hayDif);
 
-          // 🔹 Estatus activo
-          const estatusActual = res.data.nro_conteo ? Number(res.data.nro_conteo) : 1;
+          // Estatus activo
+          let estatusActual;
+
+          if (res.data.brigada == true || res.data.brigada == "1") {
+            estatusActual = Number(res.data.nro_conteo ?? 1);
+          } else {
+            estatusActual = Number(res.data.nro_conteo ?? res.data.estatus ?? 1);
+          }
+
           setEstatus(estatusActual);
+
 
           const hayDifVsSap =
             (res.data.hay_dif_mio_vs_sap == true || res.data.hay_dif_mio_vs_sap == "1") ||
@@ -281,9 +292,15 @@ export default function CompararInventario() {
           setModoResuelto(true);
 
 
-          // 🔥 Nueva condición corregida para mostrar botón "Iniciar Tercer Conteo"
-          const mostrarTercer = esBrig && hayDif && !tercerAsignado;
+          //  Nueva condición corregida para mostrar botón "Iniciar Tercer Conteo"
+          const mostrarTercer =
+            esBrig &&
+            hayDif &&
+            !tercerAsignado &&
+            estatusActual === 2;
+
           setMostrarTercerConteo(mostrarTercer);
+
 
           // 🔹 Procesar datos
           const datosFinal = res.data.data.map((item) => {
@@ -572,7 +589,7 @@ export default function CompararInventario() {
         return item.conteo1 ?? 0;
       }
 
-      // 🟥 Caso Individual:
+      // Caso Individual:
       // El backend SIEMPRE manda el conteo del usuario en conteo_mio → que guardaste como conteo1.
       return item.conteo1 ?? 0;
     };

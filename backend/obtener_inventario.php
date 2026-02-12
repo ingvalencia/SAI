@@ -222,21 +222,54 @@ switch ($estatus) {
     // ESTATUS 2 (INDIVIDUAL): SOLO DIFERENCIAS VS SAP
     // =====================================================
   case 2: {
-      $sql = "
-    SELECT c.id AS id_inventario, c.*
-    FROM CAP_INVENTARIO c
-    WHERE c.almacen   = '$almacen'
-      AND c.fecha_inv = '$fecha'
-      AND c.cias      = '$cia'
-      AND c.estatus   = 2
-  ";
+
+  if ($esBrigada) {
+
+    $sql = "
+      SELECT c.id AS id_inventario, c.*
+      FROM CAP_INVENTARIO c
+      WHERE c.almacen   = '$almacen'
+        AND c.fecha_inv = '$fecha'
+        AND c.cias      = '$cia'
+        AND c.estatus   = 2
+    ";
+
+  } else {
+
+    $sql = "
+      SELECT
+        c.id AS id_inventario,
+        c.ItemCode,
+        c.Itemname,
+        c.almacen,
+        c.fecha_inv,
+        c.cias,
+        c.codebars,
+        c.nom_fam,
+        c.nom_subfam,
+        c.cod_subfam,
+        ISNULL(ct.cantidad,0) AS cant_invfis
+      FROM CAP_INVENTARIO c
+      LEFT JOIN CAP_INVENTARIO_CONTEOS ct
+        ON ct.id_inventario = c.id
+       AND ct.nro_conteo = 2
+       AND ct.usuario = $empleado
+      WHERE c.almacen   = '$almacen'
+        AND c.fecha_inv = '$fecha'
+        AND c.cias      = '$cia'
+    ";
+  }
+
   $res = run($sql, $conn);
   $data = [];
+
   while ($row = mssql_fetch_assoc($res)) {
     $data[] = array_map('utf8_encode', $row);
   }
+
   json_ok($data, 2, $esBrigada);
-    }
+}
+
 
     // =====================================================
     // ESTATUS 3: DOS ESCENARIOS (lo que pediste)
@@ -244,31 +277,58 @@ switch ($estatus) {
     //  B) SAP>0 y conteo1=0 y conteo2=0
     // =====================================================
 
-    case 3: {
+   case 3: {
 
-  // =========================
-  // SAP (solo con stock > 0)
-  // =========================
-  $sapMap = loadSapMap($conn, $almacen, $fecha, $empleado, $cia, true);
+  $sapMap = loadSapMap($conn, $almacen, $fecha, $empleado, $cia, false);
+
   if (count($sapMap) === 0) {
     json_ok([], 3, $esBrigada);
   }
 
-  // =========================
-  // Usuarios reales
-  // =========================
-  $u1 = $esBrigada ? intval($usuarioConteo1) : intval($empleado);
-  $u2 = $esBrigada ? intval($usuarioConteo2) : intval($empleado);
+  if ($esBrigada) {
 
-  // =========================
-  // Mapas de conteos
-  // =========================
-  $c1Map = loadConteoMap_CapInventario($conn, $almacen, $fecha, $cia, 1, $u1);
-  $c2Map = loadConteoMap_CapInventario($conn, $almacen, $fecha, $cia, 2, $u2);
+    $c1Map = loadConteoMap_CapInventario($conn, $almacen, $fecha, $cia, 1, $usuarioConteo1);
+    $c2Map = loadConteoMap_CapInventario($conn, $almacen, $fecha, $cia, 2, $usuarioConteo2);
 
-  // =========================
-  // UNIVERSO REAL
-  // =========================
+  } else {
+
+    $c1Map = [];
+    $resC1 = run("
+      SELECT i.ItemCode, SUM(ct.cantidad) AS cantidad
+      FROM CAP_INVENTARIO i
+      JOIN CAP_INVENTARIO_CONTEOS ct
+        ON ct.id_inventario = i.id
+       AND ct.nro_conteo = 1
+      WHERE i.almacen   = '$almacen'
+        AND i.fecha_inv = '$fecha'
+        AND i.cias      = '$cia'
+        AND i.usuario   = $empleado
+      GROUP BY i.ItemCode
+    ", $conn);
+
+    while ($r = mssql_fetch_assoc($resC1)) {
+      $c1Map[trim($r['ItemCode'])] = floatval($r['cantidad']);
+    }
+
+    $c2Map = [];
+    $resC2 = run("
+      SELECT i.ItemCode, SUM(ct.cantidad) AS cantidad
+      FROM CAP_INVENTARIO i
+      JOIN CAP_INVENTARIO_CONTEOS ct
+        ON ct.id_inventario = i.id
+       AND ct.nro_conteo = 2
+      WHERE i.almacen   = '$almacen'
+        AND i.fecha_inv = '$fecha'
+        AND i.cias      = '$cia'
+        AND i.usuario   = $empleado
+      GROUP BY i.ItemCode
+    ", $conn);
+
+    while ($r = mssql_fetch_assoc($resC2)) {
+      $c2Map[trim($r['ItemCode'])] = floatval($r['cantidad']);
+    }
+  }
+
   $allCodes = array_unique(array_merge(
     array_keys($c1Map),
     array_keys($c2Map),
@@ -279,9 +339,6 @@ switch ($estatus) {
     json_ok([], 3, $esBrigada);
   }
 
-  // =========================
-  // REGLAS CASE 3
-  // =========================
   $diffCodes = [];
 
   foreach ($allCodes as $code) {
@@ -290,13 +347,11 @@ switch ($estatus) {
     $c2  = isset($c2Map[$code]) ? floatval($c2Map[$code]) : 0;
     $sap = isset($sapMap[$code]) ? floatval($sapMap[$code]) : 0;
 
-    // A) Diferencia C1 vs C2
     if (round($c1 - $c2, 2) != 0) {
       $diffCodes[] = $code;
       continue;
     }
 
-    // B) SAP tiene stock y nadie contó
     if ($sap > 0 && $c1 == 0 && $c2 == 0) {
       $diffCodes[] = $code;
     }
@@ -307,90 +362,100 @@ switch ($estatus) {
     json_ok([], 3, $esBrigada);
   }
 
-  // =========================
-  // SQL FINAL (MISMA BASE QUE CASE 7)
-  // =========================
   $codesEsc = array_map(function ($c) {
     return "'" . addslashes($c) . "'";
   }, $diffCodes);
 
-  $sql = "
-    SELECT
-     base.id_inventario,
-      base.ItemCode,
-      base.Itemname,
-      base.almacen,
-      base.fecha_inv,
-      base.cias,
-      base.codebars,
-      base.nom_fam,
-      base.nom_subfam,
-      base.cod_subfam,
+  if ($esBrigada) {
 
-      ISNULL(c1.conteo_1, 0) AS conteo_1,
-      ISNULL(c2.conteo_2, 0) AS conteo_2
-
-    FROM (
+    $sql = "
       SELECT
-        ItemCode,
-        MAX(id)          AS id_inventario,
-        MAX(Itemname)    AS Itemname,
-        MAX(almacen)     AS almacen,
-        MAX(fecha_inv)   AS fecha_inv,
-        MAX(cias)        AS cias,
-        MAX(codebars)    AS codebars,
-        MAX(nom_fam)     AS nom_fam,
-        MAX(nom_subfam)  AS nom_subfam,
-        MAX(cod_subfam)  AS cod_subfam
-      FROM CAP_INVENTARIO
-      WHERE almacen   = '$almacen'
-        AND fecha_inv = '$fecha'
-        AND cias      = '$cia'
-      GROUP BY ItemCode
-    ) base
+        base.id_inventario,
+        base.ItemCode,
+        base.Itemname,
+        base.almacen,
+        base.fecha_inv,
+        base.cias,
+        base.codebars,
+        base.nom_fam,
+        base.nom_subfam,
+        base.cod_subfam,
+        ISNULL(c1.conteo_1, 0) AS conteo_1,
+        ISNULL(c2.conteo_2, 0) AS conteo_2
+      FROM (
+        SELECT
+          ItemCode,
+          MAX(id)          AS id_inventario,
+          MAX(Itemname)    AS Itemname,
+          MAX(almacen)     AS almacen,
+          MAX(fecha_inv)   AS fecha_inv,
+          MAX(cias)        AS cias,
+          MAX(codebars)    AS codebars,
+          MAX(nom_fam)     AS nom_fam,
+          MAX(nom_subfam)  AS nom_subfam,
+          MAX(cod_subfam)  AS cod_subfam
+        FROM CAP_INVENTARIO
+        WHERE almacen   = '$almacen'
+          AND fecha_inv = '$fecha'
+          AND cias      = '$cia'
+        GROUP BY ItemCode
+      ) base
+      LEFT JOIN (
+        SELECT ItemCode, almacen, fecha_inv, cias, SUM(cant_invfis) AS conteo_1
+        FROM CAP_INVENTARIO
+        WHERE estatus = 1
+        GROUP BY ItemCode, almacen, fecha_inv, cias
+      ) c1
+        ON c1.ItemCode  = base.ItemCode
+       AND c1.almacen   = base.almacen
+       AND c1.fecha_inv = base.fecha_inv
+       AND c1.cias      = base.cias
+      LEFT JOIN (
+        SELECT ItemCode, almacen, fecha_inv, cias, SUM(cant_invfis) AS conteo_2
+        FROM CAP_INVENTARIO
+        WHERE estatus = 2
+        GROUP BY ItemCode, almacen, fecha_inv, cias
+      ) c2
+        ON c2.ItemCode  = base.ItemCode
+       AND c2.almacen   = base.almacen
+       AND c2.fecha_inv = base.fecha_inv
+       AND c2.cias      = base.cias
+      WHERE base.ItemCode IN (" . implode(",", $codesEsc) . ")
+    ";
 
+  } else {
 
-    -- CONTEO 1
-    LEFT JOIN (
+    $sql = "
       SELECT
-        ItemCode,
-        almacen,
-        fecha_inv,
-        cias,
-        SUM(cant_invfis) AS conteo_1
-      FROM CAP_INVENTARIO
-      WHERE estatus = 1
-      GROUP BY ItemCode, almacen, fecha_inv, cias
-    ) c1
-      ON c1.ItemCode  = base.ItemCode
-    AND c1.almacen   = base.almacen
-    AND c1.fecha_inv = base.fecha_inv
-    AND c1.cias      = base.cias
-
-    -- CONTEO 2 (MISMA FUENTE QUE CASE 7)
-    LEFT JOIN (
-      SELECT
+        i.id AS id_inventario,
         i.ItemCode,
+        i.Itemname,
         i.almacen,
         i.fecha_inv,
         i.cias,
-        SUM(ct.cantidad) AS conteo_2
+        i.codebars,
+        i.nom_fam,
+        i.nom_subfam,
+        i.cod_subfam,
+        ISNULL(c1.cantidad,0) AS conteo_1,
+        ISNULL(c2.cantidad,0) AS conteo_2
       FROM CAP_INVENTARIO i
-      JOIN CAP_INVENTARIO_CONTEOS ct
-        ON ct.id_inventario = i.id
-      AND ct.nro_conteo = 2
-      WHERE i.estatus = 2
-      GROUP BY i.ItemCode, i.almacen, i.fecha_inv, i.cias
-    ) c2
-      ON c2.ItemCode  = base.ItemCode
-    AND c2.almacen   = base.almacen
-    AND c2.fecha_inv = base.fecha_inv
-    AND c2.cias      = base.cias
+      LEFT JOIN CAP_INVENTARIO_CONTEOS c1
+        ON c1.id_inventario = i.id
+       AND c1.nro_conteo = 1
+       AND c1.usuario = $empleado
+      LEFT JOIN CAP_INVENTARIO_CONTEOS c2
+        ON c2.id_inventario = i.id
+       AND c2.nro_conteo = 2
+       AND c2.usuario = $empleado
+      WHERE i.almacen   = '$almacen'
+        AND i.fecha_inv = '$fecha'
+        AND i.cias      = '$cia'
+        AND i.ItemCode IN (" . implode(",", $codesEsc) . ")
+    ";
+  }
 
-    WHERE base.ItemCode IN (" . implode(",", $codesEsc) . ")
-  ";
-
-  $res = run($sql, $conn, 'Error SQL Caso 3: ');
+  $res = run($sql, $conn);
 
   $data = [];
   while ($row = mssql_fetch_assoc($res)) {
@@ -401,7 +466,6 @@ switch ($estatus) {
 
   json_ok($data, 3, $esBrigada);
 }
-
 
 
 
@@ -416,86 +480,119 @@ switch ($estatus) {
     //   * Brigada: usuarioConteo1
     //   * Individual: empleado
     // =====================================================
-  case 7: {
 
-    // =========================
-    // SAP (solo con stock > 0)
-    // =========================
-    $sapMap = loadSapMap($conn, $almacen, $fecha, $empleado, $cia, true);
-    if (count($sapMap) === 0) {
-      json_ok([], 7, $esBrigada);
-    }
+    case 7: {
 
-    // =========================
-    // Usuarios reales
-    // =========================
-    $u1 = $esBrigada ? intval($usuarioConteo1) : intval($empleado);
-    $u2 = $esBrigada ? intval($usuarioConteo2) : intval($empleado);
+  $sapMap = loadSapMap($conn, $almacen, $fecha, $empleado, $cia, false);
 
-    // =========================
-    // Mapas de conteos
-    // =========================
-    $c1Map = loadConteoMap_CapInventario($conn, $almacen, $fecha, $cia, 1, $u1);
-    $c2Map = loadConteoMap_CapInventario($conn, $almacen, $fecha, $cia, 2, $u2);
+  if ($esBrigada) {
+
+    $c1Map = loadConteoMap_CapInventario($conn, $almacen, $fecha, $cia, 1, $usuarioConteo1);
+    $c2Map = loadConteoMap_CapInventario($conn, $almacen, $fecha, $cia, 2, $usuarioConteo2);
     $c3Map = loadConteo3Map($conn, $almacen, $fecha, $cia);
 
-    // =========================
-    // UNIVERSO REAL
-    // =========================
-    $allCodes = array_unique(array_merge(
-      array_keys($c1Map),
-      array_keys($c2Map),
-      array_keys($c3Map),
-      array_keys($sapMap)
-    ));
+  } else {
 
-    if (count($allCodes) === 0) {
-      json_ok([], 7, $esBrigada);
+    $c1Map = [];
+    $resC1 = run("
+      SELECT i.ItemCode, SUM(ct.cantidad) AS cantidad
+      FROM CAP_INVENTARIO i
+      JOIN CAP_INVENTARIO_CONTEOS ct
+        ON ct.id_inventario = i.id
+       AND ct.nro_conteo = 1
+      WHERE i.almacen   = '$almacen'
+        AND i.fecha_inv = '$fecha'
+        AND i.cias      = '$cia'
+        AND i.usuario   = $empleado
+      GROUP BY i.ItemCode
+    ", $conn);
+
+    while ($r = mssql_fetch_assoc($resC1)) {
+      $c1Map[trim($r['ItemCode'])] = floatval($r['cantidad']);
     }
 
-    // =========================
-    // REGLAS CONTEO 4
-    // =========================
-    $diffCodes = [];
+    $c2Map = [];
+    $resC2 = run("
+      SELECT i.ItemCode, SUM(ct.cantidad) AS cantidad
+      FROM CAP_INVENTARIO i
+      JOIN CAP_INVENTARIO_CONTEOS ct
+        ON ct.id_inventario = i.id
+       AND ct.nro_conteo = 2
+      WHERE i.almacen   = '$almacen'
+        AND i.fecha_inv = '$fecha'
+        AND i.cias      = '$cia'
+        AND i.usuario   = $empleado
+      GROUP BY i.ItemCode
+    ", $conn);
 
-    foreach ($allCodes as $code) {
-
-      $c1  = isset($c1Map[$code]) ? floatval($c1Map[$code]) : 0;
-      $c2  = isset($c2Map[$code]) ? floatval($c2Map[$code]) : 0;
-      $c3  = isset($c3Map[$code]) ? floatval($c3Map[$code]) : 0;
-      $sap = isset($sapMap[$code]) ? floatval($sapMap[$code]) : 0;
-
-      // A) Diferencias entre conteos
-      if (
-        round($c1 - $c2, 2) != 0 ||
-        round($c1 - $c3, 2) != 0 ||
-        round($c2 - $c3, 2) != 0
-      ) {
-        $diffCodes[] = $code;
-        continue;
-      }
-
-      // B) SAP tiene stock y nadie contó
-      if ($sap > 0 && $c1 == 0 && $c2 == 0 && $c3 == 0) {
-        $diffCodes[] = $code;
-      }
+    while ($r = mssql_fetch_assoc($resC2)) {
+      $c2Map[trim($r['ItemCode'])] = floatval($r['cantidad']);
     }
 
-    $diffCodes = array_values(array_unique($diffCodes));
-    if (count($diffCodes) === 0) {
-      json_ok([], 7, $esBrigada);
+    $c3Map = [];
+    $resC3 = run("
+      SELECT i.ItemCode, SUM(ct.cantidad) AS cantidad
+      FROM CAP_INVENTARIO i
+      JOIN CAP_INVENTARIO_CONTEOS ct
+        ON ct.id_inventario = i.id
+       AND ct.nro_conteo = 3
+      WHERE i.almacen   = '$almacen'
+        AND i.fecha_inv = '$fecha'
+        AND i.cias      = '$cia'
+        AND i.usuario   = $empleado
+      GROUP BY i.ItemCode
+    ", $conn);
+
+    while ($r = mssql_fetch_assoc($resC3)) {
+      $c3Map[trim($r['ItemCode'])] = floatval($r['cantidad']);
+    }
+  }
+
+  $allCodes = array_unique(array_merge(
+    array_keys($c1Map),
+    array_keys($c2Map),
+    array_keys($c3Map),
+    array_keys($sapMap)
+  ));
+
+  if (count($allCodes) === 0) {
+    json_ok([], 7, $esBrigada);
+  }
+
+  $diffCodes = [];
+
+  foreach ($allCodes as $code) {
+
+    $c1  = isset($c1Map[$code]) ? floatval($c1Map[$code]) : 0;
+    $c2  = isset($c2Map[$code]) ? floatval($c2Map[$code]) : 0;
+    $c3  = isset($c3Map[$code]) ? floatval($c3Map[$code]) : 0;
+    $sap = isset($sapMap[$code]) ? floatval($sapMap[$code]) : 0;
+
+    if (
+      round($c1 - $c2, 2) != 0 ||
+      round($c1 - $c3, 2) != 0 ||
+      round($c2 - $c3, 2) != 0
+    ) {
+      $diffCodes[] = $code;
+      continue;
     }
 
-    // =========================
-    // SQL FINAL (BASE SEGURA)
-    // =========================
-    $codesEsc = array_map(function ($c) {
-      return "'" . addslashes($c) . "'";
-    }, $diffCodes);
+    if ($sap > 0 && $c1 == 0 && $c2 == 0 && $c3 == 0) {
+      $diffCodes[] = $code;
+    }
+  }
 
-    $itemCodeIn = " AND c.ItemCode IN (" . implode(",", $codesEsc) . ") ";
+  $diffCodes = array_values(array_unique($diffCodes));
 
-   $sql = "
+  if (count($diffCodes) === 0) {
+    json_ok([], 7, $esBrigada);
+  }
+
+  $codesEsc = array_map(function ($c) {
+    return "'" . addslashes($c) . "'";
+  }, $diffCodes);
+
+  $sql = "
     SELECT
       base.id_inventario,
       base.ItemCode,
@@ -506,104 +603,42 @@ switch ($estatus) {
       base.codebars,
       base.nom_fam,
       base.nom_subfam,
-      base.cod_subfam,
-
-      ISNULL(c1.conteo_1, 0) AS conteo_1,
-      ISNULL(c2.conteo_2, 0) AS conteo_2,
-      ISNULL(c3.conteo_3, 0) AS conteo_3
-
-   FROM (
-  SELECT
-    ItemCode,
-    MAX(id)          AS id_inventario,
-    MAX(Itemname)    AS Itemname,
-    MAX(almacen)     AS almacen,
-    MAX(fecha_inv)   AS fecha_inv,
-    MAX(cias)        AS cias,
-    MAX(codebars)    AS codebars,
-    MAX(nom_fam)     AS nom_fam,
-    MAX(nom_subfam)  AS nom_subfam,
-    MAX(cod_subfam)  AS cod_subfam
-  FROM CAP_INVENTARIO
-  WHERE almacen   = '$almacen'
-    AND fecha_inv = '$fecha'
-    AND cias      = '$cia'
-  GROUP BY ItemCode
-) base
-
-
-    -- CONTEO 1
-    LEFT JOIN (
+      base.cod_subfam
+    FROM (
       SELECT
         ItemCode,
-        almacen,
-        fecha_inv,
-        cias,
-        SUM(cant_invfis) AS conteo_1
+        MAX(id) AS id_inventario,
+        MAX(Itemname) AS Itemname,
+        MAX(almacen) AS almacen,
+        MAX(fecha_inv) AS fecha_inv,
+        MAX(cias) AS cias,
+        MAX(codebars) AS codebars,
+        MAX(nom_fam) AS nom_fam,
+        MAX(nom_subfam) AS nom_subfam,
+        MAX(cod_subfam) AS cod_subfam
       FROM CAP_INVENTARIO
-      WHERE estatus = 1
-      GROUP BY ItemCode, almacen, fecha_inv, cias
-    ) c1
-      ON c1.ItemCode  = base.ItemCode
-    AND c1.almacen   = base.almacen
-    AND c1.fecha_inv = base.fecha_inv
-    AND c1.cias      = base.cias
-
-    -- CONTEO 2 (REAL)
-    LEFT JOIN (
-      SELECT
-        i.ItemCode,
-        i.almacen,
-        i.fecha_inv,
-        i.cias,
-        SUM(ct.cantidad) AS conteo_2
-      FROM CAP_INVENTARIO i
-      JOIN CAP_INVENTARIO_CONTEOS ct
-        ON ct.id_inventario = i.id
-      AND ct.nro_conteo = 2
-      WHERE i.estatus = 2
-      GROUP BY i.ItemCode, i.almacen, i.fecha_inv, i.cias
-    ) c2
-      ON c2.ItemCode  = base.ItemCode
-    AND c2.almacen   = base.almacen
-    AND c2.fecha_inv = base.fecha_inv
-    AND c2.cias      = base.cias
-
-    -- CONTEO 3
-    LEFT JOIN (
-      SELECT
-        i.ItemCode,
-        i.almacen,
-        i.fecha_inv,
-        i.cias,
-        SUM(ct.cantidad) AS conteo_3
-      FROM CAP_INVENTARIO i
-      JOIN CAP_INVENTARIO_CONTEOS ct
-        ON ct.id_inventario = i.id
-      AND ct.nro_conteo = 3
-      WHERE i.estatus = 3
-      GROUP BY i.ItemCode, i.almacen, i.fecha_inv, i.cias
-    ) c3
-      ON c3.ItemCode  = base.ItemCode
-    AND c3.almacen   = base.almacen
-    AND c3.fecha_inv = base.fecha_inv
-    AND c3.cias      = base.cias
-
+      WHERE almacen   = '$almacen'
+        AND fecha_inv = '$fecha'
+        AND cias      = '$cia'
+      GROUP BY ItemCode
+    ) base
     WHERE base.ItemCode IN (" . implode(",", $codesEsc) . ")
-    ";
+  ";
 
+  $res = run($sql, $conn);
 
-    $res = run($sql, $conn, 'Error SQL Caso 7: ');
-
-    $data = [];
-    while ($row = mssql_fetch_assoc($res)) {
-      $code = trim($row['ItemCode']);
-      $row['sap'] = isset($sapMap[$code]) ? $sapMap[$code] : 0;
-      $data[] = array_map('utf8_encode', $row);
-    }
-
-    json_ok($data, 7, $esBrigada);
+  $data = [];
+  while ($row = mssql_fetch_assoc($res)) {
+    $code = trim($row['ItemCode']);
+    $row['conteo_1'] = isset($c1Map[$code]) ? $c1Map[$code] : 0;
+    $row['conteo_2'] = isset($c2Map[$code]) ? $c2Map[$code] : 0;
+    $row['conteo_3'] = isset($c3Map[$code]) ? $c3Map[$code] : 0;
+    $row['sap'] = isset($sapMap[$code]) ? $sapMap[$code] : 0;
+    $data[] = array_map('utf8_encode', $row);
   }
+
+  json_ok($data, 7, $esBrigada);
+}
 
 
   default:

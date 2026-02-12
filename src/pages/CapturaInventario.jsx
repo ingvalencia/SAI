@@ -708,10 +708,12 @@ export default function CapturaInventario() {
 
       payload.append("datos", JSON.stringify(lotes[i]));
 
-      const res = await axios.post(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/confirmar_inventario.php",
-        payload
-      );
+      const endpoint = esBrigada
+        ? "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/confirmar_inventario.php"
+        : "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/confirmar_inventario_individual.php";
+
+      const res = await axios.post(endpoint, payload);
+
 
       if (!res.data.success) throw new Error(res.data.error);
 
