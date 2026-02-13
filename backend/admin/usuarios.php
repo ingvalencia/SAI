@@ -11,14 +11,14 @@ if (!$conn) {
 }
 mssql_select_db("SAP_PROCESOS", $conn);
 
-// SET obligatorios para columnas computadas, vistas indexadas, etc.
+
 mssql_query("SET ANSI_NULLS ON", $conn);
 mssql_query("SET ANSI_WARNINGS ON", $conn);
 mssql_query("SET QUOTED_IDENTIFIER ON", $conn);
 mssql_query("SET CONCAT_NULL_YIELDS_NULL ON", $conn);
 mssql_query("SET ANSI_PADDING ON", $conn);
 
-// Cargar usuarios con info de rol
+
 $query = "
 SELECT
     u.id,

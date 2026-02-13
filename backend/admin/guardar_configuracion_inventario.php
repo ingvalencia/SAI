@@ -10,9 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit;
 }
 
-// ==============================
-// 1. Parámetros
-// ==============================
+
 $cia             = isset($_POST['cia']) ? trim($_POST['cia']) : null;
 $fecha_gestion   = isset($_POST['fecha_gestion']) ? trim($_POST['fecha_gestion']) : null;
 $actualizado_por = isset($_POST['actualizado_por']) ? trim($_POST['actualizado_por']) : null;
@@ -34,9 +32,7 @@ if ($cia === null || $fecha_gestion === null || $actualizado_por === null || $ni
   exit;
 }
 
-// ==============================
-// 2. Conexión MSSQL
-// ==============================
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -50,9 +46,7 @@ if (!$conn) {
 
 mssql_select_db($db, $conn);
 
-// ==============================
-// 3. Insertar SIEMPRE nueva configuración
-// ==============================
+
 $sqlInsert = "
   INSERT INTO configuracion_inventario (cia, fecha_gestion, actualizado_por, actualizado_en)
   VALUES ('$cia', '$fecha_gestion', $actualizado_por, GETDATE())
@@ -63,14 +57,12 @@ if (!$insertado) {
   exit;
 }
 
-// Obtener ID recién insertado
+
 $resId = mssql_query("SELECT @@IDENTITY AS id", $conn);
 $rowId = mssql_fetch_assoc($resId);
 $configId = $rowId['id'];
 
-// ==============================
-// 4. Insertar almacenes vinculados a esa configuración
-// ==============================
+
 foreach ($almacenes as $alm) {
   $almacen = trim($alm);
   if ($almacen !== "") {
@@ -86,9 +78,7 @@ foreach ($almacenes as $alm) {
   }
 }
 
-// ==============================
-// 5. Respuesta final
-// ==============================
+
 echo json_encode([
   'success' => true,
   'mensaje' => 'Configuración guardada correctamente',

@@ -29,8 +29,6 @@ export default function Control() {
   const porPaginaFechas = 10;
   const [paginaFechas, setPaginaFechas] = useState(1);
 
-
-  // === Usuarios ===
   const fetchUsuarios = async () => {
     try {
       const res = await axios.get(
@@ -56,7 +54,7 @@ export default function Control() {
     }
   }, [vista]);
 
-  // === Eliminar usuario ===
+
   const eliminarUsuario = async (id) => {
     const confirm = await MySwal.fire({
       title: "¿Eliminar usuario?",
@@ -87,7 +85,7 @@ export default function Control() {
     }
   };
 
-  // === Eliminar configuración ===
+
   const eliminarConfiguracion = async (id) => {
     const confirm = await MySwal.fire({
       title: "¿Eliminar configuración?",
@@ -116,9 +114,9 @@ export default function Control() {
     }
   };
 
-  // === Editar configuración ===
+
   const editarConfiguracion = async (config) => {
-    // Convertir la fecha al formato que acepta el input type="date"
+
     const fechaISO = config.fecha_gestion
       ? new Date(config.fecha_gestion).toISOString().split("T")[0]
       : "";
@@ -199,8 +197,6 @@ export default function Control() {
   };
 
 
-
-  // === Activar/Desactivar usuario ===
   const toggleActivo = async (id, activo) => {
     try {
       const formData = new FormData();
@@ -231,7 +227,7 @@ export default function Control() {
     }
   };
 
-  // === Filtrado de usuarios ===
+
   const usuariosFiltrados = useMemo(() => {
     let base = [];
     if (rolLogueado === 1 || rolLogueado === 2) base = usuarios;
@@ -261,9 +257,6 @@ export default function Control() {
 
   const totalPaginas = Math.ceil(usuariosFiltrados.length / porPagina);
 
-
-
-  // === Toggle almacenes ===
   const toggleAlmacen = (codigo) => {
     setAlmacenesSeleccionados((prev) =>
       prev.includes(codigo)
@@ -272,7 +265,7 @@ export default function Control() {
     );
   };
 
-  // === Fetch almacenes ===
+
   const fetchAlmacenes = async (ciaSeleccionada) => {
     try {
       const res = await axios.get(
@@ -286,7 +279,7 @@ export default function Control() {
     }
   };
 
-  // === Fetch configuraciones ===
+
   const fetchConfiguraciones = async () => {
     try {
       const res = await axios.get(
@@ -306,7 +299,7 @@ export default function Control() {
     }
   };
 
-  // === Guardar configuración ===
+
   const guardarConfiguracion = async () => {
     if (!cia || !fechaGestion || almacenesSeleccionados.length === 0) {
       MySwal.fire("Faltan datos", "Debes seleccionar CIA, fecha y al menos un almacén", "warning");
@@ -376,7 +369,7 @@ export default function Control() {
     }
   };
 
-  // === Formato fecha ===
+
   const formatSoloFecha = (valor) => {
     if (!valor) return "—";
 
@@ -398,8 +391,8 @@ export default function Control() {
 
   const toISODate = (valor) => {
     if (!valor) return "";
-    if (/^\d{4}-\d{2}-\d{2}/.test(valor)) return valor.slice(0,10);      // YYYY-MM-DD
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(valor)) {                            // dd/mm/yyyy
+    if (/^\d{4}-\d{2}-\d{2}/.test(valor)) return valor.slice(0,10);
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(valor)) {
       const [d,m,y] = valor.split("/");
       return `${y}-${m}-${d}`;
     }
@@ -459,7 +452,7 @@ export default function Control() {
     const familias = configuraciones
       .map(c => c.almacen)
       .filter(Boolean)
-      .map(a => a.split("-")[0]); // AAA-CV → AAA
+      .map(a => a.split("-")[0]);
 
     return Array.from(new Set(familias))
       .sort()
@@ -467,19 +460,17 @@ export default function Control() {
   }, [configuraciones]);
 
   const estilosConteo = {
-      1: "bg-blue-100 text-blue-800 border-blue-300",     // Conteo 1
-      2: "bg-yellow-100 text-yellow-800 border-yellow-300", // Conteo 2
-      3: "bg-orange-100 text-orange-800 border-orange-300", // Conteo 3
-      7: "bg-purple-100 text-purple-800 border-purple-300", // Conteo 4
-      4: "bg-green-100 text-green-800 border-green-300",    // Finalizado
+      1: "bg-blue-100 text-blue-800 border-blue-300",
+      2: "bg-yellow-100 text-yellow-800 border-yellow-300",
+      3: "bg-orange-100 text-orange-800 border-orange-300",
+      7: "bg-purple-100 text-purple-800 border-purple-300",
+      4: "bg-green-100 text-green-800 border-green-300",
     };
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-3xl font-extrabold text-gray-900 mb-8">⚙️ Control de Operaciones</h1>
 
-
-      {/* Tabs */}
       <div className="flex gap-3 mb-8">
         <button
           onClick={() => setVista("usuarios")}
@@ -492,7 +483,7 @@ export default function Control() {
           Usuarios registrados
         </button>
 
-        {/* Solo roles 1 y 2 ven este botón */}
+
         {(rolLogueado === 1 || rolLogueado === 2 || rolLogueado === 3) && (
           <button
             onClick={() => setVista("fecha")}
@@ -507,8 +498,6 @@ export default function Control() {
         )}
       </div>
 
-
-      {/* Vista Usuarios */}
       {vista === "usuarios" && (
         <div className="bg-white shadow-lg rounded-xl p-6">
           {(rolLogueado === 1 || rolLogueado === 2) && (
@@ -617,101 +606,10 @@ export default function Control() {
         </div>
       )}
 
-      {/* Vista Fecha */}
       {vista === "fecha" && (
         <div className="space-y-10 max-w-6xl mx-auto">
 
-      {/*}
-          <div className="bg-white border border-gray-300 rounded-xl shadow p-8 ">
-            <h2 className="text-2xl font-bold mb-8 text-gray-800 flex items-center gap-2">
-              🗓 Configuración de fecha de gestión
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Selecciona CIA</label>
-                <select
-                  value={cia}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setCia(value);
-                    setAlmacenesSeleccionados([]);
-                    if (value) fetchAlmacenes(value);
-                  }}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">—</option>
-                  <option value="recrefam">RECREFAM</option>
-                  <option value="veser">VESER</option>
-                  <option value="opardiv">OPARDIV</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Almacenes asignados</label>
-                <input
-                    type="text"
-                    placeholder="Buscar almacén..."
-                    value={busquedaAlmacen}
-                    onChange={(e) => setBusquedaAlmacen(e.target.value)}
-                    className="w-full mb-2 px-3 py-2 border rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-blue-500"
-                  />
-
-                <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto border p-3 rounded-lg bg-gray-50">
-                  {almacenes
-                    .filter(a =>
-                      `${a.codigo} - ${a.nombre}`.toLowerCase().includes(busquedaAlmacen.toLowerCase())
-                    )
-                    .map((a) => (
-                      <label key={a.codigo} className="flex items-center gap-2 text-sm text-gray-700">
-                        <input
-                          type="checkbox"
-                          value={a.codigo}
-                          checked={almacenesSeleccionados.includes(a.codigo)}
-                          onChange={() => toggleAlmacen(a.codigo)}
-                        />
-                        {a.codigo} - {a.nombre}
-                      </label>
-                  ) ))}
-
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Fecha de gestión</label>
-                <input
-                  type="date"
-                  value={fechaGestion}
-                  onChange={(e) => setFechaGestion(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Nivel de conteo</label>
-                <select
-                  value={nivelConteo}
-                  onChange={(e) => setNivelConteo(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">—</option>
-                  <option value="0">Conteo 1</option>
-                  <option value="2">Conteo 2</option>
-                  <option value="3">Conteo 3</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="mt-10 flex justify-end">
-              <button
-                onClick={guardarConfiguracion}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition duration-200 ease-in-out"
-              >
-                💾 Guardar configuración
-              </button>
-            </div>
-          </div>
-        */}
+      
           <div className="bg-white border border-gray-300 rounded-xl shadow p-8">
             <h2 className="text-2xl font-bold mb-8 text-gray-800 flex items-center gap-2">
               📋 Fechas de gestión existentes

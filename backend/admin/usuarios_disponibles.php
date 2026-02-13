@@ -15,11 +15,7 @@ if (!$conn) {
 
 mssql_select_db($db, $conn);
 
-/*
-  Trae usuarios:
-  - activos
-  - que NO tengan rol 1 ni 2
-*/
+
 $sql = "
 SELECT
   u.id,

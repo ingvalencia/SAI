@@ -1,9 +1,7 @@
 <?php
 header('Content-Type: application/json');
 
-/* ============================
-   CONFIGURACIÓN DE CORS
-   ============================ */
+
 $origenPermitido = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
 header("Access-Control-Allow-Origin: $origenPermitido");
 header("Access-Control-Allow-Credentials: true");
@@ -15,9 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit;
 }
 
-/* ============================
-   LECTURA DE PARÁMETROS (JSON o POST)
-   ============================ */
+
 $raw = file_get_contents("php://input");
 $data = json_decode($raw, true);
 if (!$data) $data = $_POST;
@@ -33,9 +29,7 @@ if (!$cia || !$almacen || !$fecha || !$usuario_admin) {
   exit;
 }
 
-/* ============================
-   CONEXIÓN MSSQL
-   ============================ */
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -48,18 +42,14 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-/* ============================
-   SANITIZAR
-   ============================ */
+
 $cia_safe           = addslashes($cia);
 $almacen_safe       = addslashes($almacen);
 $fecha_safe         = addslashes($fecha);
 $usuario_admin_safe = addslashes($usuario_admin);
 $observaciones_safe = addslashes($observaciones);
 
-/* ============================
-   EJECUCIÓN DEL SP
-   ============================ */
+
 $sql = "
   EXEC dbo.USP_CONFIRMAR_AJUSTES_SAP
       @cia            = '$cia_safe',
@@ -77,9 +67,7 @@ if (!$res) {
   exit;
 }
 
-/* ============================
-   PROCESAR RESULTADO
-   ============================ */
+
 echo json_encode([
   'success' => true,
   'mensaje' => 'Inventario confirmado y marcado como enviado a SAP.',

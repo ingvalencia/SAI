@@ -9,9 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-/* ============================================================
-   PARÁMETROS
-============================================================ */
+
 $almacen = isset($_POST['almacen']) ? $_POST['almacen'] : null;
 $fecha   = isset($_POST['fecha'])   ? $_POST['fecha']   : null;
 $empleado= isset($_POST['empleado'])? $_POST['empleado']: null;
@@ -24,9 +22,7 @@ if (!$almacen || !$fecha || !$empleado || !$cia) {
     exit;
 }
 
-/* ============================================================
-   CONEXIÓN SQL
-============================================================ */
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -39,9 +35,7 @@ if (!$conn) {
 }
 mssql_select_db($db,$conn);
 
-/* ============================================================
-   DETECTAR SI ES BRIGADA
-============================================================ */
+
 $alm_safe = addslashes($almacen);
 $cia_safe = addslashes($cia);
 
@@ -61,9 +55,7 @@ if ($resBrig && $r = mssql_fetch_assoc($resBrig)) {
     }
 }
 
-/* ============================================================
-   GUARDAR CONTEO (SIEMPRE)
-============================================================ */
+
 foreach ($datos as $d) {
 
     $id_inv = isset($d['id']) ? intval($d['id']) : 0;
@@ -95,9 +87,7 @@ foreach ($datos as $d) {
     }
 }
 
-/* ============================================================
-   FLUJO BRIGADA → NO AVANZA
-============================================================ */
+
 if ($esBrigada) {
 
     echo json_encode([
@@ -109,25 +99,19 @@ if ($esBrigada) {
     exit;
 }
 
-/* ============================================================
-   FLUJO INDIVIDUAL
-============================================================ */
 
-// Actualiza estatus actual
 mssql_query("
     UPDATE CAP_INVENTARIO
     SET estatus=$estatus
     WHERE almacen='$almacen' AND fecha_inv='$fecha' AND usuario=$empleado
 ",$conn);
 
-// Comparación normal
+
 $url="https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/comparar_inventarios.php?almacen=$almacen&fecha=$fecha&usuario=$empleado&cia=$cia";
 $resp=@file_get_contents($url);
 $res=json_decode($resp,true);
 
-/* ============================================================
-   CORRECCIÓN REAL → DETECTAR diferencias del usuario
-============================================================ */
+
 $hay_diferencias = false;
 
 if ($res && isset($res['hay_dif_mio_vs_sap'])) {
@@ -137,9 +121,7 @@ if ($res && isset($res['hay_dif_mio_vs_sap'])) {
 $next_status  = $estatus;
 $mensaje_final= "";
 
-/* ============================================================
-   SI HAY DIFERENCIAS
-============================================================ */
+
 if ($hay_diferencias) {
 
     if ($estatus < 3) {
@@ -182,9 +164,7 @@ if ($hay_diferencias) {
 
 }
 
-/* ============================================================
-   SIN DIFERENCIAS
-============================================================ */
+
 else {
     mssql_query("
         UPDATE CAP_INVENTARIO
@@ -196,9 +176,7 @@ else {
     $mensaje_final = "No se encontraron diferencias. Proceso completado.";
 }
 
-/* ============================================================
-   RESPUESTA
-============================================================ */
+
 echo json_encode([
     "success"=>true,
     "mensaje"=>$mensaje_final,

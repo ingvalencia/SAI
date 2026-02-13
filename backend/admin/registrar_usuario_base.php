@@ -9,17 +9,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit;
 }
 
-/* ============================
-   LEER JSON BODY (AXIOS)
-============================ */
+
 $input = json_decode(file_get_contents("php://input"), true);
 if (is_array($input)) {
   $_POST = $input;
 }
 
-/* ============================
-   PARÁMETROS
-============================ */
+
 $empleado = isset($_POST['empleado']) ? trim($_POST['empleado']) : null;
 $nombre   = isset($_POST['nombre'])   ? trim($_POST['nombre'])   : null;
 $email    = isset($_POST['email'])    ? trim($_POST['email'])    : null;
@@ -35,9 +31,7 @@ if (!$empleado || !$nombre || !$password) {
   exit;
 }
 
-/* ============================
-   CONEXIÓN SQL SERVER
-============================ */
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -54,9 +48,7 @@ if (!$conn) {
 
 mssql_select_db($db, $conn);
 
-/* ============================
-   VALIDAR DUPLICADO
-============================ */
+
 $empleado_safe = intval($empleado);
 
 $qr = mssql_query("
@@ -74,9 +66,7 @@ if ($qr && mssql_num_rows($qr) > 0) {
   exit;
 }
 
-/* ============================
-   INSERT USUARIO BASE
-============================ */
+
 $nombre_safe   = addslashes($nombre);
 $email_safe    = $email ? "'" . addslashes($email) . "'" : "NULL";
 $password_safe = addslashes($password);
@@ -111,9 +101,7 @@ if (!$insert) {
   exit;
 }
 
-/* ============================
-   OK
-============================ */
+
 echo json_encode([
   'success' => true,
   'mensaje' => 'Usuario registrado correctamente'

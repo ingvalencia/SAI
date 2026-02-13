@@ -43,29 +43,17 @@ export default function CompararInventario() {
   const [mostrarCuartoConteo, setMostrarCuartoConteo] = useState(false);
   const [modoResuelto, setModoResuelto] = useState(false);
 
-
-
-
-
-
-
-
-
-
  const exportarExcel = async () => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Diferencias");
 
-    // Encabezados
     const headers = [
       "#", "No Empleado", "Almacén", "CIA", "Código", "Nombre",
       "Código de Barras", "Captura SAP", "Conteo 1", "Conteo 2", "Conteo 3", "Conteo 4", "Diferencia"
     ];
 
-
     worksheet.addRow(headers);
 
-    // Estilo encabezado
     headers.forEach((_, idx) => {
       const cell = worksheet.getRow(1).getCell(idx + 1);
       cell.fill = {
@@ -79,8 +67,6 @@ export default function CompararInventario() {
       };
     });
 
-
-    // Filas
     datos.forEach((item, i) => {
       const conteo1 = item.conteo1 ?? 0;
       const conteo2 = item.conteo2 ?? 0;
@@ -113,20 +99,20 @@ export default function CompararInventario() {
         diferencia,
       ]);
 
-      // Estilo diferencia negativa
+
       if (diferencia < 0) {
-        const diffCell = row.getCell(13); // columna "Diferencia"
+        const diffCell = row.getCell(13);
         diffCell.font = { color: { argb: "000000" } };
       }
     });
 
-    // Filtros
+
     worksheet.autoFilter = {
       from: { row: 1, column: 1 },
       to: { row: 1, column: headers.length },
     };
 
-    // Guardar archivo
+
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     saveAs(blob, `comparacion_${almacen}_${fecha}.xlsx`);
@@ -178,7 +164,7 @@ export default function CompararInventario() {
     pageMargins: [20, 60, 20, 80],
 
     defaultStyle: {
-      font: "Roboto"  //
+      font: "Roboto"
     },
 
     header: {
@@ -235,7 +221,6 @@ export default function CompararInventario() {
       return;
     }
 
-    // Solo hacer la llamada si los datos aún no han sido cargados
     if (datos.length === 0) {
 
    const obtenerComparacion = async () => {
@@ -249,15 +234,12 @@ export default function CompararInventario() {
 
           setResGlobal(res.data);
 
-          //  Bloqueo forzado si el backend dice solo lectura
          if (res.data.error?.includes("bloqueado")) {
             setBloqueado(true);
           } else {
             setBloqueado(false);
           }
 
-
-          // 🔹 Normalizar booleans recibidos del backend
           const esBrig = res.data.brigada == true || res.data.brigada == "1";
           const hayDif = res.data.hay_diferencias_brigada == true || res.data.hay_diferencias_brigada == "1";
           const tercerAsignado = res.data.tercer_conteo_asignado == true || res.data.tercer_conteo_asignado == "1";
@@ -268,7 +250,6 @@ export default function CompararInventario() {
           setNroConteoComp(Number(res.data.nro_conteo_companero));
           setHayDiferenciasBrigada(hayDif);
 
-          // Estatus activo
           let estatusActual;
 
           if (res.data.brigada == true || res.data.brigada == "1") {
@@ -286,13 +267,9 @@ export default function CompararInventario() {
 
           setMostrarCuartoConteo(estatusActual === 3 && hayDifVsSap && !bloqueado);
 
-
-          // 🔹 Marcar brigada
           setEsBrigada(esBrig);
           setModoResuelto(true);
 
-
-          //  Nueva condición corregida para mostrar botón "Iniciar Tercer Conteo"
           const mostrarTercer =
             esBrig &&
             hayDif &&
@@ -301,19 +278,13 @@ export default function CompararInventario() {
 
           setMostrarTercerConteo(mostrarTercer);
 
-
-          // 🔹 Procesar datos
           const datosFinal = res.data.data.map((item) => {
             const sap = Number(item.cant_sap ?? 0);
-
-            //
             const c1 = Number(item.conteo1 ?? 0);
             const c2 = Number(item.conteo2 ?? 0);
             const c3 = Number(item.conteo3 ?? 0);
             const c4 = Number(item.conteo4 ?? 0);
 
-
-            //
             const conteoActual = estatusActual === 3 ? c3 : estatusActual === 2 ? c2 : c1;
 
             return {
@@ -325,7 +296,6 @@ export default function CompararInventario() {
               conteo4: c4,
               diferencia: Number((sap - conteoActual).toFixed(2)),
 
-              // si quieres mantenerla: compara c1 vs c2 (brigada clásica)
               diferenciaBrigada: Number((c1 - c2).toFixed(2)),
             };
           });
@@ -343,8 +313,6 @@ export default function CompararInventario() {
         }
       };
 
-
-
       obtenerComparacion();
     }
   }, [almacen, fecha, empleado, navigate, datos.length]);
@@ -353,10 +321,10 @@ export default function CompararInventario() {
     setPaginaActual(1);
   }, [busqueda]);
 
-  // Mostrar loading si aún no termina
+
   if (loading) return <p className="text-center mt-10 text-gray-600">Cargando diferencias...</p>;
 
-  // Función para confirmar diferencias
+
   const confirmarDiferencia = async () => {
     const resultado = await Swal.fire({
       title: "¿Confirmar diferencias?",
@@ -386,7 +354,7 @@ export default function CompararInventario() {
       formData.append("empleado", empleado);
       formData.append("cia", cia);
 
-      //
+
       formData.append("estatus", resGlobal.nro_conteo);
 
       const res = await axios.post(
@@ -430,10 +398,10 @@ export default function CompararInventario() {
     }
 
   const estatusCalc = Number(estatus) === 4
-  ? Number(resGlobal?.nro_conteo ?? 1)   // aquí debe venir 7 si el último fue Conteo 4
+  ? Number(resGlobal?.nro_conteo ?? 1)
   : Number(estatus);
 
-      // === PAGINACIÓN: filtrar, paginar y numerar ===
+
       let datosFiltrados = datos.filter((item) => {
       const texto = busqueda.toLowerCase();
       return (
@@ -443,7 +411,7 @@ export default function CompararInventario() {
       );
     });
 
-    // 🔥 Aplicar filtro de diferencias
+
     if (mostrarSoloDiferencias) {
       datosFiltrados = datosFiltrados.filter(
         (row) => Number(row.diferencia) !== 0
@@ -459,7 +427,7 @@ export default function CompararInventario() {
 
 
     const totalPaginas = Math.max(1, Math.ceil(datosFiltrados.length / registrosPorPagina));
-    const pagina = Math.min(paginaActual, totalPaginas); // evita quedar en una página inexistente
+    const pagina = Math.min(paginaActual, totalPaginas); //
 
     const indiceInicial = (pagina - 1) * registrosPorPagina;
     const indiceFinal = indiceInicial + registrosPorPagina;
@@ -579,23 +547,21 @@ export default function CompararInventario() {
     }
   };
 
-  // === Determinar conteo activo según estatus ===
+
     const getConteoActual = (item) => {
 
-      // 🟦 Caso Brigada: manejo normal con conteo1/conteo2/conteo3
+
       if (esBrigada) {
         if (estatus === 3) return item.conteo3 ?? 0;
         if (estatus === 2) return item.conteo2 ?? 0;
         return item.conteo1 ?? 0;
       }
 
-      // Caso Individual:
-      // El backend SIEMPRE manda el conteo del usuario en conteo_mio → que guardaste como conteo1.
-      return item.conteo1 ?? 0;
+          return item.conteo1 ?? 0;
     };
 
 
-  // === Diferencia SAP basada en conteo activo ===
+
   const getDiferenciaSAP = (item) => {
     const sap = item.cant_sap ?? 0;
     const conteo = getConteoActual(item);
@@ -603,7 +569,7 @@ export default function CompararInventario() {
   };
 
  const iniciarCuartoConteo = async () => {
-    // Solo si vienes de conteo 3
+
     if (estatus !== 3) {
       Swal.fire("No permitido", "El cuarto conteo solo se puede iniciar después del tercer conteo.", "warning");
       return;
@@ -654,8 +620,6 @@ export default function CompararInventario() {
       default: return "";
     }
   };
-
-
 
 
   return (
@@ -843,8 +807,6 @@ export default function CompararInventario() {
           </button>
         )}
 
-
-        {/* Botón: Mostrar diferencias */}
         <button
           className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2
                     bg-yellow-200 text-yellow-900 hover:bg-yellow-300 transition shadow-sm"
@@ -853,7 +815,6 @@ export default function CompararInventario() {
           {mostrarSoloDiferencias ? "Mostrar todo" : "Mostrar solo diferencias"}
         </button>
 
-        {/* Botón: Exportar Excel */}
         <button
           onClick={exportarExcel}
           className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2
@@ -867,7 +828,6 @@ export default function CompararInventario() {
           Exportar a Excel
         </button>
 
-        {/* Botón: Exportar PDF */}
         <button
           onClick={exportarPDF}
           className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2
@@ -915,7 +875,7 @@ export default function CompararInventario() {
               <th className="p-3 text-left">Código de Barras</th>
               <th className="p-3 text-right">Existencia SAP</th>
 
-              {/* HISTORIAL DE CONTEOS + resaltar el conteo activo */}
+
               <th className={`p-3 text-right ${estatus === 1 ? "bg-yellow-100 text-gray-900 font-extrabold" : ""}`}>
                 Conteo 1
               </th>
@@ -975,7 +935,7 @@ export default function CompararInventario() {
                   key={i}
                   className="hover:bg-red-50 transition duration-150 ease-in-out"
                 >
-                  {/* Número consecutivo */}
+
                   <td className="p-3 text-sm text-gray-500 font-semibold whitespace-nowrap">
                     {indiceInicial + i + 1}
                   </td>
@@ -1004,12 +964,12 @@ export default function CompararInventario() {
                     {item.codebars ?? "-"}
                   </td>
 
-                  {/* SAP */}
+
                   <td className="p-3 text-sm text-right text-gray-700">
                     {sap.toFixed(2)}
                   </td>
 
-                  {/* Conteo 1 */}
+
                   <td className={claseConteo(1)}>
                     <div>{c1.toFixed(2)}</div>
                     {estatus === 1 && (
@@ -1019,7 +979,7 @@ export default function CompararInventario() {
                     )}
                   </td>
 
-                  {/* Conteo 2 */}
+
                   <td className={claseConteo(2)}>
                     <div>{c2.toFixed(2)}</div>
                     {estatus === 2 && (
@@ -1029,7 +989,7 @@ export default function CompararInventario() {
                     )}
                   </td>
 
-                  {/* Conteo 3 */}
+
                   <td className={claseConteo(3)}>
                     <div>{c3.toFixed(2)}</div>
                     {estatus === 3 && (
@@ -1039,7 +999,7 @@ export default function CompararInventario() {
                     )}
                   </td>
 
-                  {/* Conteo 4 */}
+
                   <td className={claseConteo(7)}>
                     <div>{c4.toFixed(2)}</div>
                     {estatus === 7 && (
@@ -1050,7 +1010,7 @@ export default function CompararInventario() {
                   </td>
 
 
-                  {/* Diferencia SAP (con conteo activo) */}
+
                   <td
                     className="p-3 text-sm text-right font-bold"
                     style={{ color: colorDifSap }}
@@ -1059,7 +1019,7 @@ export default function CompararInventario() {
                   </td>
 
 
-                  {/* Dif. Brigada (si aplica) */}
+
                   {esBrigada && (
                     <td
                       className="p-3 text-sm text-right font-bold"
@@ -1073,7 +1033,6 @@ export default function CompararInventario() {
             })}
           </tbody>
         </table>
-
 
 
 

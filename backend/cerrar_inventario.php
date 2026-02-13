@@ -9,9 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit;
 }
 
-/* ============================================================
-   FUNCIÓN PARA NORMALIZAR FECHA (TAL COMO LA PASASTE)
-============================================================ */
+
 function normalizarFecha($f)
 {
   if (!$f) return false;
@@ -26,9 +24,7 @@ function normalizarFecha($f)
   return date("Y-m-d", $ts);
 }
 
-/* ============================================================
-   PARÁMETROS
-============================================================ */
+
 $almacen  = isset($_POST['almacen'])  ? $_POST['almacen']  : null;
 $fechaRaw = isset($_POST['fecha'])    ? $_POST['fecha']    : null;
 $empleado = isset($_POST['empleado']) ? $_POST['empleado'] : null;
@@ -45,9 +41,7 @@ if (!$fecha) {
   exit;
 }
 
-/* ============================================================
-   CONEXIÓN SQL
-============================================================ */
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -63,9 +57,7 @@ mssql_select_db($db, $conn);
 $alm_safe = addslashes($almacen);
 $cia_safe = addslashes($cia);
 
-/* ============================================================
-   OBTENER ID INTERNO DEL USUARIO
-============================================================ */
+
 $sqlUser = "SELECT TOP 1 id FROM usuarios WHERE empleado = $empleado";
 $resUser = mssql_query($sqlUser, $conn);
 $usuario_id = null;
@@ -74,9 +66,7 @@ if ($resUser && $rowU = mssql_fetch_assoc($resUser)) {
   $usuario_id = intval($rowU['id']);
 }
 
-/* ============================================================
-   1) CAP_INVENTARIO → detectar estatus MÁXIMO y cerrarlo (4)
-============================================================ */
+
 $sqlMaxEst = "
     SELECT MAX(estatus) AS max_estatus
     FROM CAP_INVENTARIO
@@ -109,9 +99,7 @@ if ($max_estatus !== null) {
     ", $conn);
 }
 
-/* ============================================================
-   2) CAP_INVENTARIO_CONTEOS → detectar nro_conteo MÁXIMO y cerrarlo (4)
-============================================================ */
+
 $sqlMaxConteo = "
     SELECT MAX(ct.nro_conteo) AS max_conteo
     FROM CAP_INVENTARIO_CONTEOS ct
@@ -149,9 +137,7 @@ if ($max_conteo !== null) {
 
 }
 
-/* ============================================================
-   3) CAP_CONTEO_CONFIG → último conteo asignado al usuario → cerrarlo (4)
-============================================================ */
+
 if ($usuario_id !== null) {
 
   $sqlCfg = "
@@ -169,7 +155,7 @@ if ($usuario_id !== null) {
     $id_cfg = intval($rowCfg["id"]);
     $usuariosAsignados = $rowCfg["usuarios_asignados"];
 
-    // Cerrar conteo en configuración
+
     mssql_query("
         UPDATE CAP_CONTEO_CONFIG
         SET nro_conteo = 4,
@@ -177,7 +163,7 @@ if ($usuario_id !== null) {
         WHERE id = $id_cfg
     ", $conn);
 
-    // Extraer usuarios (brigada o individual)
+
     $usuariosAsignados = str_replace(['[', ']', ' '], '', $usuariosAsignados);
     $ids = explode(',', $usuariosAsignados);
 
@@ -196,11 +182,6 @@ if ($usuario_id !== null) {
 }
 
 
-
-
-/* ============================================================
-   RESPUESTA
-============================================================ */
 echo json_encode([
   "success"     => true,
   "mensaje"     => "Inventario cerrado correctamente.",

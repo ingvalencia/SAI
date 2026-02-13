@@ -18,7 +18,7 @@ if (!$cia || !$empleado) {
   exit;
 }
 
-// Conexión
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -32,9 +32,7 @@ if (!$conn) {
 
 mssql_select_db($db, $conn);
 
-// ==========================
-// Obtener ID de usuario
-// ==========================
+
 $sqlUsuario = "SELECT id FROM usuarios WHERE empleado = '$empleado'";
 $resUsuario = @mssql_query($sqlUsuario, $conn);
 if (!$resUsuario || !mssql_num_rows($resUsuario)) {
@@ -44,9 +42,7 @@ if (!$resUsuario || !mssql_num_rows($resUsuario)) {
 $rowUsuario = mssql_fetch_assoc($resUsuario);
 $usuarioId = $rowUsuario['id'];
 
-// ==========================
-// Obtener almacenes permitidos
-// ==========================
+
 $sql = "SELECT local_codigo FROM usuario_local WHERE usuario_id = $usuarioId AND cia = '$cia' AND activo = 1";
 $res = @mssql_query($sql, $conn);
 if (!$res) {
@@ -59,9 +55,7 @@ while ($row = mssql_fetch_assoc($res)) {
   $almacenesPermitidos[] = trim($row['local_codigo']);
 }
 
-// ==========================
-// Ejecutar SP para catálogo
-// ==========================
+
 $sqlSP = "EXEC [dbo].[USP_ALMACENES_SAP_CIAS] '$cia'";
 $resSP = @mssql_query($sqlSP, $conn);
 if (!$resSP) {
@@ -70,16 +64,14 @@ if (!$resSP) {
 }
 
 $data = [];
-// ==============================
-// Por cada almacén permitido
-// ==============================
+
 
 while ($row = mssql_fetch_assoc($resSP)) {
   $codigo = trim($row['Codigo Almacen']);
 
   if (in_array($codigo, $almacenesPermitidos)) {
 
-    // Buscar fecha_gestion desde configuracion_inventario
+
     $sqlFecha = "
       SELECT ci.fecha_gestion
       FROM configuracion_inventario ci
@@ -99,14 +91,14 @@ while ($row = mssql_fetch_assoc($resSP)) {
       if ($fechaRaw) {
         $dt = DateTime::createFromFormat('M d Y h:i:s:A', $fechaRaw);
         if ($dt) {
-          $fecha = $dt->format('d/m/Y');  // ← ahora sí: dd/mm/yyyy
+          $fecha = $dt->format('d/m/Y');
         } else {
           $fecha = null;
         }
       }
     }
 
-    // Resultado final por almacén
+  
     $data[] = [
       'codigo' => utf8_encode($codigo),
       'nombre' => utf8_encode($row['Nombre']),

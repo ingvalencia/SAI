@@ -4,7 +4,7 @@ header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 header('Content-Type: application/json');
 
-// === Conexión SQL Server ===
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -17,7 +17,7 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-// === Acción ===
+
 $action = isset($_REQUEST['action']) ? $_REQUEST['action'] : null;
 
 if (!$action) {
@@ -26,9 +26,7 @@ if (!$action) {
 }
 
 switch ($action) {
-  // ====================
-  // LISTAR
-  // ====================
+
   case 'listar':
     $query = "
   SET ANSI_NULLS ON;
@@ -109,9 +107,7 @@ switch ($action) {
     echo json_encode(["success" => true, "data" => $rows]);
     exit;
 
-  // ====================
-  // ELIMINAR
-  // ====================
+
   case 'eliminar':
     $id = isset($_POST['id']) ? intval($_POST['id']) : 0;
     if ($id <= 0) {
@@ -119,7 +115,7 @@ switch ($action) {
       exit;
     }
 
-    // Eliminar cabecera, por ON DELETE CASCADE se eliminan almacenes asociados
+
     $query = "DELETE FROM configuracion_inventario WHERE id = $id";
     $res = mssql_query($query, $conn);
 
@@ -131,9 +127,7 @@ switch ($action) {
     echo json_encode(["success" => true, "mensaje" => "Configuración eliminada"]);
     exit;
 
-  // ====================
-  // EDITAR
-  // ====================
+
   case 'editar':
     $id      = isset($_POST['id']) ? intval($_POST['id']) : 0; // este es el ID del detalle (almacén)
     $cia     = isset($_POST['cia']) ? $_POST['cia'] : null;
@@ -147,7 +141,7 @@ switch ($action) {
       exit;
     }
 
-    // Obtener configuracion_id desde el detalle
+
     $resCfg = mssql_query("SELECT configuracion_id FROM configuracion_inventario_almacenes WHERE id = $id", $conn);
     if (!$resCfg || mssql_num_rows($resCfg) === 0) {
       echo json_encode(["success" => false, "error" => "No se encontró configuración asociada"]);
@@ -156,7 +150,7 @@ switch ($action) {
     $rowCfg = mssql_fetch_assoc($resCfg);
     $configId = $rowCfg['configuracion_id'];
 
-    // Actualizar cabecera
+
     $queryCab = "
       UPDATE configuracion_inventario
       SET cia = '$cia',
@@ -171,7 +165,7 @@ switch ($action) {
       exit;
     }
 
-    // Actualizar detalle (almacén + conteo)
+   
     $queryDet = "
       UPDATE configuracion_inventario_almacenes
       SET almacen = '$almacen',

@@ -9,9 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-/* ==========================================
-   Función para normalizar la fecha a Y-m-d
-========================================== */
+
 function normalizarFecha($f) {
     if (!$f) return false;
 
@@ -25,9 +23,7 @@ function normalizarFecha($f) {
     return date("Y-m-d", $ts);
 }
 
-/* ==========================================
-   Parámetros obligatorios
-========================================== */
+
 $almacen  = isset($_POST['almacen'])  ? trim($_POST['almacen']) : null;
 $fechaRaw = isset($_POST['fecha'])    ? trim($_POST['fecha'])   : null;
 $cia      = isset($_POST['cia'])      ? trim($_POST['cia'])     : null;
@@ -44,9 +40,7 @@ if ($fecha === false) {
     exit;
 }
 
-/* ==========================================
-   Conexión SQL
-========================================== */
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -59,9 +53,7 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-/* ==========================================
-   1) Obtener ID interno del usuario elegido
-========================================== */
+
 $sqlId = "SELECT TOP 1 id FROM usuarios WHERE empleado = '$empleadoElegido'";
 $resId = mssql_query($sqlId, $conn);
 
@@ -73,10 +65,7 @@ if (!$resId || mssql_num_rows($resId) === 0) {
 $rowId = mssql_fetch_assoc($resId);
 $idElegido = intval($rowId['id']);
 
-/* ==========================================
-   2) Buscar su registro de conteo 1 ó 2
-      (el que vamos a mover a conteo 3)
-========================================== */
+
 $sqlElegido = "
     SELECT TOP 1 c.id, c.nro_conteo
     FROM CAP_CONTEO_CONFIG c
@@ -104,10 +93,7 @@ if (!$resElegido || mssql_num_rows($resElegido) === 0) {
 $rowElegido = mssql_fetch_assoc($resElegido);
 $idRowElegido = intval($rowElegido['id']);
 
-/* ==========================================
-   3) Actualizar ese registro a conteo 3
-      (estatus sigue 0 = activo)
-========================================== */
+
 $sqlUpdateElegido = "
     UPDATE CAP_CONTEO_CONFIG
     SET nro_conteo = 3,
@@ -122,10 +108,7 @@ if (!$resUpdE) {
     exit;
 }
 
-/* ==========================================
-   4) Localizar al otro usuario (perdedor)
-      y marcarlo con estatus = 1 (bloqueado)
-========================================== */
+
 $sqlOtro = "
     SELECT TOP 1 c.id
     FROM CAP_CONTEO_CONFIG c
@@ -145,7 +128,7 @@ if ($resOtro && mssql_num_rows($resOtro) > 0) {
     $rowOtro = mssql_fetch_assoc($resOtro);
     $idRowOtro = intval($rowOtro['id']);
 
-    // marcarlo como bloqueado usando estatus = 1
+
     $sqlBloq = "
         UPDATE CAP_CONTEO_CONFIG
         SET estatus = 1
@@ -159,9 +142,7 @@ if ($resOtro && mssql_num_rows($resOtro) > 0) {
     }
 }
 
-/* ==========================================
-   Respuesta final
-========================================== */
+
 echo json_encode([
     "success"          => true,
     "mensaje"          => "Tercer conteo asignado correctamente",

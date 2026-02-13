@@ -9,9 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-/* ===============================
-   PARAMETROS
-================================= */
+
 
 $cia     = isset($_GET['cia'])     ? trim($_GET['cia'])     : null;
 $almacen = isset($_GET['almacen']) ? trim($_GET['almacen']) : null;
@@ -31,9 +29,7 @@ if (!$cia || !$almacen || !$fecha || !$usuario || !$proyecto || !$cuenta_em || !
 $id_cierre = intval($row["id"]);
 
 
-/* ===============================
-   CONEXIÓN SQL SERVER
-================================= */
+
 
 $server = "192.168.0.174";
 $user   = "sa";
@@ -47,9 +43,7 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-/* ===============================
-   1. VALIDAR ESTATUS = 4
-================================= */
+
 
 $qr = mssql_query("
     SELECT MAX(estatus) AS estatus
@@ -66,9 +60,7 @@ if (!$row || intval($row['estatus']) !== 4) {
     exit;
 }
 
-/* ===============================
-   2. USUARIO REAL DEL INVENTARIO
-================================= */
+
 
 $qUser = mssql_query("
     SELECT TOP 1 usuario
@@ -86,9 +78,7 @@ if (!$usuarioInventario) {
     exit;
 }
 
-/* ===============================
-   3. CARGAR SAP VIA SP
-================================= */
+
 
 $sp = mssql_query("EXEC USP_INVEN_SAP '$almacen', '$fecha', '$usuarioInventario', '$cia'", $conn);
 
@@ -103,9 +93,7 @@ while ($r = mssql_fetch_assoc($sp)) {
     $sap[$codigo] = floatval($r['Inventario_sap']);
 }
 
-/* ===============================
-   4. LEER CONTEO FINAL
-================================= */
+
 
 $q = mssql_query("
   SELECT
@@ -144,9 +132,7 @@ while ($r = mssql_fetch_assoc($q)) {
     }
 }
 
-/* ===============================
-   5. CALCULAR DIFERENCIA
-================================= */
+
 
 foreach ($items as $codigo => &$it) {
 
@@ -156,9 +142,7 @@ foreach ($items as $codigo => &$it) {
 }
 unset($it);
 
-/* ===============================
-   1.1 VALIDAR SI YA EXISTE CIERRE (ANTI-DUPLICADO)
-================================= */
+
 
 $qExiste = mssql_query("
     SELECT TOP 1 id
@@ -177,10 +161,6 @@ if ($qExiste && ($rowExiste = mssql_fetch_assoc($qExiste))) {
     exit;
 }
 
-
-/* ===============================
-   6. INSERTAR ENCABEZADO CIERRE
-================================= */
 
 $tot_items = count($items);
 
@@ -206,9 +186,7 @@ $qr  = mssql_query("SELECT @@IDENTITY AS id", $conn);
 $row = mssql_fetch_assoc($qr);
 $id_cierre = intval($row["id"]);
 
-// ===============================
-// 6.1 GUARDAR CONFIG (PROYECTO + CUENTAS)
-// ===============================
+
 
 $proy_safe = str_replace("'", "''", $proyecto);
 $em_safe   = str_replace("'", "''", $cuenta_em);
@@ -244,9 +222,7 @@ mssql_query("
 ", $conn);
 
 
-/* ===============================
-   7. INSERTAR DETALLE + OBTENER id_cierre_det
-================================= */
+
 
 foreach ($items as $codigo => &$it) {
 
@@ -279,7 +255,7 @@ foreach ($items as $codigo => &$it) {
       )
     ", $conn);
 
-    // CAPTURAR EL ID DEL DETALLE
+
     $qDet = mssql_query("SELECT @@IDENTITY AS id", $conn);
     $rowDet = mssql_fetch_assoc($qDet);
     $it["id_cierre_det"] = intval($rowDet["id"]);
@@ -287,9 +263,7 @@ foreach ($items as $codigo => &$it) {
 
 unset($it);
 
-/* ===============================
-   8. INSERTAR AJUSTES SAP (solo dif != 0)
-================================= */
+
 
 foreach ($items as $codigo => $it) {
 
@@ -350,9 +324,7 @@ foreach ($items as $codigo => $it) {
     ", $conn);
 }
 
-/* ===============================
-   9. BLOQUEAR INVENTARIO
-================================= */
+
 
 mssql_query("
   UPDATE CAP_INVENTARIO
@@ -362,9 +334,7 @@ mssql_query("
     AND cias = '$cia'
 ", $conn);
 
-/* ===============================
-   9.1 EMITIR SEÑAL SAP (DB SIGNAL)
-================================= */
+
 
 mssql_query("
   INSERT INTO dbo.CAP_SAP_SIGNAL (id_cierre)
@@ -372,9 +342,7 @@ mssql_query("
 ", $conn);
 
 
-/* ===============================
-   10. RESPUESTA FINAL
-================================= */
+
 
 echo json_encode(array(
     "success"   => true,

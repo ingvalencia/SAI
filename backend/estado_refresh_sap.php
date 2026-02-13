@@ -4,9 +4,7 @@ header('Access-Control-Allow-Methods: GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 header('Content-Type: application/json');
 
-/* ===============================
-   PARÁMETROS
-================================ */
+
 $almacen = isset($_GET['almacen']) ? trim($_GET['almacen']) : null;
 $fecha   = isset($_GET['fecha'])   ? trim($_GET['fecha'])   : null;
 $cia     = isset($_GET['cia'])     ? trim($_GET['cia'])     : null;
@@ -16,9 +14,7 @@ if (!$almacen || !$fecha || !$cia) {
   exit;
 }
 
-/* ===============================
-   CONEXIÓN SQL SERVER
-================================ */
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -31,9 +27,7 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-/* ===============================
-   PREPARAR ALMACENES (CSV → IN)
-================================ */
+
 $almacenes = array_filter(array_map('trim', explode(',', $almacen)));
 
 if (empty($almacenes)) {
@@ -47,13 +41,7 @@ $listaAlmacenes = "'" . implode("','", $almacenesSQL) . "'";
 $fecha_safe = addslashes($fecha);
 $cia_safe   = addslashes($cia);
 
-/* ===============================
-   CONSULTA FLAG (GRUPO)
-   Regla:
-   - sap_refrescado = 1 SOLO si
-     TODOS los almacenes del grupo
-     tienen sap_refrescado = 1
-================================ */
+
 $q = mssql_query("
   SELECT
     COUNT(*) AS total,
@@ -78,9 +66,7 @@ if (!$row || intval($row['total']) === 0) {
 
 $sap_refrescado = (intval($row['total']) === intval($row['refrescados'])) ? 1 : 0;
 
-/* ===============================
-   RESPUESTA
-================================ */
+
 echo json_encode([
   "success"        => true,
   "sap_refrescado" => $sap_refrescado,

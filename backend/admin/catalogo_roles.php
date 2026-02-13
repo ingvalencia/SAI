@@ -1,5 +1,5 @@
 <?php
-// CORS
+
 $origenPermitido = 'http://localhost:3000';
 header("Access-Control-Allow-Origin: $origenPermitido");
 header("Access-Control-Allow-Credentials: true");
@@ -10,7 +10,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit;
 }
 
-// CONEXIÓN MSSQL
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -22,7 +21,6 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-// CONSULTA ROLES
 $sql = "SELECT id, nombre FROM roles ORDER BY id";
 $res = mssql_query($sql, $conn);
 

@@ -1,9 +1,7 @@
 <?php
 header('Content-Type: application/json');
 
-/* ============================
-   CONFIGURACIÓN DE CORS
-   ============================ */
+
 $origenPermitido = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
 header("Access-Control-Allow-Origin: $origenPermitido");
 header("Access-Control-Allow-Credentials: true");
@@ -15,16 +13,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit;
 }
 
-/* ============================
-   LECTURA DE PARÁMETROS (JSON o POST)
-   ============================ */
+
 $raw = file_get_contents("php://input");
 $data = json_decode($raw, true);
 if (!$data) $data = $_POST;
 
-/* ============================
-   PARÁMETROS REQUERIDOS
-   ============================ */
+
 $id_inventario = isset($data['id_inventario']) ? intval($data['id_inventario']) : null;
 $id_config     = isset($data['id_config'])     ? intval($data['id_config'])     : null;
 $nro_conteo    = isset($data['nro_conteo'])    ? intval($data['nro_conteo'])    : null;
@@ -36,9 +30,7 @@ if (!$id_inventario || !$id_config || !$nro_conteo || $cantidad === null || !$us
   exit;
 }
 
-/* ============================
-   CONEXIÓN MSSQL
-   ============================ */
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -51,14 +43,10 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-/* ============================
-   SANITIZAR PARÁMETROS
-   ============================ */
+
 $usuario_safe = addslashes($usuario);
 
-/* ============================
-   EJECUCIÓN DEL SP
-   ============================ */
+
 $sql = "
   EXEC dbo.USP_GUARDAR_CONTEO_ITEM
       @id_inventario = $id_inventario,
@@ -76,9 +64,7 @@ if (!$res) {
   exit;
 }
 
-/* ============================
-   PROCESAR RESULTADO
-   ============================ */
+
 $row = mssql_fetch_assoc($res);
 
 echo json_encode([
@@ -88,4 +74,3 @@ echo json_encode([
 ]);
 exit;
 ?>
-

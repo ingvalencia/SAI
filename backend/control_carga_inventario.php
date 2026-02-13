@@ -1,7 +1,6 @@
 <?php
 header('Content-Type: application/json');
 
-// CORS
 $origenPermitido = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
 header("Access-Control-Allow-Origin: $origenPermitido");
 header("Access-Control-Allow-Credentials: true");
@@ -13,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit;
 }
 
-// Parámetros
+
 $almacen    = isset($_GET['almacen'])      ? $_GET['almacen']      : null;
 $fecha      = isset($_GET['fecha'])        ? $_GET['fecha']        : null;
 $empleado   = isset($_GET['empleado'])     ? intval($_GET['empleado']) : null;
@@ -30,7 +29,7 @@ if (!in_array($nro_conteo, [1,2,3,7], true)) {
   exit;
 }
 
-// Conexión
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -43,13 +42,11 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-// Sanitizar
+
 $almacen_safe = addslashes($almacen);
 $cia_safe     = addslashes($cia);
 
-/* ============================
-   1. OBTENER ID DEL USUARIO
-   ============================ */
+
 $sqlUser = "SELECT TOP 1 id FROM usuarios WHERE empleado = $empleado";
 $resUser = mssql_query($sqlUser, $conn);
 
@@ -64,9 +61,7 @@ if (!$resUser || mssql_num_rows($resUser) === 0) {
 $rowUser    = mssql_fetch_assoc($resUser);
 $usuario_id = intval($rowUser['id']);
 
-/* ============================
-   2. VALIDAR PERMISOS
-   ============================ */
+
 $sqlPermiso = "
   SELECT TOP 1 id, tipo_conteo, nro_conteo, estatus
   FROM CAP_CONTEO_CONFIG
@@ -101,9 +96,7 @@ $tipo_conteo   = $rowPermiso['tipo_conteo'];
 $nro_asignado  = intval($rowPermiso['nro_conteo']);
 $estatus_cfg   = intval($rowPermiso['estatus']);
 
-/* ============================
-   3. VALIDACIÓN DE BLOQUEO (estatus = 1)
-   ============================ */
+
 if ($estatus_cfg === 1) {
     echo json_encode([
         'success' => false,
@@ -112,9 +105,7 @@ if ($estatus_cfg === 1) {
     exit;
 }
 
-/* ============================
-   4. VALIDAR QUE CAPTURA SU CONTEO ASIGNADO
-   ============================ */
+
 if ($nro_conteo !== $nro_asignado) {
     echo json_encode([
         'success' => false,
@@ -123,9 +114,7 @@ if ($nro_conteo !== $nro_asignado) {
     exit;
 }
 
-/* ============================
-   5. VALIDACIÓN DE CIERRE FINAL
-   ============================ */
+
 $sqlEstatus = "
   SELECT MAX(estatus) AS estatus
   FROM CAP_INVENTARIO
@@ -138,7 +127,7 @@ $resEstatus = mssql_query($sqlEstatus, $conn);
 if ($resEstatus && $row = mssql_fetch_assoc($resEstatus)) {
   $estatus_inv = intval($row['estatus']);
 
-  // Si el proceso ya está cerrado (4)
+
   if ($estatus_inv >= 4 && $estatus_inv != 7) {
 
     echo json_encode([
@@ -153,9 +142,6 @@ if ($resEstatus && $row = mssql_fetch_assoc($resEstatus)) {
 }
 
 
-/* ============================
-   6. EJECUCIÓN DEL SP
-   ============================ */
 $sql = "
   DECLARE @modo NVARCHAR(20);
   EXEC USP_CONTROL_CARGA_INVENTARIO
@@ -191,9 +177,7 @@ $modo       = $rowSP['modo_resultado'];
 $capturista = null;
 $mensaje    = "";
 
-/* ============================
-   7. AJUSTES DE RESPUESTA
-   ============================ */
+
 if ($modo === 'solo lectura') {
 
   $sqlUsuario = "
@@ -221,9 +205,7 @@ if ($modo === 'solo lectura') {
   $capturista = $empleado;
 }
 
-/* ============================
-   8. RESPUESTA FINAL
-   ============================ */
+
 echo json_encode([
   'success'    => true,
   'modo'       => $modo,

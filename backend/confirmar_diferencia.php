@@ -1,7 +1,7 @@
 <?php
 header('Content-Type: application/json');
 
-// CORS
+
 $origenPermitido = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
 header("Access-Control-Allow-Origin: $origenPermitido");
 header("Access-Control-Allow-Credentials: true");
@@ -13,9 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit;
 }
 
-// ============================
-// Parámetros
-// ============================
+
 $almacen  = isset($_POST['almacen']) ? $_POST['almacen'] : null;
 $fecha    = isset($_POST['fecha'])   ? $_POST['fecha']   : null;
 $empleado = isset($_POST['empleado']) ? intval($_POST['empleado']) : null;
@@ -25,9 +23,7 @@ if (!$almacen || !$fecha || !$empleado) {
   exit;
 }
 
-// ============================
-// Conexión
-// ============================
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -41,9 +37,7 @@ if (!$conn) {
 
 mssql_select_db($db, $conn);
 
-// ============================
-// Verificar que existan registros capturados
-// ============================
+
 $check = mssql_query("
   SELECT COUNT(*) AS total
   FROM CAP_INVENTARIO
@@ -58,9 +52,7 @@ if (!$row || $row['total'] == 0) {
   exit;
 }
 
-// ============================
-// Actualizar estatus a 4 (diferencias confirmadas / proceso finalizado)
-// ============================
+
 $update = mssql_query("
   UPDATE CAP_INVENTARIO
   SET estatus = 4
@@ -74,9 +66,7 @@ if (!$update) {
   exit;
 }
 
-// ============================
-// Respuesta
-// ============================
+
 echo json_encode([
   'success' => true,
   'mensaje' => 'Diferencias confirmadas correctamente. Proceso finalizado.',

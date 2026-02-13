@@ -9,9 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-/* ===============================
-   PARÁMETROS
-================================ */
+
 $almacen = isset($_GET['almacen']) ? trim($_GET['almacen']) : null;
 $fecha   = isset($_GET['fecha'])   ? trim($_GET['fecha'])   : null;
 $cia     = isset($_GET['cia'])     ? trim($_GET['cia'])     : null;
@@ -21,9 +19,7 @@ if (!$almacen || !$fecha || !$cia) {
     exit;
 }
 
-/* ===============================
-   CONEXIÓN SQL
-================================ */
+
 $conn = mssql_connect("192.168.0.174","sa","P@ssw0rd");
 if (!$conn) {
     echo json_encode(["success"=>false,"error"=>"Error de conexión"]);
@@ -31,17 +27,13 @@ if (!$conn) {
 }
 mssql_select_db("SAP_PROCESOS",$conn);
 
-/* ===============================
-   ALMACENES CSV → ARRAY
-================================ */
+
 $almacenes = array_filter(array_map('trim', explode(',', $almacen)));
 $listaAlmacenes = "'" . implode("','", array_map('addslashes', $almacenes)) . "'";
 $almacen_csv = addslashes(implode(',', $almacenes));
 $cia_safe = addslashes($cia);
 
-/* ===============================
-   VALIDAR FLAGS
-================================ */
+
 $q = mssql_query("
     SELECT COUNT(*) total,
            SUM(CASE WHEN sap_refrescado=1 THEN 1 ELSE 0 END) refrescados
@@ -62,9 +54,7 @@ if ($row['refrescados']>0) {
     exit;
 }
 
-/* ===============================
-   EJECUTAR SP (OBLIGATORIO CONSUMIR)
-================================ */
+
 $sp = mssql_query("
     EXEC dbo.USP_INVEN_SAP_MULTI
         @almacen = '$almacen_csv',
@@ -77,13 +67,11 @@ if (!$sp) {
     exit;
 }
 
-/* 🔥 CLAVE: CONSUMIR RESULTSET */
+
 while (mssql_fetch_assoc($sp)) { /* no hacer nada */ }
 mssql_free_result($sp);
 
-/* ===============================
-   MARCAR FLAG
-================================ */
+
 mssql_query("
     UPDATE CAP_INVENTARIO
     SET sap_refrescado = 1
@@ -92,9 +80,7 @@ mssql_query("
       AND cias='$cia_safe'
 ", $conn);
 
-/* ===============================
-   RESPUESTA
-================================ */
+
 echo json_encode([
     "success"=>true,
     "mensaje"=>"Datos SAP refrescados correctamente"

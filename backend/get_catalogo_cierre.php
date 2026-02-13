@@ -9,9 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit;
 }
 
-/* ===============================
-   PARAMETROS
-================================= */
+
 $cia = isset($_GET['cia']) ? trim($_GET['cia']) : null;
 
 if (!$cia) {
@@ -19,19 +17,17 @@ if (!$cia) {
   exit;
 }
 
-// Normalizar y obtener clave (MGP de MGP-CV)
+
 $cia = strtoupper($cia);
 $parts = explode('-', $cia);
 $clave = trim($parts[0]);
 if ($clave === '') $clave = $cia;
 
-// Escape básico para MSSQL (comillas simples)
+
 $cia_safe   = str_replace("'", "''", $cia);
 $clave_safe = str_replace("'", "''", $clave);
 
-/* ===============================
-   CONEXIÓN SQL SERVER
-================================= */
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -44,10 +40,7 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-/* ===============================
-   1) PROYECTO POR ALMACEN (CIA)
-   CAP_CATALOGO_PROYECTOS_ALMACEN
-================================= */
+
 $proyecto = null;
 
 $qProj = mssql_query("
@@ -60,11 +53,7 @@ if ($qProj && ($rowP = mssql_fetch_assoc($qProj))) {
   $proyecto = isset($rowP['proyecto']) ? trim($rowP['proyecto']) : null;
 }
 
-/* ===============================
-   2) CUENTAS POR CLAVE (MGP)
-   CAP_CATALOGO_CUENTAS
-   - que tengan o comiencen con la palabra clave
-================================= */
+
 $cuentas = array();
 
 $qCtas = mssql_query("
@@ -87,15 +76,13 @@ while ($r = mssql_fetch_assoc($qCtas)) {
   );
 }
 
-/* ===============================
-   RESPUESTA
-================================= */
+
 echo json_encode(array(
   "success"  => true,
   "cia"      => $cia,
-  "clave"    => $clave,            // MGP
-  "proyecto" => $proyecto,         // de proyectos_almacen
-  "cuentas"  => $cuentas           // lista filtrada por MGP
+  "clave"    => $clave,
+  "proyecto" => $proyecto,
+  "cuentas"  => $cuentas           
 ));
 
 exit;

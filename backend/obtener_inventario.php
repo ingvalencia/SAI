@@ -1,9 +1,7 @@
 <?php
 header('Content-Type: application/json');
 
-// ====================
-// CORS
-// ====================
+
 $origenPermitido = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
 header("Access-Control-Allow-Origin: $origenPermitido");
 header("Access-Control-Allow-Credentials: true");
@@ -15,9 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit;
 }
 
-// ====================
-// Parámetros requeridos
-// ====================
+
 $almacen  = isset($_GET['almacen'])  ? trim(addslashes($_GET['almacen']))  : null;
 $fecha    = isset($_GET['fecha'])    ? trim(addslashes($_GET['fecha']))    : null;
 $empleado = isset($_GET['empleado']) ? intval($_GET['empleado'])           : null;
@@ -30,9 +26,7 @@ if (!$almacen || !$fecha || !$empleado || !$cia) {
 }
 if ($estatus < 1) $estatus = 1;
 
-// ====================
-// Conexión SQL Server
-// ====================
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -45,9 +39,7 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-// =====================================================
-// Helpers
-// =====================================================
+
 function json_ok($data, $estatus, $brigada)
 {
   echo json_encode([
@@ -77,7 +69,7 @@ function loadSapMap($conn, $almacen, $fecha, $empleado, $cia, $soloNoCero = true
   $spSap = mssql_query("EXEC USP_INVEN_SAP '$almacen', '$fecha', $empleado, '$cia'", $conn);
   if (!$spSap) json_fail('Error ejecutando USP_INVEN_SAP: ' . mssql_get_last_message());
 
-  $map = []; // ItemCode => sap
+  $map = [];
   while ($r = mssql_fetch_assoc($spSap)) {
     $code = trim($r['Codigo sap']);
     $sap  = floatval($r['Inventario_sap']);
@@ -103,7 +95,7 @@ function loadConteoMap_CapInventario($conn, $almacen, $fecha, $cia, $estatus, $u
       $whereUser
   ", $conn, "Error consultando CAP_INVENTARIO estatus=$estatus: ");
 
-  $map = []; // ItemCode => cant_invfis
+  $map = [];
   while ($r = mssql_fetch_assoc($res)) {
     $map[trim($r['ItemCode'])] = floatval($r['cant_invfis']);
   }
@@ -112,7 +104,7 @@ function loadConteoMap_CapInventario($conn, $almacen, $fecha, $cia, $estatus, $u
 
 function loadConteo3Map($conn, $almacen, $fecha, $cia)
 {
-  // Conteo 3 viene de CAP_INVENTARIO_CONTEOS (nro_conteo=3) ligado a inventario estatus=3
+
   $res = run("
     SELECT c.ItemCode, ISNULL(ct.cantidad, 0) AS cantidad
     FROM CAP_INVENTARIO c
@@ -125,16 +117,14 @@ function loadConteo3Map($conn, $almacen, $fecha, $cia)
       AND c.estatus   = 3
   ", $conn, "Error consultando conteo 3: ");
 
-  $map = []; // ItemCode => cantidad
+  $map = [];
   while ($r = mssql_fetch_assoc($res)) {
     $map[trim($r['ItemCode'])] = floatval($r['cantidad']);
   }
   return $map;
 }
 
-// =====================================================
-// Detectar modo (brigada / individual) para el empleado
-// =====================================================
+
 $esBrigada = false;
 $usuarioConteo1 = null;
 $usuarioConteo2 = null;
@@ -155,7 +145,7 @@ $rMiC2 = mssql_query("
 ", $conn);
 $tengoC2 = ($rMiC2 && mssql_fetch_assoc($rMiC2)) ? true : false;
 
-// Si no tengo ambos conteos (1 y 2), intento detectar pareja
+
 if (!($tengoC1 && $tengoC2)) {
   $rU1 = mssql_query("
     SELECT TOP 1 usuario
@@ -184,22 +174,16 @@ if (!($tengoC1 && $tengoC2)) {
   }
 }
 
-// =====================================================
-// Variables comunes
-// =====================================================
+
 $itemCodeIn = "";
-$sapMap = []; // se llena en estatus 2/3/7
+$sapMap = [];
 $extraSelect = "";
 $extraJoins  = "";
 
-// =====================================================
-// BLOQUE POR ESTATUS (separado, claro, sin mezclar)
-// =====================================================
+
 switch ($estatus) {
 
-  // =====================================================
-  // ESTATUS 1: regresa inventario del empleado (tal cual)
-  // =====================================================
+
   case 1: {
       $sql = "
       SELECT  c.id AS id_inventario,c.*
@@ -218,9 +202,7 @@ switch ($estatus) {
       json_ok($data, 1, $esBrigada);
     }
 
-    // =====================================================
-    // ESTATUS 2 (INDIVIDUAL): SOLO DIFERENCIAS VS SAP
-    // =====================================================
+
   case 2: {
 
   if ($esBrigada) {
@@ -271,11 +253,6 @@ switch ($estatus) {
 }
 
 
-    // =====================================================
-    // ESTATUS 3: DOS ESCENARIOS (lo que pediste)
-    //  A) Diferencia entre conteo1 vs conteo2
-    //  B) SAP>0 y conteo1=0 y conteo2=0
-    // =====================================================
 
    case 3: {
 
@@ -467,20 +444,6 @@ switch ($estatus) {
   json_ok($data, 3, $esBrigada);
 }
 
-
-
-    // =====================================================
-    // ESTATUS 7 (CONTEO 4): BASE = ESTATUS 1 (NO 7)
-    // Regla (análoga al caso 3 pero con C3 vs SAP):
-    //  A) C3 != SAP
-    //  B) SAP>0 y C3==0 (o no existe C3)
-    //
-    // IMPORTANTE:
-    // - Para que NO te regrese todo en 0, el "base row" lo tomamos del usuario de conteo 1:
-    //   * Brigada: usuarioConteo1
-    //   * Individual: empleado
-    // =====================================================
-
     case 7: {
 
   $sapMap = loadSapMap($conn, $almacen, $fecha, $empleado, $cia, false);
@@ -642,6 +605,6 @@ switch ($estatus) {
 
 
   default:
-    // Si llega un estatus que no manejas, responde vacío
+
     json_ok([], $estatus, $esBrigada);
 }

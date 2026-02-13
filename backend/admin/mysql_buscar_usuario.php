@@ -9,9 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit;
 }
 
-/* ============================
-   PARÁMETROS
-============================ */
+
 $empleado = isset($_GET['empleado']) ? trim($_GET['empleado']) : null;
 
 if (!$empleado) {
@@ -22,9 +20,7 @@ if (!$empleado) {
   exit;
 }
 
-/* ============================
-   CONEXIÓN MYSQL 5
-============================ */
+
 $mysql_host = "192.168.0.13";
 $mysql_user = "root";
 $mysql_pass = "*MDBthor20251104$$";
@@ -42,9 +38,7 @@ if (!$conn) {
 
 mysqli_set_charset($conn, 'utf8');
 
-/* ============================
-   CONSULTA
-============================ */
+
 $sql = "
   SELECT
     noempl,
@@ -62,7 +56,7 @@ $stmt = mysqli_prepare($conn, $sql);
 mysqli_stmt_bind_param($stmt, 's', $empleado);
 mysqli_stmt_execute($stmt);
 
-/* 🔴 OBLIGATORIO EN PHP 5.4 SIN mysqlnd */
+
 mysqli_stmt_store_result($stmt);
 
 mysqli_stmt_bind_result(
@@ -85,9 +79,7 @@ if (!mysqli_stmt_fetch($stmt)) {
   exit;
 }
 
-/* ============================
-   RESPUESTA NORMALIZADA
-============================ */
+
 echo json_encode([
   'success' => true,
   'data' => [

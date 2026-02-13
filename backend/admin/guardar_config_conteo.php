@@ -1,9 +1,6 @@
 <?php
 header('Content-Type: application/json');
 
-/* ============================
-   CORS
-   ============================ */
 $origenPermitido = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
 header("Access-Control-Allow-Origin: $origenPermitido");
 header("Access-Control-Allow-Credentials: true");
@@ -14,9 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit;
 }
 
-/* ============================
-   LECTURA DE ENTRADA (JSON o POST)
-   ============================ */
+
 $raw = file_get_contents("php://input");
 $data = null;
 
@@ -31,9 +26,6 @@ if (!$data && !empty($_POST)) {
   $data = $_POST;
 }
 
-/* ============================
-   PARÁMETROS
-   ============================ */
 $tipo_conteo  = isset($data['tipo_conteo'])  ? trim($data['tipo_conteo'])  : null;
 $nro_conteo   = isset($data['nro_conteo'])   ? intval($data['nro_conteo']) : null;
 $usuarios     = isset($data['usuarios'])     ? $data['usuarios']           : null;
@@ -45,12 +37,12 @@ $usuario_crea = isset($data['usuario'])      ? trim($data['usuario'])      : nul
 
 if ($tipo_conteo === 'Brigada' && is_array($usuarios) && count($usuarios) >= 2) {
 
-    // Conteo 1 → primer usuario
+
     if ($nro_conteo == 1) {
         $usuarios = [ $usuarios[0] ];
     }
 
-    // Conteo 2 → segundo usuario
+
     else if ($nro_conteo == 2) {
         $usuarios = [ $usuarios[1] ];
     }
@@ -63,18 +55,14 @@ if (!$tipo_conteo || !$nro_conteo || !$usuarios || !$cia || !$almacen || !$fecha
   exit;
 }
 
-/* ============================
-   FORMATO DE USUARIOS
-   ============================ */
+
 if (is_array($usuarios)) {
   $usuarios_json = json_encode($usuarios);
 } else {
   $usuarios_json = $usuarios;
 }
 
-/* ============================
-   CONEXIÓN MSSQL
-   ============================ */
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -87,9 +75,7 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-/* ============================
-   SANITIZAR
-   ============================ */
+
 $tipo_conteo_safe   = addslashes($tipo_conteo);
 $usuarios_json_safe = addslashes($usuarios_json);
 $cia_safe           = addslashes($cia);
@@ -97,9 +83,7 @@ $almacen_safe       = addslashes($almacen);
 $fecha_safe         = addslashes($fecha);
 $usuario_crea_safe  = addslashes($usuario_crea);
 
-/* ============================
-   EJECUCIÓN DEL SP
-   ============================ */
+
 $sql = "
 EXEC dbo.USP_GUARDAR_CONFIG_CONTEO
     @tipo_conteo       = '$tipo_conteo_safe',
@@ -119,9 +103,7 @@ if (!$res) {
   exit;
 }
 
-/* ============================
-   RESULTADO
-   ============================ */
+
 $row = mssql_fetch_assoc($res);
 echo json_encode([
   'success' => true,

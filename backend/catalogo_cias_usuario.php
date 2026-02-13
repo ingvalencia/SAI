@@ -17,7 +17,7 @@ if (!$empleado) {
   exit;
 }
 
-// Conexión
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -31,7 +31,6 @@ if (!$conn) {
 
 mssql_select_db($db, $conn);
 
-// Obtener ID de usuario
 $sqlUsuario = "SELECT id FROM usuarios WHERE empleado = '$empleado'";
 $resUsuario = @mssql_query($sqlUsuario, $conn);
 
@@ -43,7 +42,7 @@ if (!$resUsuario || !mssql_num_rows($resUsuario)) {
 $rowUsuario = mssql_fetch_assoc($resUsuario);
 $usuarioId = $rowUsuario['id'];
 
-// Obtener CIAs únicas del usuario activo
+
 $sql = "SELECT DISTINCT cia FROM usuario_local WHERE usuario_id = $usuarioId AND activo = 1";
 $res = @mssql_query($sql, $conn);
 

@@ -1,5 +1,5 @@
 <?php
-// --- Encabezados para CORS y JSON ---
+
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-// --- Parámetros recibidos ---
+
 $id_inventario = isset($_POST['id_inventario']) ? intval($_POST['id_inventario']) : null;
 $nro_conteo    = isset($_POST['nro_conteo'])    ? intval($_POST['nro_conteo'])    : null;
 $cantidad      = isset($_POST['cantidad'])      ? floatval($_POST['cantidad'])    : null;
@@ -18,20 +18,20 @@ $usuario       = isset($_POST['usuario'])       ? trim($_POST['usuario'])       
 
 
 
-// --- Validar parámetros obligatorios ---
+
 if ($id_inventario === null || $nro_conteo === null || $cantidad === null || $usuario === null) {
     echo json_encode(["success" => false, "error" => "Faltan parámetros"]);
     exit;
 }
 
-// --- Validar rango de conteo ---
+
 if (!in_array($nro_conteo, [1, 2, 3, 7])) {
 
     echo json_encode(["success" => false, "error" => "Número de conteo inválido"]);
     exit;
 }
 
-// --- Conexión a SQL Server ---
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -44,9 +44,7 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-/* ===========================================================
-   1. Obtener id interno del usuario (tabla usuarios)
-=========================================================== */
+
 $sqlUID = "
     SELECT TOP 1 id
     FROM usuarios
@@ -62,9 +60,7 @@ if (!$resUID || mssql_num_rows($resUID) === 0) {
 $rowUID = mssql_fetch_assoc($resUID);
 $usuario_id = intval($rowUID['id']);
 
-/* ===========================================================
-   2. Validar si el usuario está BLOQUEADO (estatus = 1)
-=========================================================== */
+
 if ($nro_conteo == 3) {
 
     $sqlBlock = "
@@ -128,9 +124,7 @@ if ($nro_conteo_asignado !== $nro_conteo) {
     exit;
 }
 
-/* ===========================================================
-   4. Verificar si ya existe registro en CAP_INVENTARIO_CONTEOS
-=========================================================== */
+
 $existe = mssql_query("
   SELECT COUNT(*) AS total
   FROM CAP_INVENTARIO_CONTEOS
@@ -142,7 +136,7 @@ $row = mssql_fetch_assoc($existe);
 
 if ($row && intval($row['total']) > 0) {
 
-    // --- UPDATE ---
+
     $sql = "
         UPDATE CAP_INVENTARIO_CONTEOS
         SET cantidad = $cantidad,
@@ -153,7 +147,7 @@ if ($row && intval($row['total']) > 0) {
 
 } else {
 
-    // --- INSERT ---
+
     $sql = "
         INSERT INTO CAP_INVENTARIO_CONTEOS (id_inventario, nro_conteo, cantidad, usuario, fecha)
         VALUES ($id_inventario, $nro_conteo, $cantidad, '$usuario', GETDATE())
@@ -161,7 +155,7 @@ if ($row && intval($row['total']) > 0) {
 
 }
 
-// Ejecutar
+
 $res = mssql_query($sql, $conn);
 
 if (!$res) {
@@ -169,9 +163,7 @@ if (!$res) {
     exit;
 }
 
-/* ===========================================================
-   5. Actualizar CAP_INVENTARIO.cant_invfis
-=========================================================== */
+
 $updInv = "
     UPDATE CAP_INVENTARIO
     SET cant_invfis = $cantidad
@@ -184,9 +176,7 @@ if (!$resInv) {
     exit;
 }
 
-/* ===========================================================
-   RESPUESTA OK
-=========================================================== */
+
 echo json_encode([
     "success" => true,
     "mensaje" => "Conteo $nro_conteo guardado correctamente"

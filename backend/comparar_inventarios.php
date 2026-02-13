@@ -143,9 +143,7 @@ if ($nro_conteo_mio && count($asignaciones) >= 2) {
 /* Es brigada si hay compañero identificado */
 $esBrigada = ($empleado_companero !== null);
 
-/* ============================================================
-   DETECTAR SI YA EXISTE CONFIG PARA TERCER CONTEO (nro_conteo = 3)
-============================================================ */
+
 $tercer_conteo_asignado = false;
 $empleado_tercer_conteo = null;
 $estatus_tercer_conteo  = null;
@@ -198,25 +196,23 @@ if ($r4 && ($row4 = mssql_fetch_assoc($r4))) {
   $cuarto_conteo_asignado = true;
   $estatus_cuarto_conteo  = intval($row4['estatus']);
 
-  // sacar un empleado asignado (igual que tu lógica actual)
-  $ua = $row4['usuarios_asignados']; // ejemplo: "[12][15]"
+
+  $ua = $row4['usuarios_asignados'];
   preg_match_all('/\[(\d+)\]/', $ua, $m);
  if (!empty($m[1])) {
-    $idCuarto = intval($m[1][0]); // esto SI es usuarios.id
+    $idCuarto = intval($m[1][0]);
 
     $sqlE4 = "SELECT TOP 1 empleado FROM usuarios WHERE id = $idCuarto";
     $resE4 = mssql_query($sqlE4, $conn);
     if ($resE4 && ($rowE4 = mssql_fetch_assoc($resE4))) {
-        $empleado_cuarto_conteo = $rowE4['empleado']; // ✅ empleado real
+        $empleado_cuarto_conteo = $rowE4['empleado'];
     }
 }
 
 }
 
 
-/* ============================================================
-   ESTATUS GLOBAL DEL PROCESO (desde CAP_INVENTARIO)
-============================================================ */
+
 $estatus_global = null;
 $sqlEst = "
   SELECT MAX(estatus) AS estatus_global
@@ -237,9 +233,7 @@ if ($estatus_global !== null && $estatus_global >= 4) {
     $modo = "solo lectura";
 }
 
-/* ============================================================
-   CARGAR BASE SAP
-============================================================ */
+
 $sp = mssql_query("EXEC USP_INVEN_SAP '$almacen_safe', '$fecha', $usuario, '$cia_safe'", $conn);
 
 $base = [];
@@ -265,9 +259,7 @@ if ($sp) {
     }
 }
 
-/* ============================================================
-   CARGAR CONTEOS DEL USUARIO
-============================================================ */
+
 $sqlC1 = "
     SELECT c.ItemCode, ct.nro_conteo, ct.cantidad
     FROM CAP_INVENTARIO c
@@ -294,16 +286,14 @@ if ($resC1) {
         if ($nro === 7) $base[$codigo]['conteo4'] = $cant;
 
 
-        // Solo el conteo que me corresponde (1 ó 2, según CAP_CONTEO_CONFIG)
+
         if ($nro_conteo_mio !== null && $nro_conteo_mio === $nro) {
             $base[$codigo]['conteo_mio'] = $cant;
         }
     }
 }
 
-/* ============================================================
-   CARGAR CONTEOS DEL COMPAÑERO (BRIGADA)
-============================================================ */
+
 if ($empleado_companero) {
     $sqlC2 = "
         SELECT c.ItemCode, ct.nro_conteo, ct.cantidad
@@ -325,7 +315,7 @@ if ($empleado_companero) {
 
             if (!isset($base[$codigo])) continue;
 
-            // Conteo compañero (normalmente el conteo opuesto: 1 vs 2)
+
             if ($nro === 1) $base[$codigo]['conteo1'] = $cant;
             if ($nro === 2) $base[$codigo]['conteo2'] = $cant;
             $base[$codigo]['conteo_comp'] = $cant;
@@ -333,9 +323,7 @@ if ($empleado_companero) {
     }
 }
 
-/* ============================================================
-   CARGAR CONTEO 3 DEL EMPLEADO ASIGNADO A TERCER CONTEO
-============================================================ */
+
 if ($empleado_tercer_conteo) {
     $sqlC3 = "
         SELECT c.ItemCode, ct.nro_conteo, ct.cantidad
@@ -364,9 +352,7 @@ if ($empleado_tercer_conteo) {
     }
 }
 
-/* ============================================================
-   CARGAR CONTEO 4 (nro_conteo=7) DEL EMPLEADO ASIGNADO
-============================================================ */
+
 if ($empleado_cuarto_conteo) {
     $sqlC4 = "
         SELECT c.ItemCode, ct.nro_conteo, ct.cantidad
@@ -396,10 +382,6 @@ if ($empleado_cuarto_conteo) {
 }
 
 
-
-/* ============================================================
-   CALCULAR DIFERENCIAS
-============================================================ */
 $resultado             = [];
 $hay_dif_brigada       = false;
 $hay_dif_mio_vs_sap    = false;
@@ -415,7 +397,7 @@ foreach ($base as $item) {
     $dif_mio_vs_comp = round($mio  - $comp, 2);
 
     if ($dif_mio_vs_comp != 0) {
-        $hay_dif_brigada = true; // hay diferencia entre A y B
+        $hay_dif_brigada = true;
     }
     if ($dif_mio_vs_sap != 0)  $hay_dif_mio_vs_sap  = true;
     if ($dif_comp_vs_sap != 0) $hay_dif_comp_vs_sap = true;
@@ -441,9 +423,7 @@ foreach ($base as $item) {
     ];
 }
 
-/* ============================================================
-   RESPUESTA
-============================================================ */
+
 echo json_encode([
     "success"                  => true,
     "brigada"                  => $esBrigada,
@@ -451,7 +431,7 @@ echo json_encode([
     "mi_nro_conteo"            => $nro_conteo_mio,
     "empleado_companero"       => $empleado_companero,
     "nro_conteo_companero"     => $nro_conteo_companero,
-    "nro_conteo"               => $nro_conteo_mio,          // compatibilidad con front actual
+    "nro_conteo"               => $nro_conteo_mio,          
     "hay_diferencias_brigada"  => $hay_dif_brigada,
     "hay_dif_mio_vs_sap"       => $hay_dif_mio_vs_sap,
     "hay_dif_comp_vs_sap"      => $hay_dif_comp_vs_sap,

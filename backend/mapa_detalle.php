@@ -1,11 +1,11 @@
 <?php
-// === CORS / JSON ===
+
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 header('Content-Type: application/json');
 
-// === Parámetros ===
+
 $almacen = isset($_GET['almacen']) ? trim($_GET['almacen']) : null;
 $fecha   = isset($_GET['fecha'])   ? trim($_GET['fecha'])   : null;
 $cia     = isset($_GET['cia'])     ? trim($_GET['cia'])     : null;
@@ -16,7 +16,7 @@ if (!$almacen || !$fecha || !$cia) {
   exit;
 }
 
-// === Conexión SQL Server ===
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -29,7 +29,6 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-// === Fallback de usuario si no llegó desde el cliente ===
 if (!$usuario) {
   $resUsr = mssql_query("
     SELECT MAX(usuario) AS usuario
@@ -45,7 +44,7 @@ if (!$usuario) {
   }
 }
 
-// === Inventario SAP desde SP (base del merge) ===
+
 $sp = mssql_query("EXEC [USP_INVEN_SAP] '$almacen', '$fecha', '$usuario', '$cia'", $conn);
 if (!$sp) {
   $error = mssql_get_last_message();
@@ -53,7 +52,7 @@ if (!$sp) {
   exit;
 }
 
-$items = []; // clave: codigo
+$items = [];
 while ($row = mssql_fetch_assoc($sp)) {
   $codigo = trim($row['Codigo sap']);
   $items[$codigo] = [
@@ -77,7 +76,7 @@ while ($row = mssql_fetch_assoc($sp)) {
   ];
 }
 
-// === Traer conteos desde CAP_INVENTARIO_CONTEOS (mapeo directo) ===
+
 $q = mssql_query("
   SELECT c.id, c.ItemCode, c.almacen, c.cias, c.estatus,
          ct.nro_conteo, ct.cantidad
@@ -93,7 +92,7 @@ while ($row = mssql_fetch_assoc($q)) {
   $codigo = trim($row['ItemCode']);
 
   if (!isset($items[$codigo])) {
-    // Código no vino del SP: crear base vacía
+
     $items[$codigo] = [
       'id_inventario'  => $row['id'],
       'codfam'         => '',
@@ -117,7 +116,7 @@ while ($row = mssql_fetch_assoc($q)) {
 
   $items[$codigo]['id_inventario'] = $row['id'];
 
-  // Mapear nro_conteo→conteo1/2/3 (0→1, 1→1, 2→2, >=3→3)
+
   if ($row['nro_conteo'] !== null) {
     $n = (int)$row['nro_conteo'];
     $val = (float)$row['cantidad'];
@@ -127,7 +126,7 @@ while ($row = mssql_fetch_assoc($q)) {
   }
 }
 
-// === Estatus general del proceso ===
+
 $resEstatus = mssql_query("
   SELECT TOP 1 estatus
   FROM CAP_INVENTARIO
@@ -142,7 +141,7 @@ if ($resEstatus && $rowEst = mssql_fetch_assoc($resEstatus)) {
   $estatus = (int)$rowEst['estatus'];
 }
 
-// === Calcular diferencia con el conteo según estatus (1→c1, 2→c2, >=3→c3) ===
+
 $out = [];
 foreach ($items as $it) {
   $base = 0.0;
@@ -160,7 +159,7 @@ foreach ($items as $it) {
   $out[] = $it;
 }
 
-// === Respuesta ===
+
 echo json_encode([
   'success' => true,
   'estatus' => $estatus,

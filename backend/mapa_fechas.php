@@ -1,5 +1,5 @@
 <?php
-// === HEADERS CORS / JSON ===
+
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit;
 }
 
-// === PARÁMETROS ===
+
 $cia = isset($_GET['cia']) ? trim($_GET['cia']) : null;
 
 if (!$cia) {
@@ -18,7 +18,7 @@ if (!$cia) {
   exit;
 }
 
-// === CONEXIÓN SQL SERVER ===
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -31,9 +31,7 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-// ==========================================================
-// NUEVA CONSULTA basada en CAP_CONTEO_CONFIG
-// ==========================================================
+
 $query = "
   SELECT
       CONVERT(VARCHAR(10), fecha_asignacion, 23) AS fecha,
@@ -53,7 +51,7 @@ if (!$res) {
   exit;
 }
 
-// === PROCESAR RESULTADO ===
+
 $fechas = [];
 while ($row = mssql_fetch_assoc($res)) {
   $fechas[] = [
@@ -62,7 +60,7 @@ while ($row = mssql_fetch_assoc($res)) {
   ];
 }
 
-// === RESPUESTA JSON ===
+
 echo json_encode([
   "success" => true,
   "data"    => $fechas

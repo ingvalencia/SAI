@@ -1,5 +1,5 @@
 <?php
-// ====== CORS para permitir cookies desde React local ======
+
 $origenPermitido = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
 if (in_array($origenPermitido, [
   'http://localhost:3000',
@@ -18,8 +18,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 
-
-// ====== INPUT ======
 $raw   = file_get_contents("php://input");
 $input = $raw ? json_decode($raw, true) : $_POST;
 
@@ -40,7 +38,7 @@ if (!$empleado || !$nombre || !$password || !$rol_id) {
   exit;
 }
 
-// ====== CONEXIÓN MSSQL ======
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -57,14 +55,12 @@ $empleadoEsc = str_replace("'", "''", $empleado);
 $nombreEsc   = str_replace("'", "''", $nombre);
 $emailEsc    = $email ? str_replace("'", "''", $email) : null;
 
-// ====== VALIDAR SI YA EXISTE ======
+
 $check = mssql_query("SELECT id FROM usuarios WHERE empleado = '{$empleadoEsc}'", $conn);
 if ($check && mssql_num_rows($check) > 0) {
   echo json_encode(["success" => false, "error" => "El empleado ya existe"]);
   exit;
 }
-
-// ====== CREAR USUARIO ======
 
 
 $campos  = "empleado, nombre, password_hash, salt, activo, creado_por";
@@ -82,15 +78,14 @@ if (!$ok) {
   exit;
 }
 
-// ====== OBTENER ID DEL USUARIO NUEVO ======
+
 $getUser = mssql_query("SELECT id FROM usuarios WHERE empleado = '{$empleadoEsc}'", $conn);
 $u = mssql_fetch_assoc($getUser);
 $usuario_id = intval($u["id"]);
 
-// ====== ASIGNAR ROL SELECCIONADO ======
 mssql_query("INSERT INTO usuario_rol (usuario_id, rol_id) VALUES ($usuario_id, $rol_id)", $conn);
 
-// ====== SOLO ROL 3 asigna locales ======
+
 if ($rol_creador === 3 && $cia && count($locales) > 0) {
   foreach ($locales as $local_codigo) {
     $localEsc = str_replace("'", "''", $local_codigo);
@@ -100,7 +95,7 @@ if ($rol_creador === 3 && $cia && count($locales) > 0) {
   }
 }
 
-// ====== RESPUESTA OK ======
+
 echo json_encode([
   "success" => true,
   "usuario" => [

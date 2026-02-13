@@ -16,7 +16,7 @@ export default function LectorCodigo({ onCodigoDetectado }) {
       } else if (e.key.length === 1) {
         bufferRef.current += e.key;
 
-        // si no llega Enter, flush automático en 200ms
+
         if (timerRef.current) clearTimeout(timerRef.current);
         timerRef.current = setTimeout(() => {
           const code = bufferRef.current.trim();

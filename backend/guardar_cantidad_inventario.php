@@ -1,7 +1,7 @@
 <?php
 header('Content-Type: application/json');
 
-// Permitir CORS si usas React local
+
 $origenPermitido = 'http://localhost:3000';
 header("Access-Control-Allow-Origin: $origenPermitido");
 header("Access-Control-Allow-Credentials: true");
@@ -13,9 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit;
 }
 
-// ==============================
-// 1. Parámetros
-// ==============================
+
 $almacen   = isset($_POST['almacen'])   ? $_POST['almacen']   : null;
 $fecha     = isset($_POST['fecha'])     ? $_POST['fecha']     : null;
 $cia       = isset($_POST['cia'])       ? $_POST['cia']       : null;
@@ -28,16 +26,14 @@ if (!$almacen || !$fecha || !$cia || !$empleado || !$itemCode || $cantidad === n
   exit;
 }
 
-// Sanitizar
+
 $almacen  = addslashes($almacen);
 $fecha    = addslashes($fecha);
 $cia      = addslashes($cia);
 $itemCode = addslashes($itemCode);
 $cantidad = floatval($cantidad);
 
-// ==============================
-// 2. Conexión
-// ==============================
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -50,9 +46,7 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-// ==============================
-// 3. Update en CAP_INVENTARIO
-// ==============================
+
 $sql = "
   UPDATE CAP_INVENTARIO
   SET cant_invfis = $cantidad,
@@ -72,9 +66,7 @@ if (!$res) {
   exit;
 }
 
-// ==============================
-// 4. Respuesta
-// ==============================
+
 echo json_encode([
   'success' => true,
   'mensaje' => "Cantidad actualizada para $itemCode en $almacen ($cia)"

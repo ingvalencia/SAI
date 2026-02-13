@@ -37,8 +37,6 @@ export default function CapturaInventario() {
   const [capturaActiva, setCapturaActiva] = useState(false);
   const ultimaFirma = useRef(null);
 
-
-
   const nombre = sessionStorage.getItem("nombre") || "";
   const empleadoSesion = sessionStorage.getItem("empleado") || "";
 
@@ -54,7 +52,6 @@ export default function CapturaInventario() {
   const temporizadorLectura = useRef(null);
   const UMBRAL_SCANNER = 8; //
 
-  //
   const [asignacionCargada, setAsignacionCargada] = useState(false);
   const [idConfig, setIdConfig] = useState(null);
   const [tipoConteo, setTipoConteo] = useState("");
@@ -73,9 +70,6 @@ export default function CapturaInventario() {
   const [historialConteo, setHistorialConteo] = useState({});
 
   const [editandoCelda, setEditandoCelda] = useState(false);
-
-
-
 
  useEffect(() => {
     const empleado = sessionStorage.getItem("empleado");
@@ -97,8 +91,6 @@ export default function CapturaInventario() {
           setAlmacenAsignado(a.almacen);
          const fechaNormalizada = toISODate(a.fecha);
           setFechaAsignada(fechaNormalizada);
-
-
 
           setEsBrigada(a.tipo_conteo === "Brigada");
           setBloquearSeleccion(true);
@@ -134,7 +126,7 @@ export default function CapturaInventario() {
 
   // === Detección de conexión y errores de red ===
   useEffect(() => {
-    // Interceptor global de errores Axios
+
     axios.interceptors.response.use(
       (response) => response,
       (error) => {
@@ -159,7 +151,6 @@ export default function CapturaInventario() {
       }
     );
 
-    // Monitoreo constante de conexión
     let estabaOffline = !navigator.onLine;
 
     const verificarConexion = async () => {
@@ -186,10 +177,8 @@ export default function CapturaInventario() {
       }
     };
 
-    // Verifica cada 3 segundos el estado
     const intervalo = setInterval(verificarConexion, 3000);
 
-    // También escucha eventos nativos
     window.addEventListener("online", verificarConexion);
     window.addEventListener("offline", verificarConexion);
 
@@ -220,12 +209,11 @@ export default function CapturaInventario() {
   const esMovil = navigator.userAgentData?.mobile ??
                 /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-
   const getEmpleadoSeguro = () => {
     return (
       sessionStorage.getItem("empleado") ||
       localStorage.getItem("empleado") ||
-      empleado || // fallback por si viene de estado
+      empleado ||
       ""
     );
   };
@@ -253,24 +241,18 @@ export default function CapturaInventario() {
     return JSON.stringify({ cia, almacen, fecha, empleado, estatus });
   };
 
-
-
   const soportaCamara = !!(navigator.mediaDevices?.getUserMedia) && window.isSecureContext;
 
-  //
   const toISODate = (v) => {
     if (!v) return "";
 
     const s = String(v).trim();
 
-    // YA está en ISO
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
 
-    //
     const m1 = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (m1) return `${m1[1]}-${m1[2]}-${m1[3]}`;
 
-    //
     const m3 = s.match(
       /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})\s+(\d{4})/i
     );
@@ -293,13 +275,10 @@ export default function CapturaInventario() {
   };
 
 
-
   const iniciarCaptura = async () => {
     const cia = asignacionCargada ? ciaAsignada : ciaSeleccionada;
     const alm = asignacionCargada ? almacenAsignado : almacen;
     const fec = asignacionCargada ? fechaAsignada : fecha;
-
-
 
     const fecISO = toISODate(fec);
     const empSeguro = getEmpleadoSeguro();
@@ -333,8 +312,6 @@ export default function CapturaInventario() {
     return;
   }
 
-
-
   const firmaActual = getFirmaParametros({
     cia,
     almacen: alm,
@@ -355,9 +332,7 @@ export default function CapturaInventario() {
   }
 
   try {
-    // =======================
-    //  Modal de carga
-    // =======================
+
     MySwal.fire({
       title: "Procesando...",
       text: "Contactando con servidor, por favor espera",
@@ -367,9 +342,6 @@ export default function CapturaInventario() {
       didOpen: () => Swal.showLoading(),
     });
 
-    // =======================
-    // 1️Obtener estatus real (SOLO para modo manual)
-    // =======================
     const estatusRes = await axios.get(
       "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/verifica_estatus.php",
       { params: { almacen: alm, fecha: fecISO, empleado: emp, cia } }
@@ -378,10 +350,6 @@ export default function CapturaInventario() {
     if (!estatusRes.data.success)
       throw new Error(estatusRes.data.error);
 
-    // ======================================================
-    // Si ya existe el conteo, NO capturar.
-    // Redirigir DIRECTO a comparar.
-    // ======================================================
     if (estatusRes.data.existe_conteo === true) {
       const conteoExistente = Number(estatusRes.data.nro_conteo || 0);
 
@@ -397,12 +365,10 @@ export default function CapturaInventario() {
       });
     }
 
-
-
-    let estatusReal = nroAsignado; // 1 o 2 según asignación
+    let estatusReal = nroAsignado;
 
     if (!asignacionCargada) {
-      // solo modo manual usa estatus de BD
+
       estatusReal = estatusRes.data.estatus || nroAsignado || 1;
     }
 
@@ -427,9 +393,6 @@ export default function CapturaInventario() {
         });
       }
 
-    // =======================
-    // 2️ Consultar modo de captura
-    // =======================
     Swal.update({
       title: "Procesando...",
       text: "Verificando modo de captura",
@@ -463,23 +426,16 @@ export default function CapturaInventario() {
 
     setModo(modo);
 
-    // Bloquear SIEMPRE que el backend diga "solo lectura"
     const debeBloquear = (modo === "solo lectura");
     setBloqueado(debeBloquear);
 
-    // mensaje tal cual viene del backend
     setMensajeModo(mensaje);
 
-    // Mostrar botón de comparar solo si es solo lectura
     const esCapturista =
       capturista === null || parseInt(capturista) === parseInt(emp);
     setMostrarComparar(modo === "solo lectura" && esCapturista);
 
-
-    // =======================
-    // 3️Cargar inventario
-    // =======================
-    Swal.update({
+     Swal.update({
       title: "Procesando...",
       text: "Cargando inventario físico desde base de datos",
     });
@@ -503,7 +459,6 @@ export default function CapturaInventario() {
 
     Swal.close();
 
-    // Guardar firma
     ultimaFirma.current = getFirmaParametros({
       cia,
       almacen: alm,
@@ -531,8 +486,6 @@ export default function CapturaInventario() {
 };
 
 
-
-
   const cambiarCantidad = (uid, valor) => {
     const nuevo = [...datos];
     const idx = nuevo.findIndex(
@@ -550,7 +503,6 @@ export default function CapturaInventario() {
     let raw = (rawInput ?? "").toString().trim().replace(/\s+/g, "");
     if (raw === "") return { ok: true, total: "" };
 
-    // Solo números y + -
     if (!/^[0-9+\-\.]+$/.test(raw)) {
       return { ok: false, error: "Formato inválido. Usa 10+20, +5 o -3" };
     }
@@ -558,11 +510,11 @@ export default function CapturaInventario() {
     let total;
 
     try {
-      // Caso: empieza con + o - → parte del valor anterior
+
       if (raw.startsWith("+") || raw.startsWith("-")) {
         total = actualValue + Function(`return ${raw}`)();
       } else {
-        // Caso: expresión directa 10+30+30
+
         total = Function(`return ${raw}`)();
       }
     } catch {
@@ -581,21 +533,15 @@ export default function CapturaInventario() {
   };
 
 
-
-
  const autoGuardar = async (item, cantidad) => {
   try {
 
-    console.log("ITEM COMPLETO >>>", item);
     const form = new FormData();
     form.append("id_inventario", item.id_inventario);
-
 
     const conteoFinal = Number(estatus);
 
     form.append("nro_conteo", conteoFinal);
-
-
 
     const cantidadFinal = Number(cantidad);
 
@@ -622,7 +568,7 @@ export default function CapturaInventario() {
 };
 
   const confirmarInventario = async () => {
-  // 1️ Validar captura
+
   const hayCaptura = datos.some(
     (item) =>
       item.cant_invfis !== "" &&
@@ -639,7 +585,7 @@ export default function CapturaInventario() {
     return;
   }
 
-  // 2️ Confirmación del usuario
+
   const confirmacion = await MySwal.fire({
     title: "¿Confirmar inventario?",
     text: "Esta acción es irreversible. ¿Estás seguro?",
@@ -650,18 +596,15 @@ export default function CapturaInventario() {
   });
   if (!confirmacion.isConfirmed) return;
 
-  // 3️ Configuración inicial
+
   const estatusFinal = asignacionCargada ? nroConteo : estatus;
-
-  //console.log(">>> Enviando estatusFinal:", estatusFinal, "nroConteo:", nroConteo, "estatus:", estatus);
-
-  const loteTamaño = 200; // Lotes pequeños para estabilidad
+  const loteTamaño = 200;
   const lotes = [];
   for (let i = 0; i < datos.length; i += loteTamaño) {
     lotes.push(datos.slice(i, i + loteTamaño));
   }
 
-  // 4️ Modal persistente de progreso
+
   Swal.fire({
     title: "Procesando Registros...",
     html: `
@@ -693,10 +636,9 @@ export default function CapturaInventario() {
   });
 
   try {
-    // 5️ Obtener parámetros efectivos
+
     const { cia, almacen: almEf, fecha: fecEf, empleado: empEf } = getParametrosEfectivos();
 
-    // 6️ Procesar cada lote secuencialmente
     for (let i = 0; i < lotes.length; i++) {
       const payload = new FormData();
       payload.append("almacen", almEf);
@@ -704,7 +646,6 @@ export default function CapturaInventario() {
       payload.append("empleado", empEf);
       payload.append("cia", cia);
       payload.append("estatus", asignacionCargada ? parseInt(nroConteo) : parseInt(estatusFinal));
-
 
       payload.append("datos", JSON.stringify(lotes[i]));
 
@@ -714,10 +655,8 @@ export default function CapturaInventario() {
 
       const res = await axios.post(endpoint, payload);
 
-
       if (!res.data.success) throw new Error(res.data.error);
 
-      // 7️ Actualizar barra de progreso
       const progreso = document.getElementById("progresoInterno");
       const porcentajeTexto = document.getElementById("porcentajeTexto");
       const mensaje = document.getElementById("mensajeLote");
@@ -731,7 +670,6 @@ export default function CapturaInventario() {
       await new Promise((r) => setTimeout(r, 150));
     }
 
-    // 8️ Finalización
     Swal.close();
     setBloqueado(true);
 
@@ -743,7 +681,6 @@ export default function CapturaInventario() {
       allowOutsideClick: false,
     });
 
-    // 9️ Navegar con parámetros efectivos
     navigate("/comparar", {
     state: (() => {
       const p = getParametrosEfectivos();
@@ -780,10 +717,8 @@ export default function CapturaInventario() {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Captura");
 
-    // Agrega encabezados
     worksheet.addRow(headers);
 
-    // Estilo de encabezado: rojo con blanco
     headers.forEach((_, idx) => {
       const cell = worksheet.getRow(1).getCell(idx + 1);
       cell.fill = {
@@ -797,7 +732,6 @@ export default function CapturaInventario() {
       };
     });
 
-    // Agrega filas
     datosFiltrados.forEach((item, i) => {
       worksheet.addRow([
         i + 1,
@@ -812,13 +746,12 @@ export default function CapturaInventario() {
       ]);
     });
 
-    // Aplica autofiltro
     worksheet.autoFilter = {
       from: { row: 1, column: 1 },
       to: { row: 1, column: headers.length },
     };
 
-    // Guarda archivo
+
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -842,17 +775,11 @@ export default function CapturaInventario() {
     label: `${alm.codigo} - ${alm.nombre}`,
   }));
 
-  //
   const valorPrevioRef = useRef({});
-
   const inputRefs = useRef([]);
 
-  //
-
-
- // === Detección automática de escáner o entrada manual ===
-let tiempoUltimo = 0;
-let bufferCodigo = "";
+  let tiempoUltimo = 0;
+  let bufferCodigo = "";
 
   const handleCodigoDetectado = async (codigo) => {
     if (modalActivo) return;
@@ -913,7 +840,6 @@ let bufferCodigo = "";
               const delta = ahora - tiempoUltimo;
               tiempoUltimo = ahora;
 
-              // Escáner: entrada rápida (solo dígitos) → autoguarda
               if (delta < 35 && /^[0-9]$/.test(e.key)) {
                 bufferCodigo += e.key;
                 clearTimeout(window.timerScanner);
@@ -925,7 +851,6 @@ let bufferCodigo = "";
                 }, 80);
               }
 
-              // Manual: Enter explícito
               if (e.key === "Enter") {
                 e.preventDefault();
                 document.querySelector(".swal2-confirm")?.click();
@@ -945,7 +870,6 @@ let bufferCodigo = "";
 
           const base = parseFloat(producto.cant_invfis) || 0;
 
-          //
           const { ok, total, error } = calcularTotalDesdeInput(raw, base);
 
           if (!ok) {
@@ -960,12 +884,9 @@ let bufferCodigo = "";
 
       if (cantidad !== undefined) {
         const nuevo = [...datos];
-
-        // ✅ AQUÍ ESTABA EL ERROR: NO SUMES, YA ES TOTAL
         nuevo[index].cant_invfis = cantidad;
         setDatos(nuevo);
 
-        // ✅ guarda el TOTAL
         await autoGuardar(producto, cantidad);
 
         setBusqueda("");
@@ -1004,8 +925,6 @@ let bufferCodigo = "";
   };
 
 
-
-
   const datosFiltrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
 
@@ -1021,8 +940,6 @@ let bufferCodigo = "";
       const matchSubfamilia =
         !subfamiliaSeleccionada || item.nom_subfam === subfamiliaSeleccionada;
 
-
-      // CUARTO CONTEO: NO FILTRA NADA MÁS
       return matchBusqueda && matchFamilia && matchSubfamilia;
     });
   }, [
@@ -1047,13 +964,11 @@ let bufferCodigo = "";
       setPaginaActual(1);
   }, [busqueda, familiaSeleccionada, subfamiliaSeleccionada]);
 
-  // Mantener siempre el foco en el input de captura rápida
  useEffect(() => {
   const mantenerFoco = setInterval(() => {
     const haySwal = document.querySelector(".swal2-container");
     if (haySwal && haySwal.style.display !== "none") return;
 
-    // detectar si el usuario está en otro input o select
     const activo = document.activeElement;
     const esCampoEditable =
       activo &&
@@ -1077,8 +992,6 @@ let bufferCodigo = "";
       <h1 className="text-3xl md:text-4xl font-extrabold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-red-700 via-indigo-600 to-green-600 tracking-tight drop-shadow-sm text-center">
         📦 Captura de Inventario Físico
       </h1>
-
-      {/* Lector invisible solo si NO es móvil */}
       {datos.length > 0 && !soportaCamara && lectorActivo && (
         <LectorCodigo
           onCodigoDetectado={(codigo) => {
@@ -1088,13 +1001,11 @@ let bufferCodigo = "";
         />
       )}
 
-
-      {/* Botón escaneo en vivo - solo en móviles */}
       {datos.length > 0 && soportaCamara && esMovil && (
         <button
           onClick={() => {
-            setLectorActivo(false); // Desactiva escáner invisible
-            setMostrarEscanerCamara(true); // Activa Quagga
+            setLectorActivo(false); //
+            setMostrarEscanerCamara(true); //
           }}
           className="mt-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded shadow-sm text-sm"
         >
@@ -1102,11 +1013,8 @@ let bufferCodigo = "";
         </button>
       )}
 
-      {/* BLOQUE DE SELECCIÓN PRINCIPAL EN ESTILO TARJETA */}
       <div className="bg-white border border-gray-300 rounded-lg shadow-sm p-4 mb-6">
 
-
-        {/* Si hay asignación cargada */}
         {asignacionCargada ? (
 
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -1128,7 +1036,6 @@ let bufferCodigo = "";
               <strong>Fecha:</strong> {fechaAsignada}
             </p>
 
-            {/* Botón para iniciar captura */}
             <div className="mt-4">
               <button
                 onClick={iniciarCaptura}
@@ -1143,7 +1050,7 @@ let bufferCodigo = "";
             </div>
           </div>
         ) : (
-          /* Bloque normal (modo manual si no hay asignación) */
+
           <>
 
           </>
@@ -1158,7 +1065,6 @@ let bufferCodigo = "";
 
           </p>
 
-          {/* Botón Modo Rápido - solo visible en móvil */}
           {esMovil && (
             <div className="flex justify-center mb-6">
               <button
@@ -1173,8 +1079,6 @@ let bufferCodigo = "";
             </div>
           )}
 
-
-          {/* Input de captura universal - solo visible en escritorio */}
           {(!esMovil || mostrarModoRapido) && (
             <div className="relative bg-gradient-to-br from-white via-gray-50 to-white border border-gray-200 rounded-3xl shadow-2xl p-10 mb-10">
               {/* Encabezado */}
@@ -1184,8 +1088,6 @@ let bufferCodigo = "";
                   Captura rápida de artículos
                 </span>
               </h2>
-
-              {/* Input central con estilo llamativo */}
 
               <div className="flex items-center justify-center mb-8">
                 <input
@@ -1202,12 +1104,12 @@ let bufferCodigo = "";
                     const delta = ahora - tiempoUltimo;
                     tiempoUltimo = ahora;
 
-                    // Caso: entrada manual (espera Enter)
+
                     if (e.key === "Enter") {
                       const codigo = e.currentTarget?.value?.trim() || "";
                       if (codigo !== "") handleCodigoDetectado(codigo);
 
-                      // Verificación de existencia antes de limpiar
+
                       const inputEl = e.currentTarget;
                       if (inputEl && document.body.contains(inputEl)) inputEl.value = "";
 
@@ -1215,7 +1117,7 @@ let bufferCodigo = "";
                       return;
                     }
 
-                    // Caso: lector de código (entrada muy rápida)
+
                     if (delta < 40 && e.key.length === 1) {
                       bufferCodigo += e.key;
                       clearTimeout(window.timerScanner);
@@ -1223,14 +1125,14 @@ let bufferCodigo = "";
                         if (bufferCodigo.length >= 6) {
                           handleCodigoDetectado(bufferCodigo);
 
-                          // Protección antes de limpiar el valor
+
                           const campo = document.getElementById("inputCaptura");
                           if (campo) campo.value = "";
                         }
                         bufferCodigo = "";
                       }, 60);
                     } else {
-                      // reinicia si el intervalo es lento (tecleo manual)
+
                       bufferCodigo = e.key.length === 1 ? e.key : "";
                     }
                   }}
@@ -1240,7 +1142,7 @@ let bufferCodigo = "";
 
               </div>
 
-              {/* Historial de últimos escaneos */}
+
               <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-2xl shadow-inner p-6">
                 <h3 className="text-base font-bold text-gray-700 mb-4 flex items-center gap-2">
                   🕑 Últimos escaneos
@@ -1266,7 +1168,7 @@ let bufferCodigo = "";
                   </ul>
                 )}
 
-                {/* Botón deshacer */}
+
                 {historial.length > 0 && (
                   <button
                     onClick={() => {
@@ -1286,7 +1188,7 @@ let bufferCodigo = "";
                 )}
               </div>
 
-              {/* Nota inferior */}
+
               <p className="text-center mt-8 text-sm text-gray-600 italic">
                 Usa el lector o escribe manualmente y confirma con <span className="font-semibold">Enter</span>
               </p>
@@ -1308,7 +1210,7 @@ let bufferCodigo = "";
                   onChange={(e) => {
                     setFamiliaSeleccionada(e.target.value);
                     setSubfamiliaSeleccionada("");
-                    setBusqueda(""); // limpiar búsqueda al cambiar
+                    setBusqueda("");
                   }}
                   className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
                 >
@@ -1327,7 +1229,7 @@ let bufferCodigo = "";
                   onBlur={() => setTimeout(() => setLectorActivo(true), 300)}
                   onChange={(e) => {
                     setSubfamiliaSeleccionada(e.target.value);
-                    setBusqueda(""); // limpiar búsqueda al cambiar
+                    setBusqueda("");
                   }}
                   disabled={!familiaSeleccionada}
                   className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-red-400 disabled:bg-gray-100 disabled:text-gray-500"
@@ -1426,8 +1328,6 @@ let bufferCodigo = "";
                       </>
                     )}
 
-
-
                     <th className="p-3 text-left">Inventario Físico</th>
                   </tr>
                 </thead>
@@ -1438,7 +1338,7 @@ let bufferCodigo = "";
                     const uid = `${item.ItemCode}-${item.almacen}`;
 
                     const k = `${item.ItemCode}-${item.almacen}`;
-                    const valor = item.cant_invfis ?? ""; // siempre string
+                    const valor = item.cant_invfis ?? ""; //
                     const editado = parseFloat(valor) > 0;
                     const invalido = valor === "" || isNaN(Number(valor)) || parseFloat(valor) <= 0;
 
@@ -1546,7 +1446,7 @@ let bufferCodigo = "";
                                     return;
                                   }
 
-                                  // guardar historial SOLO si fue expresión
+
                                   if (raw !== "" && /[+\-]/.test(raw)) {
                                     setHistorialConteo((prev) => ({
                                       ...prev,
@@ -1563,7 +1463,7 @@ let bufferCodigo = "";
                                 }}
                               />
 
-                              {/* historial visible */}
+
                               {historialConteo[uid] && (
                                 <span className="text-xs text-gray-400 italic whitespace-nowrap">
                                   {historialConteo[uid]}
@@ -1624,7 +1524,7 @@ let bufferCodigo = "";
          {!loadingInventario && !bloqueado && estatus !== 4 && (
 
             <div className="mt-4 flex justify-between items-center">
-              {/* Botón Exportar Excel */}
+
               <button
                 onClick={exportarExcel}
                 className="w-40 h-10 px-3 rounded-full text-sm font-semibold bg-green-300 text-green-900 hover:bg-green-400 flex items-center justify-center gap-2 transition"
@@ -1633,7 +1533,7 @@ let bufferCodigo = "";
                 Exportar Excel
               </button>
 
-              {/* Botón Confirmar Inventario */}
+             
               <button
                 onClick={confirmarInventario}
                 className="w-44 h-11 px-4 rounded-xl text-sm font-semibold

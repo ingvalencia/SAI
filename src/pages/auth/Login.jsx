@@ -43,7 +43,7 @@ const Login = () => {
 
   return (
     <div className="min-h-screen grid grid-cols-1 md:grid-cols-2">
-      {/* Panel izquierdo (desktop) */}
+
       <div className="hidden md:flex flex-col items-center justify-center bg-gradient-to-b from-red-800 to-red-600 text-white px-10">
         <div className="max-w-md text-center">
           <h1 className="text-5xl font-extrabold mb-6 tracking-tight">SICAF</h1>
@@ -57,7 +57,7 @@ const Login = () => {
         </div>
       </div>
 
-      {/* Panel derecho (login) */}
+      
       <div className="flex items-center justify-center bg-gray-50 px-6 py-10">
         <div className="bg-white shadow-2xl rounded-2xl w-full max-w-md p-8 border border-gray-200">
           <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">

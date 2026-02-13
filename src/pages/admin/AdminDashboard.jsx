@@ -16,7 +16,7 @@ export default function AdminDashboard() {
   return (
     <div className="flex h-screen bg-gray-100 font-sans relative overflow-hidden">
 
-      {/* Botón hamburguesa visible solo en móvil */}
+
       <button
         className="lg:hidden fixed top-4 left-4 z-[60] bg-white p-2 rounded-md shadow-md border border-red-700"
         onClick={() => setMenuAbierto(!menuAbierto)}
@@ -36,7 +36,6 @@ export default function AdminDashboard() {
         </svg>
       </button>
 
-      {/* Sidebar */}
       <aside
         className={`fixed lg:static top-0 left-0 h-full w-72 bg-gradient-to-b from-red-900 to-red-700 text-white flex flex-col shadow-2xl transform transition-transform duration-300 z-50
         ${menuAbierto ? "translate-x-0" : "-translate-x-full"}
@@ -55,7 +54,7 @@ export default function AdminDashboard() {
           </button>
         </div>
 
-        {/* Menú */}
+
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           {menuItems.map((item) => (
             <button
@@ -82,7 +81,7 @@ export default function AdminDashboard() {
         </div>
       </aside>
 
-      {/* Fondo oscuro cuando menú móvil está abierto */}
+
       {menuAbierto && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
@@ -90,7 +89,7 @@ export default function AdminDashboard() {
         ></div>
       )}
 
-      {/* CONTENIDO PRINCIPAL */}
+
       <main className="flex-1 p-10 overflow-y-auto transition-all duration-300 z-0">
         {vista === "inicio" && (
           <div className="flex flex-col items-center justify-center h-full">
@@ -112,11 +111,11 @@ export default function AdminDashboard() {
         {vista === "usuarios" && <Usuarios />}
         {vista === "control" && <Control />}
 
-        {/* 🔥 Pasamos drawerRootId → Mapa */}
+
         {vista === "mapa" && <Mapa drawerRootId="drawer-root" />}
       </main>
 
-      {/* 🔥 CONTENEDOR GLOBAL PARA EL DRAWER (PORTAL) */}
+
       <div id="drawer-root"></div>
     </div>
   );

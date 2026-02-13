@@ -1,9 +1,7 @@
 <?php
 header('Content-Type: application/json');
 
-/* ============================
-   CONFIGURACIÓN DE CORS
-   ============================ */
+
 $origenPermitido = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
 header("Access-Control-Allow-Origin: $origenPermitido");
 header("Access-Control-Allow-Credentials: true");
@@ -15,9 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit;
 }
 
-/* ============================
-   LECTURA DE PARÁMETROS
-   ============================ */
+
 $raw = file_get_contents("php://input");
 $data = json_decode($raw, true);
 if (!$data) $data = $_POST;
@@ -30,9 +26,7 @@ if (!$id_config || !$usuario) {
   exit;
 }
 
-/* ============================
-   CONEXIÓN MSSQL
-   ============================ */
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -45,14 +39,10 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-/* ============================
-   SANITIZAR
-   ============================ */
+
 $usuario_safe = addslashes($usuario);
 
-/* ============================
-   EJECUCIÓN DEL SP
-   ============================ */
+
 $sql = "
   EXEC dbo.USP_FINALIZAR_CONTEO_USUARIO
       @id_config = $id_config,
@@ -67,9 +57,7 @@ if (!$res) {
   exit;
 }
 
-/* ============================
-   PROCESAR RESULTADO
-   ============================ */
+
 echo json_encode([
   'success' => true,
   'mensaje' => 'Conteo finalizado correctamente. Si aplica, el sistema avanzará al siguiente estatus.'

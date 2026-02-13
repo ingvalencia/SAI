@@ -9,9 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-/* ============================================================
-   PARÁMETROS
-============================================================ */
+
 $almacen  = isset($_GET['almacen']) ? $_GET['almacen'] : null;
 $fecha    = isset($_GET['fecha'])   ? $_GET['fecha']   : null;
 $empleado = isset($_GET['empleado']) ? $_GET['empleado'] : null;
@@ -22,9 +20,7 @@ if (!$almacen || !$fecha || !$empleado || !$cia) {
   exit;
 }
 
-/* ============================================================
-   CONEXIÓN SQL
-============================================================ */
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -37,9 +33,7 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-/* ============================================================
-   PASO 1: Obtener estatus mayor en CAP_INVENTARIO
-============================================================ */
+
 $query = "
   SELECT MAX(estatus) AS estatus
   FROM CAP_INVENTARIO
@@ -55,9 +49,7 @@ $row = mssql_fetch_assoc($result);
 $estatus = isset($row['estatus']) ? intval($row['estatus']) : 0;
 if ($estatus < 1) $estatus = 0;
 
-/* ============================================================
-   PASO 2: (solo informativo)
-============================================================ */
+
 $queryConfig = "
   SELECT a.conteo
   FROM configuracion_inventario c
@@ -72,9 +64,7 @@ $resConfig = mssql_query($queryConfig, $conn);
 $rowConfig = mssql_fetch_assoc($resConfig);
 $conteo_config = isset($rowConfig['conteo']) ? intval($rowConfig['conteo']) : 0;
 
-/* ============================================================
-   PASO 3: Ver si existe asignación de tercer conteo
-============================================================ */
+
 $sqlCheck3 = "
   SELECT TOP 1 nro_conteo
   FROM CAP_CONTEO_CONFIG
@@ -87,23 +77,13 @@ $sqlCheck3 = "
 $resCheck3 = mssql_query($sqlCheck3, $conn);
 $existe_config_tercer_conteo = ($resCheck3 && mssql_num_rows($resCheck3) > 0);
 
-/* ============================================================
-   NUEVA LÓGICA:
-   Validar si el conteo correspondiente YA EXISTE
-============================================================ */
 
-/*
-   - estatus = 0 → todavía no comienza → conteo 1
-   - estatus = 1 → terminó conteo 1 → ahora toca conteo 2
-   - estatus = 2 → terminó conteo 2 → ahora toca conteo 3
-*/
-// Obtener ID interno del usuario
 $sqlUser = "SELECT TOP 1 id FROM usuarios WHERE empleado = '$empleado'";
 $resUser = mssql_query($sqlUser, $conn);
 $rowUser = mssql_fetch_assoc($resUser);
 $usuario_id = intval($rowUser['id']);
 
-// Obtener conteo asignado correcto
+
 $sqlAsig = "
   SELECT TOP 1 nro_conteo
   FROM CAP_CONTEO_CONFIG
@@ -118,7 +98,7 @@ $rowAsig = mssql_fetch_assoc($resAsig);
 
 $nro_conteo_actual = intval($rowAsig['nro_conteo']);
 
-// Permitir 1,2,3 y 7 (cuarto conteo). Todo lo demás cae a 3 por seguridad.
+
 if (!in_array($nro_conteo_actual, [1,2,3,7], true)) {
   $nro_conteo_actual = 3;
 }
@@ -144,9 +124,7 @@ $rowConteos = mssql_fetch_assoc($resConteos);
 
 $existe_conteo_actual = intval($rowConteos['total']) > 0;
 
-/* ============================================================
-   RESPUESTA FINAL
-============================================================ */
+
 echo json_encode([
   "success"                => true,
   "estatus"                => $estatus,

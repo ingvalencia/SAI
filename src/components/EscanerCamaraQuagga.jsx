@@ -6,25 +6,25 @@ export default function EscanerCamaraQuagga({ onScanSuccess, onClose }) {
   const containerRef = useRef(null);
 
   useEffect(() => {
-    // 1. Probar acceso real a cámara
+
     navigator.mediaDevices
       .getUserMedia({ video: true })
       .then((stream) => {
-        // cerrar stream de prueba
+
         stream.getTracks().forEach((track) => track.stop());
 
-        // 2. Iniciar Quagga si hay permiso
+
         Quagga.init(
           {
             inputStream: {
               type: "LiveStream",
               target: containerRef.current,
               constraints: {
-                facingMode: { exact: "environment" }, // fuerza cámara trasera
+                facingMode: { exact: "environment" },
                 width: { min: 640, ideal: 1280 },
                 height: { min: 480, ideal: 720 },
                 focusMode: "continuous",
-                advanced: [{ torch: false }], // flash apagado
+                advanced: [{ torch: false }],
               },
               area: { top: "20%", right: "15%", left: "15%", bottom: "20%" },
             },
@@ -60,7 +60,7 @@ export default function EscanerCamaraQuagga({ onScanSuccess, onClose }) {
 
         Quagga.onDetected(onDetect);
 
-        // limpiar al desmontar
+
         return () => {
           try {
             Quagga.offDetected(onDetect);
@@ -71,7 +71,7 @@ export default function EscanerCamaraQuagga({ onScanSuccess, onClose }) {
         };
       })
       .catch(() => {
-        // 3. Si no hay permiso, mostrar alerta
+
         Swal.fire({
           icon: "warning",
           title: "Permiso de cámara requerido",

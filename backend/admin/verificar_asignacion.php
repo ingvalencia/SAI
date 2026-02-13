@@ -1,9 +1,7 @@
 <?php
 header('Content-Type: application/json');
 
-/* ============================
-   CONFIGURACIÓN DE CORS
-   ============================ */
+
 $origenPermitido = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
 header("Access-Control-Allow-Origin: $origenPermitido");
 header("Access-Control-Allow-Credentials: true");
@@ -15,10 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit;
 }
 
-/* ============================
-   LECTURA DE PARÁMETROS
-   ============================ */
-// Acepta parámetro desde GET o POST
+
 $usuario_id = null;
 if (isset($_GET['empleado'])) {
   $usuario_id = intval($_GET['empleado']);
@@ -32,9 +27,6 @@ if (!$usuario_id) {
 }
 
 
-/* ============================
-   CONEXIÓN MSSQL
-   ============================ */
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -47,9 +39,7 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-/* ============================
-   EJECUCIÓN DEL SP
-   ============================ */
+
 $sql = "
   EXEC dbo.USP_VERIFICAR_ASIGNACION_USUARIO @usuario_id = $usuario_id;
 ";
@@ -61,9 +51,7 @@ if (!$res) {
   exit;
 }
 
-/* ============================
-   PROCESAR RESULTADO
-   ============================ */
+
 if (mssql_num_rows($res) === 0) {
   echo json_encode([
     'success' => true,

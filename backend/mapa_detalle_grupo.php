@@ -17,25 +17,12 @@ $cia     = isset($_GET['cia']) ? trim($_GET['cia']) : null;
 $usuario = isset($_GET['usuario']) ? trim($_GET['usuario']) : null;
 
 
-
-/*
-file_put_contents(
-  __DIR__ . '/debug_grupo.log',
-  "ENTRO AL SCRIPT\n",
-  FILE_APPEND
-);
-*/
-
-
-
 if (!$grupo || !$fecha || !$cia) {
   echo json_encode(["success" => false, "error" => "Faltan parámetros"]);
   exit;
 }
 
-/* ============================
-   CONEXIÓN SQL SERVER
-============================ */
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -48,9 +35,7 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-/* ============================
-   1. OBTENER ALMACENES DEL GRUPO
-============================ */
+
 $resAlm = mssql_query("
   SELECT DISTINCT almacen
   FROM CAP_INVENTARIO
@@ -59,14 +44,14 @@ $resAlm = mssql_query("
     AND cias = '$cia'
 ", $conn);
 
-//$almacenes = array_slice($almacenes, 0, 1);
+
 
 $almacenes = [];
 while ($r = mssql_fetch_assoc($resAlm)) {
   $almacenes[] = $r['almacen'];
-  //print_r($r);
+
 }
-//exit();
+
 
 if (empty($almacenes)) {
   echo json_encode([
@@ -80,9 +65,7 @@ if (empty($almacenes)) {
 
 $listaAlmacenes = "'" . implode("','", $almacenes) . "'";
 
-/* ============================
-   2. USUARIO FALLBACK
-============================ */
+
 if (!$usuario) {
   $ru = mssql_query("
     SELECT MAX(usuario) AS usuario
@@ -97,15 +80,13 @@ if (!$usuario) {
   }
 }
 
-/* ============================
-   3–6. PROCESAR ALMACÉN POR ALMACÉN (SIN ARRAYS GIGANTES)
-============================ */
+
 
 $out = [];
 
 foreach ($almacenes as $alm) {
 
-  // ===== 3) SAP SOLO PARA ESTE ALMACÉN =====
+
   $items = [];
 
   $sp = mssql_query("EXEC [USP_INVEN_SAP] '$alm', '$fecha', '$usuario', '$cia'", $conn);
@@ -135,7 +116,7 @@ foreach ($almacenes as $alm) {
   while (mssql_next_result($sp)) {;}
   mssql_free_result($sp);
 
-  // ===== 4) CONTEOS SOLO PARA ESTE ALMACÉN =====
+
   $q = mssql_query("
     SELECT c.ItemCode, ct.nro_conteo, ct.cantidad
     FROM CAP_INVENTARIO c
@@ -161,7 +142,7 @@ foreach ($almacenes as $alm) {
   }
   mssql_free_result($q);
 
-  // ===== 6) CALCULAR Y AGREGAR AL RESULTADO FINAL =====
+
   foreach ($items as $it) {
     $conteo_final =
       ($it['conteo4'] > 0) ? $it['conteo4'] :
@@ -174,13 +155,12 @@ foreach ($almacenes as $alm) {
     $out[] = $it;
   }
 
-  unset($items); // libera memoria por almacén
+  unset($items);
 }
-/* ============================ 5. ESTATUS DEL GRUPO (MIN) ============================ */ $re = mssql_query(" SELECT MAX(estatus) AS estatus FROM CAP_INVENTARIO WHERE almacen IN ($listaAlmacenes) AND fecha_inv = '$fecha' AND cias = '$cia' ", $conn); $estatus = 0; if ($re && $e = mssql_fetch_assoc($re)) { $estatus = (int)$e['estatus']; }
 
-/* ============================
-   7. RESPONSE
-============================ */
+$re = mssql_query(" SELECT MAX(estatus) AS estatus FROM CAP_INVENTARIO WHERE almacen IN ($listaAlmacenes) AND fecha_inv = '$fecha' AND cias = '$cia' ", $conn); $estatus = 0; if ($re && $e = mssql_fetch_assoc($re)) { $estatus = (int)$e['estatus']; }
+
+
 echo json_encode([
   "success" => true,
   "estatus" => $estatus,

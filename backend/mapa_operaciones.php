@@ -4,7 +4,7 @@ header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 header('Content-Type: application/json');
 
-// === Parámetros ===
+
 $cia   = isset($_GET['cia'])   ? $_GET['cia']   : null;
 $fecha = isset($_GET['fecha']) ? $_GET['fecha'] : null;
 
@@ -13,7 +13,7 @@ if (!$cia || !$fecha) {
   exit;
 }
 
-// === Conexión SQL Server ===
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -45,7 +45,7 @@ if (!$result) {
   exit;
 }
 
-// Agrupar por estatus, pero manteniendo registros individuales (almacen+estatus)
+
 $bloques = [];
 
 while ($row = mssql_fetch_assoc($result)) {

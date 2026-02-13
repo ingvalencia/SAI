@@ -3,7 +3,7 @@ header('Content-Type: application/json');
 session_name('SAI_SES');
 session_start();
 
-// Limpiar sesión
+
 $_SESSION = array();
 if (ini_get('session.use_cookies')) {
   $p = session_get_cookie_params();
@@ -11,6 +11,5 @@ if (ini_get('session.use_cookies')) {
 }
 session_destroy();
 
-// Respuesta
 echo json_encode(['success' => true]);
 exit;

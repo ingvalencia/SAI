@@ -1,9 +1,7 @@
 <?php
 header('Content-Type: application/json');
 
-/* ============================
-   CONFIGURACIÓN DE CORS
-   ============================ */
+
 $origenPermitido = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
 header("Access-Control-Allow-Origin: $origenPermitido");
 header("Access-Control-Allow-Credentials: true");
@@ -15,9 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit;
 }
 
-/* ============================
-   LECTURA DE PARÁMETROS (JSON o POST)
-   ============================ */
+
 $raw = file_get_contents("php://input");
 $data = json_decode($raw, true);
 if (!$data) $data = $_POST;
@@ -33,18 +29,14 @@ if (!$cia || !$almacen || !$fecha || !$usuario_admin) {
   exit;
 }
 
-/* ============================
-   VALIDAR USUARIOS (si hay)
-   ============================ */
+
 if (is_array($usuarios)) {
   $usuarios_json = json_encode($usuarios);
 } else {
   $usuarios_json = $usuarios;
 }
 
-/* ============================
-   CONEXIÓN MSSQL
-   ============================ */
+
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
@@ -57,18 +49,14 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
-/* ============================
-   SANITIZAR
-   ============================ */
+
 $cia_safe     = addslashes($cia);
 $almacen_safe = addslashes($almacen);
 $fecha_safe   = addslashes($fecha);
 $usuarios_json_safe = addslashes($usuarios_json);
 $usuario_admin_safe = addslashes($usuario_admin);
 
-/* ============================
-   EJECUCIÓN DEL SP
-   ============================ */
+
 $sql = "
   EXEC dbo.USP_HABILITAR_CONTEO3
       @cia           = '$cia_safe',
@@ -85,9 +73,7 @@ if (!$res) {
   exit;
 }
 
-/* ============================
-   VALIDAR RESULTADOS
-   ============================ */
+
 $rows_affected = mssql_rows_affected($conn);
 
 if ($rows_affected > 0) {
@@ -105,4 +91,3 @@ if ($rows_affected > 0) {
 }
 exit;
 ?>
-

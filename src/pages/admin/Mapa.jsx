@@ -43,9 +43,6 @@ export default function Mapa({ drawerRootId }) {
   const [mostrarConteo4, setMostrarConteo4] = useState(false);
 
 
-
-
-
   const fetchFechasDisponibles = async (ciaSeleccionada) => {
     const ciaActiva = ciaSeleccionada || cia;
     if (!ciaActiva) {
@@ -158,8 +155,7 @@ export default function Mapa({ drawerRootId }) {
         const c3 = Number(item.conteo3 ?? 0);
         const c4 = Number(item.conteo4 ?? 0);
 
-        //
-        // Mostrar SOLO si tiene SAP o algún conteo
+
         return sap !== 0 || c1 !== 0 || c2 !== 0 || c3 !== 0 || c4 !== 0;
       });
     };
@@ -212,10 +208,10 @@ export default function Mapa({ drawerRootId }) {
       Swal.close();
 
       if (res.data.success) {
-        // 🔥 Guardar estatus del inventario
+
         setEstatusInventario(Number(res.data.estatus));
 
-        //  consultar si SAP ya fue refrescado
+
         try {
           const resp = await axios.get(
             "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/estado_refresh_sap.php",
@@ -233,7 +229,7 @@ export default function Mapa({ drawerRootId }) {
         }
 
 
-        // ✅ Normaliza para que siempre tengas: almacen, sap_final, conteo_final, diferencia_cierre
+
         const detalleConFinal = normalizarDetalle(res.data.data);
 
        setDetalle(filtrarArticulosValidos(detalleConFinal));
@@ -264,9 +260,7 @@ export default function Mapa({ drawerRootId }) {
       didOpen: () => Swal.showLoading(),
     });
 
-    /* ===============================
-       1. OBTENER DETALLE DEL GRUPO
-    ================================ */
+
     const res = await axios.get(
       "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/mapa_detalle_grupo.php",
       {
@@ -296,15 +290,10 @@ export default function Mapa({ drawerRootId }) {
       return;
     }
 
-    /* ===============================
-       2. ESTATUS DEL INVENTARIO
-    ================================ */
+
     setEstatusInventario(Number(res.data.estatus));
 
-    /* ===============================
-       3. CONSULTAR FLAG SAP (GRUPO)
-       → UNA SOLA PETICIÓN
-    ================================ */
+
     try {
       const almacenesCSV = grupo.almacenes.join(",");
 
@@ -320,7 +309,7 @@ export default function Mapa({ drawerRootId }) {
       );
 
       if (resp.data && resp.data.success) {
-        // El PHP decide si TODO el grupo está refrescado
+
         setSapRefrescado(resp.data.sap_refrescado === 1);
       } else {
         setSapRefrescado(null);
@@ -330,16 +319,14 @@ export default function Mapa({ drawerRootId }) {
       setSapRefrescado(null);
     }
 
-    /* ===============================
-       4. NORMALIZAR DETALLE
-    ================================ */
+
     const detalleConFinal = (Array.isArray(res.data.data) ? res.data.data : []).map((item) => {
       const c1 = Number(item.conteo1 ?? 0);
       const c2 = Number(item.conteo2 ?? 0);
       const c3 = Number(item.conteo3 ?? 0);
       const c4 = Number(item.conteo4 ?? 0);
 
-      // ÚLTIMO CONTEO REAL
+
       const conteo_final =
         c4 > 0 ? c4 :
         c3 > 0 ? c3 :
@@ -378,9 +365,6 @@ export default function Mapa({ drawerRootId }) {
 };
 
 
-
-
-
   useEffect(() => {
     if (!fecha || !cia) {
       setAlmacenes([]);
@@ -413,7 +397,7 @@ export default function Mapa({ drawerRootId }) {
     return Array.from(set).sort();
   }, [detalle]);
 
-  // === Filtro por búsqueda ===
+
   const detalleFiltrado = useMemo(() => {
     const texto = busqueda.toLowerCase();
 
@@ -466,8 +450,8 @@ export default function Mapa({ drawerRootId }) {
 
     let totalItems = detalle.length;
     let itemsConDiferencia = 0;
-    let sobrantes = 0; // fisico > sap
-    let faltantes = 0; // sap > fisico
+    let sobrantes = 0;
+    let faltantes = 0;
     let importeTotal = 0;
 
 
@@ -500,7 +484,7 @@ export default function Mapa({ drawerRootId }) {
     };
   }, [detalle]);
 
-  // Solo artículos con diferencia para el resumen
+
   const filasDiferencias = useMemo(() => {
     return detalle
       .filter((d) => (d.diferencia_cierre ?? 0) !== 0)
@@ -510,7 +494,6 @@ export default function Mapa({ drawerRootId }) {
   const gruposUI = useMemo(() => {
     const bloques = Array.isArray(almacenes) ? almacenes : [];
 
-    //
     const out = {};
 
     bloques.forEach((b) => {
@@ -520,7 +503,7 @@ export default function Mapa({ drawerRootId }) {
       const porBase = {};
       regs.forEach((r) => {
         const alm = (r.almacen || "").trim();
-        const base = alm.includes("-") ? alm.split("-")[0] : alm; // MGP-CO -> MGP
+        const base = alm.includes("-") ? alm.split("-")[0] : alm;
 
         if (!porBase[base]) porBase[base] = [];
         porBase[base].push(r);
@@ -536,8 +519,6 @@ export default function Mapa({ drawerRootId }) {
   }, [almacenes]);
 
 
-
-  // === Paginación ===
   const indiceInicial = (paginaActual - 1) * registrosPorPagina;
   const indiceFinal = indiceInicial + registrosPorPagina;
   const datosPaginados = detalleFiltrado.slice(indiceInicial, indiceFinal);
@@ -546,11 +527,11 @@ export default function Mapa({ drawerRootId }) {
     setPaginaActual(1);
   }, [busqueda]);
 
-  // === Exportar Excel ===
+
   const exportarExcelMapa = async () => {
     const datosExportar = detalleFiltrado;
 
-    // HEADERS dinámicos
+
     const headers = [
       "#",
       "ALMACÉN",
@@ -572,7 +553,7 @@ export default function Mapa({ drawerRootId }) {
 
     worksheet.addRow(headers);
 
-    // Estilo encabezados
+
     headers.forEach((_, idx) => {
       const cell = worksheet.getRow(1).getCell(idx + 1);
       cell.fill = {
@@ -586,7 +567,7 @@ export default function Mapa({ drawerRootId }) {
       };
     });
 
-    // Filas
+
     datosExportar.forEach((item, i) => {
       const c1 = Number(item.conteo1 ?? 0);
       const c2 = Number(item.conteo2 ?? 0);
@@ -594,7 +575,7 @@ export default function Mapa({ drawerRootId }) {
       const c4 = Number(item.conteo4 ?? 0);
       const sap = Number(item.inventario_sap ?? 0);
 
-      // 🔴 DIFERENCIA SIEMPRE VS ÚLTIMO CONTEO
+
       const ultimoConteo =
         c4 > 0 ? c4 :
         c3 > 0 ? c3 :
@@ -647,15 +628,15 @@ export default function Mapa({ drawerRootId }) {
       4: almacenes.filter(a => a.estatus === 4),
     };
 
-  const [catCierre, setCatCierre] = useState(null); // { proyecto, cuentas: [] }
+  const [catCierre, setCatCierre] = useState(null);
 
   const fetchCatalogoCierre = async () => {
 
-    // Resolver almacén real de referencia
+
     let almacenRef = null;
 
     if (grupoSeleccionado && grupoSeleccionado.almacenes?.length > 0) {
-      almacenRef = grupoSeleccionado.almacenes[0]; // 👈 uno cualquiera del grupo
+      almacenRef = grupoSeleccionado.almacenes[0];
     } else if (almacenSeleccionado) {
       almacenRef = almacenSeleccionado;
     }
@@ -685,9 +666,7 @@ export default function Mapa({ drawerRootId }) {
 
  const confirmarCierre = async () => {
     try {
-      /* =========================
-        1. CARGAR CATÁLOGO
-      ========================= */
+
       Swal.fire({
         title: "Cargando catálogo...",
         text: "Obteniendo proyecto y cuentas para el cierre.",
@@ -711,9 +690,7 @@ export default function Mapa({ drawerRootId }) {
         )
         .join("");
 
-      /* =========================
-        2. MODAL DE CONFIRMACIÓN
-      ========================= */
+
       const { isConfirmed, value } = await Swal.fire({
         title: "¿Generar cierre oficial?",
         icon: "warning",
@@ -784,9 +761,7 @@ export default function Mapa({ drawerRootId }) {
 
       if (!isConfirmed) return;
 
-      /* =========================
-        3. PROCESO DE CIERRE
-      ========================= */
+
       Swal.fire({
         title: "Procesando...",
         text: "Generando cierre del inventario...",
@@ -794,7 +769,7 @@ export default function Mapa({ drawerRootId }) {
         didOpen: () => Swal.showLoading(),
       });
 
-      // 👉 DEFINIR ALMACENES A CERRAR
+
       const almacenesACerrar = grupoSeleccionado
         ? grupoSeleccionado.almacenes
         : [almacenSeleccionado];
@@ -805,9 +780,7 @@ export default function Mapa({ drawerRootId }) {
         return;
       }
 
-      /* =========================
-        4. CIERRE POR ALMACÉN
-      ========================= */
+
       for (const alm of almacenesACerrar) {
         const res = await axios.get(
           "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/cerrar_inventario_admin.php",
@@ -831,9 +804,7 @@ export default function Mapa({ drawerRootId }) {
         }
       }
 
-      /* =========================
-        5. FINALIZAR
-      ========================= */
+
       Swal.close();
 
       await Swal.fire(
@@ -884,7 +855,7 @@ export default function Mapa({ drawerRootId }) {
         didOpen: () => Swal.showLoading(),
       });
 
-      //
+
       const almacenesRefresh = grupoSeleccionado
         ? grupoSeleccionado.almacenes.join(",")
         : almacenSeleccionado;
@@ -910,7 +881,7 @@ export default function Mapa({ drawerRootId }) {
 
       setSapRefrescado(1);
 
-      //  recargar detalle
+
       if (grupoSeleccionado) {
         fetchDetalleGrupo(grupoSeleccionado);
       } else {
@@ -940,7 +911,7 @@ export default function Mapa({ drawerRootId }) {
 
           <div className="w-full max-w-[1500px] h-screen bg-white shadow-2xl overflow-y-auto rounded-lg">
 
-            {/* HEADER */}
+
             <div className="sticky top-0 bg-gray-100 p-5 shadow flex justify-between items-center border-b z-[650]">
 
               <button
@@ -968,7 +939,7 @@ export default function Mapa({ drawerRootId }) {
               </button>
             </div>
 
-            {/* TABS */}
+
             <div className="sticky top-[64px] bg-white border-b flex z-[650]">
 
               <button
@@ -994,12 +965,12 @@ export default function Mapa({ drawerRootId }) {
               </button>
             </div>
 
-            {/* CONTENIDO */}
+
             <div className="p-8 bg-gray-50 min-h-[70vh]">
 
               {tabActiva === "resumen" ? (
                 <>
-                  {/* CARDS KPI */}
+
                   <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-10">
 
                     <div className="bg-white rounded-lg shadow-md p-5">
@@ -1040,7 +1011,7 @@ export default function Mapa({ drawerRootId }) {
 
                   </div>
 
-                  {/* TABLA RESUMEN */}
+
                   <div className="bg-white rounded-lg shadow-md p-6">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4">
                       Artículos con diferencia (ordenados por impacto)
@@ -1101,7 +1072,7 @@ export default function Mapa({ drawerRootId }) {
                 </>
               ) : (
                 <>
-                  {/* DETALLE COMPLETO */}
+
                   <div className="bg-white rounded-lg shadow-md p-6">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4">
                       Detalle completo del inventario
@@ -1180,8 +1151,8 @@ export default function Mapa({ drawerRootId }) {
                                       dif === 0
                                         ? "bg-gray-100 text-gray-500"
                                         : dif < 0
-                                        ? "bg-green-100 text-green-700"   // Entrada
-                                        : "bg-red-100 text-red-700"       // Salida
+                                        ? "bg-green-100 text-green-700"
+                                        : "bg-red-100 text-red-700"
                                     }`}
 
                                   >
@@ -1201,7 +1172,7 @@ export default function Mapa({ drawerRootId }) {
 
             </div>
 
-            {/* FOOTER */}
+
            <div className="sticky bottom-0 bg-white p-5 shadow-lg flex justify-center items-center border-t z-[650]">
               <button
                 onClick={confirmarCierre}
@@ -1237,10 +1208,6 @@ export default function Mapa({ drawerRootId }) {
       )
     }
 
-
-
-
-      {/* Filtros */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 items-end">
         <select
           value={cia}
@@ -1264,7 +1231,6 @@ export default function Mapa({ drawerRootId }) {
         </select>
       </div>
 
-      {/* === CALENDARIO === */}
 
       <div className="bg-white border border-gray-300 rounded-2xl shadow-lg p-6 mb-8">
         <div className="flex items-center gap-2 mb-4">
@@ -1273,7 +1239,7 @@ export default function Mapa({ drawerRootId }) {
         </div>
 
         <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-          {/* === Calendario === */}
+
           <div className="w-full md:w-1/2">
             <Calendar
               onClickDay={(value) => {
@@ -1313,7 +1279,7 @@ export default function Mapa({ drawerRootId }) {
             />
           </div>
 
-          {/* === Leyenda de colores === */}
+
           <div className="w-full md:w-1/2 bg-gray-50 border border-gray-200 rounded-xl p-4 shadow-inner">
             <h3 className="text-md font-semibold text-gray-700 mb-3">📊 Indicadores de conteo</h3>
             <ul className="text-sm text-gray-600 space-y-2">
@@ -1347,12 +1313,12 @@ export default function Mapa({ drawerRootId }) {
         </div>
       </div>
 
-      {/* Grid de almacenes */}
+
       {!almacenSeleccionado && !grupoSeleccionado ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
 
          {Object.entries(gruposUI)
-        .sort((a, b) => Number(b[0]) - Number(a[0])) // estatus desc
+        .sort((a, b) => Number(b[0]) - Number(a[0]))
         .map(([estatus, conjuntos]) => (
           conjuntos.length > 0 && (
             <div key={estatus} className="mb-10 animar-grupo">
@@ -1556,7 +1522,7 @@ export default function Mapa({ drawerRootId }) {
               <tbody className="bg-white divide-y divide-gray-100">
                 {Object.entries(detallePorAlmacen).map(([alm, items]) => (
                   <React.Fragment key={alm}>
-                    {/* SUB-HEADER DEL ALMACÉN */}
+
                     <tr className="bg-slate-200">
                       <td
                         colSpan={mostrarConteo4 ? 11 : 10}
@@ -1566,9 +1532,9 @@ export default function Mapa({ drawerRootId }) {
                       </td>
                     </tr>
 
-                    {/* FILAS */}
+
                     {items.map((d, i) => {
-                      // DIFERENCIA SIEMPRE VS ÚLTIMO CONTEO DISPONIBLE
+
                       const ultimoConteo =
                         Number(d.conteo4 ?? 0) > 0
                           ? Number(d.conteo4)
@@ -1638,8 +1604,6 @@ export default function Mapa({ drawerRootId }) {
             </table>
 
 
-
-            {/* Paginación */}
             <div className="mt-4 flex justify-center items-center gap-4 text-sm text-gray-700 font-medium">
               <button
                 onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
