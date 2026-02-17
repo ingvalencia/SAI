@@ -271,10 +271,11 @@ export default function CompararInventario() {
           setModoResuelto(true);
 
           const mostrarTercer =
-            esBrig &&
-            hayDif &&
-            !tercerAsignado &&
-            estatusActual === 2;
+                esBrig &&
+                hayDif &&
+                !tercerAsignado &&
+                Number(res.data.estatus_global) < 7;
+
 
           setMostrarTercerConteo(mostrarTercer);
 
@@ -759,14 +760,7 @@ export default function CompararInventario() {
           })}
         </div>
       )}
-        {!diferenciaConfirmada && estatusCalc === 7 && (
-          <button
-            onClick={confirmarDiferencia}
-            className="px-3 py-1 rounded-full text-sm font-semibold bg-yellow-500 text-white hover:bg-yellow-600 transition"
-          >
-            Confirmar diferencia
-          </button>
-        )}
+
 
 
       </div>
@@ -795,6 +789,7 @@ export default function CompararInventario() {
 
       <div className="flex justify-end items-center mb-4 gap-3">
 
+        {/*
         {esBrigada && (
           <button
             className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2
@@ -806,7 +801,9 @@ export default function CompararInventario() {
               : "Diferencias Brigada"}
           </button>
         )}
+        */}
 
+        {/*
         <button
           className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2
                     bg-yellow-200 text-yellow-900 hover:bg-yellow-300 transition shadow-sm"
@@ -814,6 +811,7 @@ export default function CompararInventario() {
         >
           {mostrarSoloDiferencias ? "Mostrar todo" : "Mostrar solo diferencias"}
         </button>
+        */}
 
         <button
           onClick={exportarExcel}
@@ -828,6 +826,7 @@ export default function CompararInventario() {
           Exportar a Excel
         </button>
 
+        {/*
         <button
           onClick={exportarPDF}
           className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2
@@ -836,6 +835,7 @@ export default function CompararInventario() {
           📄
           Exportar a PDF
         </button>
+        */}
 
         {!bloqueado && mostrarTercerConteo && (
           <button
@@ -857,6 +857,20 @@ export default function CompararInventario() {
           </button>
         )}
 
+        {!diferenciaConfirmada && estatusCalc === 7 && (
+          <button
+            onClick={confirmarDiferencia}
+            className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2
+           bg-indigo-600 text-white hover:bg-indigo-700
+           transition shadow-sm"
+
+          >
+            ✔ Confirmar diferencias
+          </button>
+
+
+        )}
+
 
 
       </div>
@@ -864,7 +878,7 @@ export default function CompararInventario() {
       <div className="relative overflow-auto max-h-[70vh] border rounded-lg shadow-md">
 
         <table className="min-w-full text-sm table-auto">
-          <thead className="sticky top-0 bg-gradient-to-r from-red-100 via-white to-red-100 text-gray-800 text-xs uppercase tracking-wider shadow-md z-10">
+          <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
             <tr>
               <th className="p-3 text-left w-10">#</th>
               <th className="p-3 text-left">No Empleado</th>
@@ -873,8 +887,9 @@ export default function CompararInventario() {
               <th className="p-3 text-left">Código</th>
               <th className="p-3 text-left w-64 max-w-[16rem]">NOMBRE</th>
               <th className="p-3 text-left">Código de Barras</th>
+              {/*
               <th className="p-3 text-right">Existencia SAP</th>
-
+              */}
 
               <th className={`p-3 text-right ${estatus === 1 ? "bg-yellow-100 text-gray-900 font-extrabold" : ""}`}>
                 Conteo 1
@@ -892,14 +907,17 @@ export default function CompararInventario() {
                 Conteo 4
               </th>
 
-
+              {/*
               <th className="p-3 text-right">Diferencia SAP</th>
+              */}
 
+              {/*
               {esBrigada && (
                 <>
                   <th className="p-3 text-right">Dif. Brigada</th>
                 </>
               )}
+              */}
             </tr>
           </thead>
 
@@ -964,10 +982,11 @@ export default function CompararInventario() {
                     {item.codebars ?? "-"}
                   </td>
 
-
+                  {/*
                   <td className="p-3 text-sm text-right text-gray-700">
                     {sap.toFixed(2)}
                   </td>
+                  */}
 
 
                   <td className={claseConteo(1)}>
@@ -1010,33 +1029,46 @@ export default function CompararInventario() {
                   </td>
 
 
-
+                  {/*
                   <td
                     className="p-3 text-sm text-right font-bold"
                     style={{ color: colorDifSap }}
                   >
                     {difSap.toFixed(2)}
                   </td>
+                  */}
 
-
-
+                  {/*
                   {esBrigada && (
+
                     <td
                       className="p-3 text-sm text-right font-bold"
                       style={{ color: Number(item.diferenciaBrigada ?? 0) === 0 ? "green" : "red" }}
                     >
                       {Number(item.diferenciaBrigada ?? 0).toFixed(2)}
                     </td>
+
+
                   )}
+                  */}
+
                 </tr>
               );
             })}
           </tbody>
         </table>
 
+        {diferenciaConfirmada && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0">
+            <div className="text-[5rem] font-bold text-gray-600 opacity-20 rotate-[-20deg]">
+              Proceso completado
+            </div>
+          </div>
+        )}
 
+      </div>
 
-         <div className="mt-4 flex justify-center items-center gap-4 text-sm text-gray-700 font-medium">
+      <div className="mt-4 flex justify-center items-center gap-4 text-sm text-gray-700 font-medium">
             <button
               onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
               disabled={paginaActual === 1}
@@ -1070,26 +1102,18 @@ export default function CompararInventario() {
             >
               Siguiente ➡️
             </button>
-         </div>
-
-        {diferenciaConfirmada && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0">
-            <div className="text-[5rem] font-bold text-gray-600 opacity-20 rotate-[-20deg]">
-              Proceso completado
-            </div>
-          </div>
-        )}
-
       </div>
 
       <div className="mt-6 flex flex-wrap gap-4 justify-between items-center relative">
 
+        {/*
         <button
           onClick={() => navigate("/")}
           className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded"
         >
           Volver
         </button>
+        */}
 
         {diferenciaConfirmada && (
           <div className="absolute top-10 right-0 text-5xl text-gray-300 opacity-10 select-none pointer-events-none transform rotate-[-30deg]">

@@ -1300,7 +1300,7 @@ export default function CapturaInventario() {
 
             <div className="overflow-auto max-h-[70vh] border rounded-lg shadow-md">
               <table className="min-w-full text-sm table-auto">
-                <thead className="sticky top-0 bg-gradient-to-r from-red-100 via-white to-red-100 text-gray-800 text-xs uppercase tracking-wider shadow-md z-10">
+                <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
                   <tr>
                     <th className="p-3 text-left w-10">#</th>
                     <th className="p-3 text-left">CIA</th>
@@ -1533,7 +1533,7 @@ export default function CapturaInventario() {
                 Exportar Excel
               </button>
 
-             
+
               <button
                 onClick={confirmarInventario}
                 className="w-44 h-11 px-4 rounded-xl text-sm font-semibold

@@ -119,26 +119,30 @@ if ($resBrig) {
 
 /* Determinar compañero solo si yo tengo 1 o 2 y hay al menos otra asignación */
 if ($nro_conteo_mio && count($asignaciones) >= 2) {
-    $otroConteo = ($nro_conteo_mio == 1 ? 2 : 1);
 
-    if (isset($asignaciones[$otroConteo])) {
-        $listaOtro = $asignaciones[$otroConteo]; // ej "[21]" o "[21,22]"
-        $listaOtro = str_replace(["[", "]"], "", $listaOtro);
-        // Tomamos el primer id de la lista
-        $partes = array_filter(array_map('trim', explode(",", $listaOtro)));
-        if (count($partes) > 0) {
-            $id_companero         = intval($partes[0]);
-            $nro_conteo_companero = $otroConteo;
+    foreach ($asignaciones as $conteo => $listaUsuarios) {
 
-            // Buscar empleado del compañero
-            $sqlEC = "SELECT TOP 1 empleado FROM usuarios WHERE id = $id_companero";
-            $resEC = mssql_query($sqlEC, $conn);
-            if ($resEC && $rowE = mssql_fetch_assoc($resEC)) {
-                $empleado_companero = $rowE['empleado'];
+        if ($conteo != $nro_conteo_mio) {
+
+            $listaClean = str_replace(["[", "]"], "", $listaUsuarios);
+            $ids = array_filter(array_map('trim', explode(",", $listaClean)));
+
+            if (count($ids) > 0) {
+                $id_companero = intval($ids[0]);
+                $nro_conteo_companero = $conteo;
+
+                $sqlEC = "SELECT TOP 1 empleado FROM usuarios WHERE id = $id_companero";
+                $resEC = mssql_query($sqlEC, $conn);
+                if ($resEC && $rowE = mssql_fetch_assoc($resEC)) {
+                    $empleado_companero = $rowE['empleado'];
+                }
+
+                break;
             }
         }
     }
 }
+
 
 /* Es brigada si hay compañero identificado */
 $esBrigada = ($empleado_companero !== null);
@@ -431,7 +435,7 @@ echo json_encode([
     "mi_nro_conteo"            => $nro_conteo_mio,
     "empleado_companero"       => $empleado_companero,
     "nro_conteo_companero"     => $nro_conteo_companero,
-    "nro_conteo"               => $nro_conteo_mio,          
+    "nro_conteo"               => $nro_conteo_mio,
     "hay_diferencias_brigada"  => $hay_dif_brigada,
     "hay_dif_mio_vs_sap"       => $hay_dif_mio_vs_sap,
     "hay_dif_comp_vs_sap"      => $hay_dif_comp_vs_sap,
