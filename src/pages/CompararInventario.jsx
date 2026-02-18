@@ -642,7 +642,8 @@ export default function CompararInventario() {
       </h1>
 
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-      {modoResuelto && !bloqueado && !esBrigada && (
+      {modoResuelto && !bloqueado && !esBrigada && resGlobal?.modo !== "solo lectura" && (
+
 
         <div className="flex items-center gap-2">
           {["Primer Conteo", "Segundo Conteo", "Tercer Conteo"].map((label, index) => {
