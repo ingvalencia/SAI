@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef } from "react";
 import {
   Route,
-  BrowserRouter,
   Routes,
   Navigate,
   useLocation,
+  HashRouter
 } from "react-router-dom";
 
 import RutaProtegida from "./pages/RutaProtegida";
@@ -70,15 +70,12 @@ function AppRoutes() {
 
   const handleLogout = () => {
     sessionStorage.clear();
-    window.location.href = "/diniz/inventarios/";
+    window.location.href = "/diniz/inventarios/#/login";
   };
-
 
   const RequireAuth = ({ children }) => {
     if (!empleado) return <Navigate to="/login" replace />;
-
     if (!estadoSistema && empleado) return <FullscreenLoader />;
-
 
     const { habilitado, modo_forzado } = estadoSistema;
     if (habilitado === 0 && !modo_forzado) return <EnMantenimiento />;
@@ -170,8 +167,8 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <BrowserRouter basename="/diniz/inventarios">
+    <HashRouter>
       <AppRoutes />
-    </BrowserRouter>
+    </HashRouter>
   );
 }

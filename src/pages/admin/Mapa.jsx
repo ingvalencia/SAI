@@ -1024,7 +1024,7 @@ export default function Mapa({ drawerRootId }) {
                     ) : (
                       <div className="overflow-x-auto max-h-[60vh]">
                         <table className="min-w-full text-sm">
-                          <thead className="bg-gray-100 text-gray-700 uppercase text-xs">
+                          <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
                             <tr>
                               <th className="px-3 py-2 text-left">Código</th>
                               <th className="px-3 py-2 text-left">Nombre</th>
@@ -1080,7 +1080,7 @@ export default function Mapa({ drawerRootId }) {
 
                     <div className="overflow-x-auto max-h-[65vh]">
                       <table className="min-w-full text-sm">
-                        <thead className="bg-gray-100 uppercase text-gray-700 text-xs">
+                        <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
                           <tr>
                             <th className="px-3 py-2 text-left">Código</th>
                             <th className="px-3 py-2 text-left">Nombre</th>
@@ -1498,7 +1498,7 @@ export default function Mapa({ drawerRootId }) {
           </div>
 
             <table className="min-w-full text-sm">
-              <thead className="bg-gradient-to-r from-red-800 to-red-600 text-white text-xs uppercase">
+              <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
                 <tr>
                   <th className="px-4 py-2">Almacén</th>
                   <th className="px-4 py-2">Código</th>

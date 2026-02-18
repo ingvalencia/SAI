@@ -5,7 +5,7 @@ import Mapa from "./Mapa";
 
 export default function AdminDashboard() {
   const [vista, setVista] = useState("inicio");
-  const [menuAbierto, setMenuAbierto] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const menuItems = [
     { id: "usuarios", label: "Usuarios y permisos", icon: "👥" },
@@ -14,83 +14,65 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="flex h-screen bg-gray-100 font-sans relative overflow-hidden">
-
-
-      <button
-        className="lg:hidden fixed top-4 left-4 z-[60] bg-white p-2 rounded-md shadow-md border border-red-700"
-        onClick={() => setMenuAbierto(!menuAbierto)}
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-6 w-6 text-red-700"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          {menuAbierto ? (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          ) : (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          )}
-        </svg>
-      </button>
+    <div className="flex h-screen bg-gray-100 font-sans overflow-hidden">
 
       <aside
-        className={`fixed lg:static top-0 left-0 h-full w-72 bg-gradient-to-b from-red-900 to-red-700 text-white flex flex-col shadow-2xl transform transition-transform duration-300 z-50
-        ${menuAbierto ? "translate-x-0" : "-translate-x-full"}
-        lg:translate-x-0`}
+        className={`relative h-full bg-gradient-to-b from-red-900 to-red-700 text-white shadow-2xl transition-all duration-300 ease-in-out
+        ${sidebarCollapsed ? "w-20" : "w-72"}`}
       >
-        <div className="p-6 border-b border-red-600 flex justify-between items-center">
-          <div>
-            <h2 className="text-xl font-bold tracking-wide">SICAF</h2>
-            <p className="text-xs text-red-200">Administrador</p>
-          </div>
+        <div className="flex items-center justify-between p-5 border-b border-red-600">
+          {!sidebarCollapsed && (
+            <div>
+              <h2 className="text-xl font-bold tracking-wide">SICAF</h2>
+              <p className="text-xs text-red-200">Administrador</p>
+            </div>
+          )}
+
           <button
-            className="lg:hidden text-red-200 hover:text-white text-xl"
-            onClick={() => setMenuAbierto(false)}
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="bg-white/10 hover:bg-white/20 p-2 rounded-lg transition"
           >
-            ✕
+            {sidebarCollapsed ? "▶" : "◀"}
           </button>
         </div>
 
-
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+        <nav className="mt-4 space-y-2 px-2">
           {menuItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => {
-                setVista(item.id);
-                setMenuAbierto(false);
-              }}
-              className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300
-                ${
-                  vista === item.id
-                    ? "bg-red-600 shadow-lg scale-105"
-                    : "hover:bg-red-800 text-red-100"
-                }`}
+              onClick={() => setVista(item.id)}
+              className={`group relative flex items-center gap-4 w-full px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300
+              ${
+                vista === item.id
+                  ? "bg-red-600 shadow-lg"
+                  : "hover:bg-red-800 text-red-100"
+              }`}
             >
-              <span className="text-lg">{item.icon}</span>
-              <span>{item.label}</span>
+              <span className="text-xl">{item.icon}</span>
+
+              {!sidebarCollapsed && (
+                <span className="whitespace-nowrap">
+                  {item.label}
+                </span>
+              )}
+
+              {sidebarCollapsed && (
+                <span className="absolute left-full ml-3 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
+                  {item.label}
+                </span>
+              )}
             </button>
           ))}
         </nav>
 
-        <div className="p-4 border-t border-red-600 text-xs text-red-200 text-center">
-          © {new Date().getFullYear()} SICAF
-        </div>
+        {!sidebarCollapsed && (
+          <div className="absolute bottom-0 w-full p-4 border-t border-red-600 text-xs text-red-200 text-center">
+            © {new Date().getFullYear()} SICAF
+          </div>
+        )}
       </aside>
 
-
-      {menuAbierto && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={() => setMenuAbierto(false)}
-        ></div>
-      )}
-
-
-      <main className="flex-1 p-10 overflow-y-auto transition-all duration-300 z-0">
+      <main className="flex-1 p-10 overflow-y-auto transition-all duration-300">
         {vista === "inicio" && (
           <div className="flex flex-col items-center justify-center h-full">
             <div className="bg-white shadow-xl rounded-2xl p-12 max-w-2xl text-center">
@@ -110,11 +92,8 @@ export default function AdminDashboard() {
 
         {vista === "usuarios" && <Usuarios />}
         {vista === "control" && <Control />}
-
-
         {vista === "mapa" && <Mapa drawerRootId="drawer-root" />}
       </main>
-
 
       <div id="drawer-root"></div>
     </div>

@@ -520,7 +520,7 @@ export default function Control() {
           <h2 className="text-lg font-bold text-gray-800 mb-4">Usuarios registrados</h2>
           <div className="overflow-auto rounded-lg border border-gray-200 shadow-sm">
             <table className="min-w-full text-sm text-left">
-              <thead className="bg-gradient-to-r from-red-800 to-red-600 text-white uppercase text-xs">
+              <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
                 <tr>
                   <th className="px-4 py-2">Empleado</th>
                   <th className="px-4 py-2">Nombre</th>
@@ -568,7 +568,11 @@ export default function Control() {
                 ))}
               </tbody>
             </table>
-            <div className="flex justify-center mt-6">
+
+
+          </div>
+
+          <div className="flex justify-center mt-6">
               <div className="flex items-center gap-4 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 shadow-sm">
 
                 <button
@@ -601,15 +605,13 @@ export default function Control() {
 
               </div>
             </div>
-
-          </div>
         </div>
       )}
 
       {vista === "fecha" && (
         <div className="space-y-10 max-w-6xl mx-auto">
 
-      
+
           <div className="bg-white border border-gray-300 rounded-xl shadow p-8">
             <h2 className="text-2xl font-bold mb-8 text-gray-800 flex items-center gap-2">
               📋 Fechas de gestión existentes
@@ -681,7 +683,7 @@ export default function Control() {
             <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
               <div className="overflow-auto">
                 <table className="min-w-full text-sm text-left">
-                  <thead className="bg-slate-100 text-slate-700 uppercase text-xs">
+                  <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
                     <tr>
                       <th className="px-4 py-3">CIA</th>
                       <th className="px-4 py-3">Almacén</th>
@@ -756,7 +758,12 @@ export default function Control() {
                     })}
                   </tbody>
                 </table>
-                <div className="flex justify-center mt-6">
+
+
+              </div>
+
+            </div>
+            <div className="flex justify-center mt-6">
                   <div className="flex items-center gap-4 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 shadow-sm">
 
                     <button
@@ -789,9 +796,6 @@ export default function Control() {
 
                   </div>
                 </div>
-
-              </div>
-            </div>
 
           </div>
         </div>
