@@ -19,6 +19,8 @@ $usuario = isset($_GET['usuario']) ? trim($_GET['usuario']) : null;
 $proyecto  = isset($_GET['proyecto'])  ? trim($_GET['proyecto'])  : null;
 $cuenta_em = isset($_GET['cuenta_em']) ? trim($_GET['cuenta_em']) : null;
 $cuenta_sm = isset($_GET['cuenta_sm']) ? trim($_GET['cuenta_sm']) : null;
+$comentario_front  = isset($_GET['comentario']) ? trim($_GET['comentario']) : '';
+
 
 if (!$cia || !$almacen || !$fecha || !$usuario || !$proyecto || !$cuenta_em || !$cuenta_sm) {
     echo json_encode(array("success" => false, "error" => "Faltan parámetros"));
@@ -191,6 +193,8 @@ $id_cierre = intval($row["id"]);
 $proy_safe = str_replace("'", "''", $proyecto);
 $em_safe   = str_replace("'", "''", $cuenta_em);
 $sm_safe   = str_replace("'", "''", $cuenta_sm);
+$comentario_front = str_replace("'", "''", substr($comentario_front, 0, 30));
+
 
 mssql_query("
   IF EXISTS (
@@ -282,10 +286,11 @@ foreach ($items as $codigo => $it) {
     $anio = date('Y', strtotime($fecha));
 
     if ($tipo === 'S') {
-        $comentario = $almacen." SM FALTANTE DE INVENTARIO MENSUAL COSTO - $mes $anio  ELABORO: $usuario";
+        $comentario = $comentario_front." - $mes $anio  EMP: $usuario";
     } else { // E
-        $comentario = $almacen." EM POR SOBRANTE DE INVENTARIO MENSUAL - $mes $anio  ELABORO: $usuario";
+        $comentario = $comentario_front." - $mes $anio  EMP: $usuario";
     }
+
 
 
     mssql_query("

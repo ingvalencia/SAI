@@ -7,6 +7,13 @@ import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
+import logoDiniz from "../../assets/logo-diniz.png";
+import pdfMake from "pdfmake/build/pdfmake";
+import pdfFonts from "pdfmake/build/vfs_fonts";
+
+pdfMake.vfs = pdfFonts.vfs;
+
+
 
 
 const coloresEstatus = {
@@ -41,6 +48,10 @@ export default function Mapa({ drawerRootId }) {
   const [procesandoRefresh, setProcesandoRefresh] = useState(false);
 
   const [mostrarConteo4, setMostrarConteo4] = useState(false);
+
+  const [mostrarResumenSAP, setMostrarResumenSAP] = useState(false);
+  const [resumenSAP, setResumenSAP] = useState([]);
+
 
 
   const fetchFechasDisponibles = async (ciaSeleccionada) => {
@@ -452,7 +463,9 @@ export default function Mapa({ drawerRootId }) {
     let itemsConDiferencia = 0;
     let sobrantes = 0;
     let faltantes = 0;
-    let importeTotal = 0;
+    let importeEntrada = 0;
+    let importeSalida = 0;
+
 
 
    detalle.forEach((d) => {
@@ -468,8 +481,17 @@ export default function Mapa({ drawerRootId }) {
           faltantes += Math.abs(dif);
         }
 
-        importeTotal += dif * precio;
-      }
+        const impacto = dif * precio;
+
+        if (dif < 0) {
+          // Entrada (faltante físico vs SAP)
+          importeEntrada += Math.abs(impacto);
+        } else if (dif > 0) {
+          // Salida (sobrante físico vs SAP)
+          importeSalida += Math.abs(impacto);
+        }
+
+              }
     });
 
 
@@ -479,7 +501,10 @@ export default function Mapa({ drawerRootId }) {
       sobrantes,
       faltantes,
       ajusteTotalAbs: sobrantes + faltantes,
-      importeTotal,
+      importeEntrada,
+      importeSalida,
+      importeTotal: importeEntrada + importeSalida,
+
 
     };
   }, [detalle]);
@@ -707,6 +732,7 @@ export default function Mapa({ drawerRootId }) {
             </p>
 
             <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:14px; align-items:end;">
+
               <div>
                 <label style="display:block; margin:0 0 6px;">Proyecto</label>
                 <input
@@ -734,6 +760,61 @@ export default function Mapa({ drawerRootId }) {
                   ${optionsCuentas}
                 </select>
               </div>
+
+              <div style="margin-top:20px;">
+              <label style="
+                  display:block;
+                  margin:0 0 8px;
+                  font-weight:600;
+                  color:#374151;
+                  font-size:13px;
+                  letter-spacing:.5px;
+              ">
+                Comentario (máx 30 caracteres)
+              </label>
+
+              <div style="position:relative;">
+                <textarea
+                  id="sw_comentario"
+                  maxlength="30"
+                  placeholder="Escribe un comentario para el cierre..."
+                  style="
+                    width:100%;
+                    height:70px;
+                    padding:12px 14px;
+                    font-size:14px;
+                    border-radius:10px;
+                    border:1px solid #d1d5db;
+                    outline:none;
+                    resize:none;
+                    transition:all .2s ease;
+                    box-shadow:0 1px 3px rgba(0,0,0,.08);
+                  "
+                  onfocus="this.style.borderColor='#2563eb'; this.style.boxShadow='0 0 0 3px rgba(37,99,235,.15)'"
+                  onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='0 1px 3px rgba(0,0,0,.08)'"
+                  oninput="
+                    if(this.value.length > 30) this.value = this.value.slice(0,30);
+                    const counter = document.getElementById('sw_counter');
+                    counter.innerText = this.value.length + '/30';
+                    counter.style.color = this.value.length >= 30 ? '#dc2626' : '#6b7280';
+                  "
+
+                ></textarea>
+
+                <div id="sw_counter" style="
+                    position:absolute;
+                    right:10px;
+                    bottom:8px;
+                    font-size:11px;
+                    color:#6b7280;
+                    font-weight:500;
+                ">
+                  0/30
+                </div>
+              </div>
+            </div>
+
+
             </div>
           </div>
         `,
@@ -745,18 +826,31 @@ export default function Mapa({ drawerRootId }) {
           const proyecto = document.getElementById("sw_proyecto")?.value?.trim();
           const cuentaEM = document.getElementById("sw_em")?.value;
           const cuentaSM = document.getElementById("sw_sm")?.value;
+          const comentario = document.getElementById("sw_comentario")?.value?.trim() || "";
 
           if (!cuentaEM) {
             Swal.showValidationMessage("Selecciona la cuenta EM (sobrante).");
             return;
           }
+
           if (!cuentaSM) {
             Swal.showValidationMessage("Selecciona la cuenta SM (salida).");
             return;
           }
 
-          return { proyecto, cuentaEM, cuentaSM };
+          if (!comentario) {
+            Swal.showValidationMessage("El comentario es obligatorio.");
+            return;
+          }
+
+          if (comentario.length > 30) {
+            Swal.showValidationMessage("El comentario no puede exceder 30 caracteres.");
+            return;
+          }
+
+          return { proyecto, cuentaEM, cuentaSM, comentario };
         },
+
       });
 
       if (!isConfirmed) return;
@@ -787,12 +881,13 @@ export default function Mapa({ drawerRootId }) {
           {
             params: {
               cia,
-              almacen: alm, //
+              almacen: alm,
               fecha,
               usuario: sessionStorage.getItem("empleado"),
               proyecto: value.proyecto,
               cuenta_em: value.cuentaEM,
               cuenta_sm: value.cuentaSM,
+              comentario: value.comentario,
             },
           }
         );
@@ -896,6 +991,203 @@ export default function Mapa({ drawerRootId }) {
     }
   };
 
+  const fetchResumenSAP = async () => {
+  try {
+    const res = await axios.get(
+      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/resumen_sap.php",
+      {
+        params: {
+          cia,
+          almacen: grupoSeleccionado
+            ? grupoSeleccionado.almacenes.join(",")
+            : almacenSeleccionado,
+          fecha,
+        },
+      }
+    );
+
+    if (!res.data.success) {
+      throw new Error(res.data.error || "Error al obtener resumen SAP");
+    }
+
+    setResumenSAP(res.data.data);
+    setMostrarResumenSAP(true);
+
+  } catch (e) {
+    Swal.fire("Error", e.message, "error");
+  }
+};
+
+const convertirImagenBase64 = (url) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.setAttribute("crossOrigin", "anonymous");
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL("image/png"));
+    };
+    img.onerror = error => reject(error);
+    img.src = url;
+  });
+};
+
+ const generarPDF = async () => {
+
+  const logoBase64 = await convertirImagenBase64(logoDiniz);
+
+  const bodyRows = resumenSAP.map(row => ([
+    { text: row.almacen, alignment: "left", fontSize: 10 },
+    { text: `$${Number(row.FALTANTE).toFixed(2)}`, alignment: "right", color: "green", fontSize: 10 },
+    { text: `$${Number(row.SOBRANTE).toFixed(2)}`, alignment: "right", color: "red", fontSize: 10 },
+    { text: `$${Number(row.TOTAL).toFixed(2)}`, alignment: "right", bold: true, fontSize: 10 },
+    { text: row.DOC_FALTANTE !== "-" ? row.DOC_FALTANTE : row.DOC_SOBRANTE, alignment: "center", fontSize: 10 }
+  ]));
+
+  const docDefinition = {
+
+    pageOrientation: "landscape",
+    pageSize: "A4",
+    pageMargins: [50, 70, 50, 80],
+
+    header: {
+      margin: [50, 20, 50, 0],
+      columns: [
+        {
+          image: logoBase64,
+          width: 90
+        },
+        {
+          alignment: "right",
+          stack: [
+            { text: "Código:", fontSize: 8 },
+            { text: `Fecha emisión: ${fecha}`, fontSize: 8 },
+            { text: "Versión: 1", fontSize: 8 }
+          ]
+        }
+      ]
+    },
+
+    content: [
+
+      {
+        canvas: [
+          {
+            type: "line",
+            x1: 0, y1: 0,
+            x2: 750, y2: 0,
+            lineWidth: 0.5,
+            lineColor: "#9ca3af"
+          }
+        ],
+        margin: [0, 10, 0, 20]
+      },
+
+      {
+        text: "RESUMEN CONTABLE DE AJUSTES SAP",
+        alignment: "center",
+        fontSize: 14,
+        bold: true,
+        margin: [0, 0, 0, 20]
+      },
+
+      {
+        table: {
+          headerRows: 1,
+          widths: ["*", 90, 90, 90, 100],
+          body: [
+            [
+              { text: "ALMACÉN", style: "tableHeader" },
+              { text: "FALTANTE", style: "tableHeader", alignment: "right" },
+              { text: "SOBRANTE", style: "tableHeader", alignment: "right" },
+              { text: "TOTAL", style: "tableHeader", alignment: "right" },
+              { text: "DOC SAP", style: "tableHeader", alignment: "center" }
+            ],
+            ...bodyRows
+          ]
+        },
+        layout: {
+          fillColor: (rowIndex, node) => {
+            if (rowIndex === 0) return "#b91c1c";
+            const row = node.table.body[rowIndex];
+            if (row?.[0]?.text === "TOTAL GENERAL") return "#f3f4f6";
+            return null;
+          },
+          hLineWidth: () => 0.6,
+          vLineWidth: () => 0.6,
+          hLineColor: () => "#d1d5db",
+          vLineColor: () => "#e5e7eb",
+          paddingLeft: () => 8,
+          paddingRight: () => 8,
+          paddingTop: () => 5,
+          paddingBottom: () => 5,
+        }
+      },
+
+      { text: "\n\n\n\n\n" },
+
+      {
+        columns: [
+          {
+            width: "*",
+            stack: [
+              { text: "____________________________________________", alignment: "center" },
+              { text: "FIRMA DEL GERENTE DE OPERACIONES", alignment: "center", fontSize: 9, margin: [0,5,0,0] }
+            ]
+          },
+          {
+            width: "*",
+            stack: [
+              { text: "____________________________________________", alignment: "center" },
+              { text: "FIRMA DEL SUBGERENTE CONTABLE-ADMINISTRATIVO", alignment: "center", fontSize: 9, margin: [0,5,0,0] }
+            ]
+          }
+        ]
+      },
+
+      { text: "\n\n\n" },
+
+      {
+        columns: [
+          {
+            width: "*",
+            stack: [
+              { text: "____________________________________________", alignment: "center" },
+              { text: "FIRMA DEL SUBGERENTE DE OPERACIONES", alignment: "center", fontSize: 9, margin: [0,5,0,0] }
+            ]
+          },
+          {
+            width: "*",
+            stack: [
+              { text: "____________________________________________", alignment: "center" },
+              { text: "FIRMA DEL AUDITOR INTERNO", alignment: "center", fontSize: 9, margin: [0,5,0,0] }
+            ]
+          }
+        ]
+      }
+
+    ],
+
+    styles: {
+      tableHeader: {
+        color: "white",
+        bold: true,
+        fontSize: 9
+      }
+    }
+
+  };
+
+  pdfMake.createPdf(docDefinition).download(`Resumen_SAP_${fecha}.pdf`);
+};
+
+
+
+
+
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -971,45 +1263,66 @@ export default function Mapa({ drawerRootId }) {
               {tabActiva === "resumen" ? (
                 <>
 
-                  <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-10">
 
-                    <div className="bg-white rounded-lg shadow-md p-5">
-                      <p className="text-xs text-gray-500">Total artículos</p>
-                      <p className="text-3xl font-extrabold text-gray-800">
-                        {resumenCierre.totalItems}
-                      </p>
-                    </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
 
-                    <div className="bg-white rounded-lg shadow-md p-5">
-                      <p className="text-xs text-gray-500">Artículos con diferencia</p>
-                      <p className="text-3xl font-extrabold text-gray-800">
-                        {resumenCierre.itemsConDiferencia}
-                      </p>
-                    </div>
+              <div className="bg-white rounded-xl shadow-md p-5">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Total artículos</p>
+                <p className="text-3xl font-extrabold text-gray-800 mt-2">
+                  {resumenCierre.totalItems}
+                </p>
+              </div>
 
-                    <div className="bg-white rounded-lg shadow-md p-5">
-                      <p className="text-xs text-gray-500">Sobrantes (unidades)</p>
-                      <p className="text-3xl font-extrabold text-green-700">
-                        {resumenCierre.sobrantes.toFixed(2)}
-                      </p>
-                    </div>
+              <div className="bg-white rounded-xl shadow-md p-5">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Con diferencia</p>
+                <p className="text-3xl font-extrabold text-gray-800 mt-2">
+                  {resumenCierre.itemsConDiferencia}
+                </p>
+              </div>
 
-                    <div className="bg-white rounded-lg shadow-md p-5">
-                      <p className="text-xs text-gray-500">Faltantes (unidades)</p>
-                      <p className="text-3xl font-extrabold text-red-700">
-                        {resumenCierre.faltantes.toFixed(2)}
-                      </p>
-                    </div>
+              <div className="bg-white rounded-xl shadow-md p-5 border-l-4 border-green-500">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Sobrantes</p>
+                <p className="text-3xl font-extrabold text-green-700 mt-2">
+                  {resumenCierre.sobrantes.toFixed(2)}
+                </p>
+              </div>
 
-                    <div className="bg-white rounded-lg shadow-md p-5">
-                      <p className="text-xs text-gray-500">Impacto económico</p>
-                      <p className="text-3xl font-extrabold text-gray-800">
-                        ${resumenCierre.importeTotal.toFixed(2)}
-                      </p>
-                    </div>
+              <div className="bg-white rounded-xl shadow-md p-5 border-l-4 border-red-500">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Faltantes</p>
+                <p className="text-3xl font-extrabold text-red-700 mt-2">
+                  {resumenCierre.faltantes.toFixed(2)}
+                </p>
+              </div>
+
+            </div>
 
 
-                  </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+
+                <div className="bg-white rounded-xl shadow-md p-5 border-l-4 border-green-600">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Impacto Entrada</p>
+                  <p className="text-3xl font-extrabold text-green-700 mt-2">
+                    ${resumenCierre.importeEntrada.toFixed(2)}
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-xl shadow-md p-5 border-l-4 border-red-600">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Impacto Salida</p>
+                  <p className="text-3xl font-extrabold text-red-700 mt-2">
+                    ${resumenCierre.importeSalida.toFixed(2)}
+                  </p>
+                </div>
+
+                <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-xl shadow-lg p-5">
+                  <p className="text-xs text-slate-300 uppercase tracking-wide">Impacto Total</p>
+                  <p className="text-3xl font-extrabold text-white mt-2">
+                    ${resumenCierre.importeTotal.toFixed(2)}
+                  </p>
+                </div>
+
+              </div>
+
 
 
                   <div className="bg-white rounded-lg shadow-md p-6">
@@ -1207,6 +1520,147 @@ export default function Mapa({ drawerRootId }) {
         document.body
       )
     }
+
+    {mostrarResumenSAP && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[700]">
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl p-6">
+
+          <div className="flex justify-between items-center mb-4">
+
+            <h2 className="text-xl font-bold text-gray-800">
+              Resumen Contable SAP
+            </h2>
+
+            <div className="flex gap-3">
+
+              <button
+                onClick={generarPDF}
+                className="px-4 py-2 bg-red-700 text-white text-sm font-semibold rounded-lg shadow-md hover:bg-red-800"
+              >
+                📄 Descargar PDF
+              </button>
+
+              <button
+                onClick={() => setMostrarResumenSAP(false)}
+                className="text-gray-500 hover:text-black text-lg"
+              >
+                ×
+              </button>
+
+            </div>
+
+          </div>
+
+
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl p-10">
+
+            {/* HEADER */}
+            <div className="flex justify-between items-start border-b pb-6 mb-6">
+
+              <div>
+                <img src={logoDiniz} alt="Grupo Diniz" className="h-16 object-contain" />
+              </div>
+
+              <div className="text-right text-sm text-gray-700">
+                <p><strong>Código:</strong> </p>
+                <p><strong>Fecha emisión:</strong> {fecha}</p>
+                <p><strong>Versión:</strong> 1</p>
+              </div>
+            </div>
+
+            <h2 className="text-2xl font-bold text-center mb-8 tracking-wide">
+              RESUMEN CONTABLE DE AJUSTES SAP
+            </h2>
+
+            {/* TABLA */}
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm border border-gray-300">
+
+            <thead>
+              <tr className="bg-red-700 text-white text-xs uppercase">
+                <th className="px-4 py-3 text-left">Almacén</th>
+                <th className="px-4 py-3 text-right">Faltante</th>
+                <th className="px-4 py-3 text-right">Sobrante</th>
+                <th className="px-4 py-3 text-right">Total</th>
+                <th className="px-4 py-3 text-center">Doc SAP</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {resumenSAP.map((row, i) => {
+
+                const esTotal = row.almacen === "TOTAL GENERAL";
+
+                return (
+                  <tr
+                    key={i}
+                    className={`border-t ${
+                      esTotal ? "bg-gray-100 font-bold text-base" : ""
+                    }`}
+                  >
+                    <td className="px-4 py-3">{row.almacen}</td>
+
+                    <td className="px-4 py-3 text-right text-green-700 font-semibold">
+                      ${Number(row.FALTANTE).toFixed(2)}
+                    </td>
+
+                    <td className="px-4 py-3 text-right text-red-700 font-semibold">
+                      ${Number(row.SOBRANTE).toFixed(2)}
+                    </td>
+
+                    <td className="px-4 py-3 text-right font-bold">
+                      ${Number(row.TOTAL).toFixed(2)}
+                    </td>
+
+                    <td className="px-4 py-3 text-center">
+                      {row.DOC_FALTANTE !== "-" ? row.DOC_FALTANTE : row.DOC_SOBRANTE}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+
+          </table>
+
+            </div>
+
+            {/* FIRMAS */}
+            <div className="mt-16 grid grid-cols-2 gap-16 text-sm text-gray-800">
+
+              <div>
+                <div className="border-t-2 border-gray-400 pt-2 text-center">
+                  FIRMA DEL GERENTE DE OPERACIONES
+                </div>
+              </div>
+
+              <div>
+                <div className="border-t-2 border-gray-400 pt-2 text-center">
+                  FIRMA DEL SUBGERENTE CONTABLE-ADMINISTRATIVO
+                </div>
+              </div>
+
+              <div>
+                <div className="border-t-2 border-gray-400 pt-2 text-center">
+                  FIRMA DEL SUBGERENTE DE OPERACIONES
+                </div>
+              </div>
+
+              <div>
+                <div className="border-t-2 border-gray-400 pt-2 text-center">
+                  FIRMA DEL AUDITOR INTERNO
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+
+
+        </div>
+      </div>
+    )}
+
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 items-end">
         <select
@@ -1423,6 +1877,17 @@ export default function Mapa({ drawerRootId }) {
                 Revisar Cierre del Inventario
               </button>
             )}
+
+
+            {estatusInventario === 5 && (
+              <button
+                onClick={fetchResumenSAP}
+                className="px-5 py-3 bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-md hover:bg-emerald-800"
+              >
+                📊 Ver Resumen Contable SAP
+              </button>
+            )}
+
 
 
 

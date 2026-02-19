@@ -531,16 +531,15 @@ switch ($estatus) {
     $c3  = isset($c3Map[$code]) ? floatval($c3Map[$code]) : 0;
     $sap = isset($sapMap[$code]) ? floatval($sapMap[$code]) : 0;
 
-    if (
+    $diferenciaConteos =
       round($c1 - $c2, 2) != 0 ||
       round($c1 - $c3, 2) != 0 ||
-      round($c2 - $c3, 2) != 0
-    ) {
-      $diffCodes[] = $code;
-      continue;
-    }
+      round($c2 - $c3, 2) != 0;
 
-    if ($sap > 0 && $c1 == 0 && $c2 == 0 && $c3 == 0) {
+    
+    $diferenciaSAP = round($c3 - $sap, 2) != 0;
+
+    if ($diferenciaConteos || $diferenciaSAP) {
       $diffCodes[] = $code;
     }
   }

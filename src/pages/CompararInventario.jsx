@@ -42,6 +42,8 @@ export default function CompararInventario() {
   const [bloqueado, setBloqueado] = useState(false);
   const [mostrarCuartoConteo, setMostrarCuartoConteo] = useState(false);
   const [modoResuelto, setModoResuelto] = useState(false);
+  const [conteoBase, setConteoBase] = useState(null);
+
 
  const exportarExcel = async () => {
     const workbook = new ExcelJS.Workbook();
@@ -247,6 +249,12 @@ export default function CompararInventario() {
           setMiEmpleado(res.data.mi_empleado);
           setEmpleadoCompanero(res.data.empleado_companero);
           setNroConteoMio(Number(res.data.mi_nro_conteo));
+
+          if (!conteoBase) {
+            setConteoBase(Number(res.data.mi_nro_conteo));
+          }
+
+
           setNroConteoComp(Number(res.data.nro_conteo_companero));
           setHayDiferenciasBrigada(hayDif);
 
@@ -401,6 +409,38 @@ export default function CompararInventario() {
   const estatusCalc = Number(estatus) === 4
   ? Number(resGlobal?.nro_conteo ?? 1)
   : Number(estatus);
+
+  let conteosPermitidos = [1, 2, 3, 7];
+
+  if (esBrigada) {
+    conteosPermitidos = [];
+
+    const miActual = Number(resGlobal.mi_nro_conteo);
+    const comp = Number(resGlobal.nro_conteo_companero);
+
+
+    let baseOriginal = null;
+
+    if (miActual === 3 || miActual === 7) {
+      
+      baseOriginal = comp === 1 ? 2 : 1;
+    } else {
+      baseOriginal = miActual;
+    }
+
+    if (baseOriginal) {
+      conteosPermitidos.push(baseOriginal);
+    }
+
+    if (estatus >= 3) {
+      conteosPermitidos.push(3);
+    }
+
+    if (estatus >= 7) {
+      conteosPermitidos.push(7);
+    }
+  }
+
 
 
       let datosFiltrados = datos.filter((item) => {
@@ -892,21 +932,33 @@ export default function CompararInventario() {
               <th className="p-3 text-right">Existencia SAP</th>
               */}
 
-              <th className={`p-3 text-right ${estatus === 1 ? "bg-yellow-100 text-gray-900 font-extrabold" : ""}`}>
-                Conteo 1
-              </th>
+              {conteosPermitidos.includes(1) && (
+                <th className={`p-3 text-right ${estatus === 1 ? "bg-yellow-100 text-gray-900 font-extrabold" : ""}`}>
+                  Conteo 1
+                </th>
+              )}
 
-              <th className={`p-3 text-right ${estatus === 2 ? "bg-yellow-100 text-gray-900 font-extrabold" : ""}`}>
-                Conteo 2
-              </th>
 
-              <th className={`p-3 text-right ${estatus === 3 ? "bg-yellow-100 text-gray-900 font-extrabold" : ""}`}>
-                Conteo 3
-              </th>
+              {conteosPermitidos.includes(2) && (
+                <th className={`p-3 text-right ${estatus === 2 ? "bg-yellow-100 text-gray-900 font-extrabold" : ""}`}>
+                  Conteo 2
+                </th>
+              )}
 
-              <th className={`p-3 text-right ${estatus === 7 ? "bg-yellow-100 text-gray-900 font-extrabold" : ""}`}>
-                Conteo 4
-              </th>
+
+              {conteosPermitidos.includes(3) && (
+                <th className={`p-3 text-right ${estatus === 3 ? "bg-yellow-100 text-gray-900 font-extrabold" : ""}`}>
+                  Conteo 3
+                </th>
+              )}
+
+
+              {conteosPermitidos.includes(7) && (
+                <th className={`p-3 text-right ${estatus === 7 ? "bg-yellow-100 text-gray-900 font-extrabold" : ""}`}>
+                  Conteo 4
+                </th>
+              )}
+
 
               {/*
               <th className="p-3 text-right">Diferencia SAP</th>
@@ -990,44 +1042,56 @@ export default function CompararInventario() {
                   */}
 
 
-                  <td className={claseConteo(1)}>
-                    <div>{c1.toFixed(2)}</div>
-                    {estatus === 1 && (
-                      <div className="text-[10px] text-gray-500">
-                        Conteo activo
-                      </div>
-                    )}
-                  </td>
+                  {conteosPermitidos.includes(1) && (
+                    <td className={claseConteo(1)}>
+                      <div>{c1.toFixed(2)}</div>
+                      {estatus === 1 && (
+                        <div className="text-[10px] text-gray-500">
+                          Conteo activo
+                        </div>
+                      )}
+                    </td>
+                  )}
 
 
-                  <td className={claseConteo(2)}>
-                    <div>{c2.toFixed(2)}</div>
-                    {estatus === 2 && (
-                      <div className="text-[10px] text-gray-500">
-                        Conteo activo
-                      </div>
-                    )}
-                  </td>
+
+                  {conteosPermitidos.includes(2) && (
+                    <td className={claseConteo(2)}>
+                      <div>{c2.toFixed(2)}</div>
+                      {estatus === 2 && (
+                        <div className="text-[10px] text-gray-500">
+                          Conteo activo
+                        </div>
+                      )}
+                    </td>
+                  )}
 
 
-                  <td className={claseConteo(3)}>
-                    <div>{c3.toFixed(2)}</div>
-                    {estatus === 3 && (
-                      <div className="text-[10px] text-gray-500">
-                        Conteo activo
-                      </div>
-                    )}
-                  </td>
+
+                  {conteosPermitidos.includes(3) && (
+                    <td className={claseConteo(3)}>
+                      <div>{c3.toFixed(2)}</div>
+                      {estatus === 3 && (
+                        <div className="text-[10px] text-gray-500">
+                          Conteo activo
+                        </div>
+                      )}
+                    </td>
+                  )}
 
 
-                  <td className={claseConteo(7)}>
-                    <div>{c4.toFixed(2)}</div>
-                    {estatus === 7 && (
-                      <div className="text-[10px] text-gray-500">
-                        Conteo activo
-                      </div>
-                    )}
-                  </td>
+
+                  {conteosPermitidos.includes(7) && (
+                    <td className={claseConteo(7)}>
+                      <div>{c4.toFixed(2)}</div>
+                      {estatus === 7 && (
+                        <div className="text-[10px] text-gray-500">
+                          Conteo activo
+                        </div>
+                      )}
+                    </td>
+                  )}
+
 
 
                   {/*
