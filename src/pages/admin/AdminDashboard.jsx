@@ -74,18 +74,49 @@ export default function AdminDashboard() {
 
       <main className="flex-1 p-10 overflow-y-auto transition-all duration-300">
         {vista === "inicio" && (
-          <div className="flex flex-col items-center justify-center h-full">
-            <div className="bg-white shadow-xl rounded-2xl p-12 max-w-2xl text-center">
-              <h1 className="text-4xl font-extrabold text-gray-900 mb-4">
-                Bienvenido al Administrador
-              </h1>
-              <h2 className="text-2xl font-semibold text-indigo-600 mb-6">
-                Sistema de Captura de Inventarios Físicos{" "}
-                <span className="font-bold">SICAF</span>
-              </h2>
-              <p className="text-gray-600 text-lg leading-relaxed">
-                Selecciona una opción del menú para comenzar a gestionar el sistema.
-              </p>
+          <div className="flex items-center justify-center h-full bg-gradient-to-br from-gray-100 to-gray-200 px-6">
+            <div className="relative bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden">
+
+              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600"></div>
+
+              <div className="p-14">
+
+                <div className="flex flex-col items-center text-center">
+
+                  <span className="text-xs tracking-[0.35em] text-gray-400 mb-4">
+                   
+                  </span>
+
+                  <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight mb-3">
+                    Administrador SICAF
+                  </h1>
+
+                  <div className="w-20 h-1 bg-indigo-600 rounded-full mb-6"></div>
+
+                  <h2 className="text-lg font-semibold text-gray-700 mb-6">
+                    Sistema de Captura de Inventarios Físicos
+                  </h2>
+
+                  <p className="text-gray-600 leading-relaxed max-w-2xl">
+                    Plataforma centralizada para la gestión, supervisión y control
+                    estratégico de los procesos de inventario físico dentro de la organización.
+                  </p>
+
+                </div>
+
+                <div className="mt-12 grid grid-cols-2 gap-8 text-center">
+                  <div>
+                    <p className="text-3xl font-bold text-indigo-600">v1.0</p>
+                    <p className="text-xs tracking-wider text-gray-500 mt-1">VERSIÓN DEL SISTEMA</p>
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">ÁREA DE TI</p>
+                    <p className="text-xs tracking-wider text-gray-500 mt-1">DESARROLLO SAP</p>
+                  </div>
+                </div>
+
+              </div>
             </div>
           </div>
         )}
