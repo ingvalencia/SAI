@@ -254,7 +254,7 @@ switch ($estatus) {
 
 
 
-   case 3: {
+  case 3: {
 
   $sapMap = loadSapMap($conn, $almacen, $fecha, $empleado, $cia, false);
 
@@ -266,6 +266,7 @@ switch ($estatus) {
 
     $c1Map = loadConteoMap_CapInventario($conn, $almacen, $fecha, $cia, 1, $usuarioConteo1);
     $c2Map = loadConteoMap_CapInventario($conn, $almacen, $fecha, $cia, 2, $usuarioConteo2);
+    $c3Map = loadConteo3Map($conn, $almacen, $fecha, $cia);
 
   } else {
 
@@ -304,11 +305,30 @@ switch ($estatus) {
     while ($r = mssql_fetch_assoc($resC2)) {
       $c2Map[trim($r['ItemCode'])] = floatval($r['cantidad']);
     }
+
+    $c3Map = [];
+    $resC3 = run("
+      SELECT i.ItemCode, SUM(ct.cantidad) AS cantidad
+      FROM CAP_INVENTARIO i
+      JOIN CAP_INVENTARIO_CONTEOS ct
+        ON ct.id_inventario = i.id
+       AND ct.nro_conteo = 3
+      WHERE i.almacen   = '$almacen'
+        AND i.fecha_inv = '$fecha'
+        AND i.cias      = '$cia'
+        AND i.usuario   = $empleado
+      GROUP BY i.ItemCode
+    ", $conn);
+
+    while ($r = mssql_fetch_assoc($resC3)) {
+      $c3Map[trim($r['ItemCode'])] = floatval($r['cantidad']);
+    }
   }
 
   $allCodes = array_unique(array_merge(
     array_keys($c1Map),
     array_keys($c2Map),
+    array_keys($c3Map),
     array_keys($sapMap)
   ));
 
@@ -322,19 +342,21 @@ switch ($estatus) {
 
     $c1  = isset($c1Map[$code]) ? floatval($c1Map[$code]) : 0;
     $c2  = isset($c2Map[$code]) ? floatval($c2Map[$code]) : 0;
+    $c3  = isset($c3Map[$code]) ? floatval($c3Map[$code]) : 0;
     $sap = isset($sapMap[$code]) ? floatval($sapMap[$code]) : 0;
 
-    if (round($c1 - $c2, 2) != 0) {
-      $diffCodes[] = $code;
-      continue;
-    }
+    $diferencia =
+        round($c1 - $c3, 2) != 0 ||
+        round($c2 - $c3, 2) != 0 ||
+        round($c3 - $sap, 2) != 0;
 
-    if ($sap > 0 && $c1 == 0 && $c2 == 0) {
+    if ($diferencia) {
       $diffCodes[] = $code;
     }
   }
 
   $diffCodes = array_values(array_unique($diffCodes));
+
   if (count($diffCodes) === 0) {
     json_ok([], 3, $esBrigada);
   }
@@ -343,101 +365,48 @@ switch ($estatus) {
     return "'" . addslashes($c) . "'";
   }, $diffCodes);
 
-  if ($esBrigada) {
-
-    $sql = "
+  $sql = "
+    SELECT
+      base.id_inventario,
+      base.ItemCode,
+      base.Itemname,
+      base.almacen,
+      base.fecha_inv,
+      base.cias,
+      base.codebars,
+      base.nom_fam,
+      base.nom_subfam,
+      base.cod_subfam
+    FROM (
       SELECT
-        base.id_inventario,
-        base.ItemCode,
-        base.Itemname,
-        base.almacen,
-        base.fecha_inv,
-        base.cias,
-        base.codebars,
-        base.nom_fam,
-        base.nom_subfam,
-        base.cod_subfam,
-        ISNULL(c1.conteo_1, 0) AS conteo_1,
-        ISNULL(c2.conteo_2, 0) AS conteo_2
-      FROM (
-        SELECT
-          ItemCode,
-          MAX(id)          AS id_inventario,
-          MAX(Itemname)    AS Itemname,
-          MAX(almacen)     AS almacen,
-          MAX(fecha_inv)   AS fecha_inv,
-          MAX(cias)        AS cias,
-          MAX(codebars)    AS codebars,
-          MAX(nom_fam)     AS nom_fam,
-          MAX(nom_subfam)  AS nom_subfam,
-          MAX(cod_subfam)  AS cod_subfam
-        FROM CAP_INVENTARIO
-        WHERE almacen   = '$almacen'
-          AND fecha_inv = '$fecha'
-          AND cias      = '$cia'
-        GROUP BY ItemCode
-      ) base
-      LEFT JOIN (
-        SELECT ItemCode, almacen, fecha_inv, cias, SUM(cant_invfis) AS conteo_1
-        FROM CAP_INVENTARIO
-        WHERE estatus = 1
-        GROUP BY ItemCode, almacen, fecha_inv, cias
-      ) c1
-        ON c1.ItemCode  = base.ItemCode
-       AND c1.almacen   = base.almacen
-       AND c1.fecha_inv = base.fecha_inv
-       AND c1.cias      = base.cias
-      LEFT JOIN (
-        SELECT ItemCode, almacen, fecha_inv, cias, SUM(cant_invfis) AS conteo_2
-        FROM CAP_INVENTARIO
-        WHERE estatus = 2
-        GROUP BY ItemCode, almacen, fecha_inv, cias
-      ) c2
-        ON c2.ItemCode  = base.ItemCode
-       AND c2.almacen   = base.almacen
-       AND c2.fecha_inv = base.fecha_inv
-       AND c2.cias      = base.cias
-      WHERE base.ItemCode IN (" . implode(",", $codesEsc) . ")
-    ";
-
-  } else {
-
-    $sql = "
-      SELECT
-        i.id AS id_inventario,
-        i.ItemCode,
-        i.Itemname,
-        i.almacen,
-        i.fecha_inv,
-        i.cias,
-        i.codebars,
-        i.nom_fam,
-        i.nom_subfam,
-        i.cod_subfam,
-        ISNULL(c1.cantidad,0) AS conteo_1,
-        ISNULL(c2.cantidad,0) AS conteo_2
-      FROM CAP_INVENTARIO i
-      LEFT JOIN CAP_INVENTARIO_CONTEOS c1
-        ON c1.id_inventario = i.id
-       AND c1.nro_conteo = 1
-       AND c1.usuario = $empleado
-      LEFT JOIN CAP_INVENTARIO_CONTEOS c2
-        ON c2.id_inventario = i.id
-       AND c2.nro_conteo = 2
-       AND c2.usuario = $empleado
-      WHERE i.almacen   = '$almacen'
-        AND i.fecha_inv = '$fecha'
-        AND i.cias      = '$cia'
-        AND i.ItemCode IN (" . implode(",", $codesEsc) . ")
-    ";
-  }
+        ItemCode,
+        MAX(id) AS id_inventario,
+        MAX(Itemname) AS Itemname,
+        MAX(almacen) AS almacen,
+        MAX(fecha_inv) AS fecha_inv,
+        MAX(cias) AS cias,
+        MAX(codebars) AS codebars,
+        MAX(nom_fam) AS nom_fam,
+        MAX(nom_subfam) AS nom_subfam,
+        MAX(cod_subfam) AS cod_subfam
+      FROM CAP_INVENTARIO
+      WHERE almacen   = '$almacen'
+        AND fecha_inv = '$fecha'
+        AND cias      = '$cia'
+      GROUP BY ItemCode
+    ) base
+    WHERE base.ItemCode IN (" . implode(",", $codesEsc) . ")
+  ";
 
   $res = run($sql, $conn);
 
   $data = [];
   while ($row = mssql_fetch_assoc($res)) {
     $code = trim($row['ItemCode']);
-    $row['sap'] = isset($sapMap[$code]) ? $sapMap[$code] : 0;
+    $row['conteo_1'] = isset($c1Map[$code]) ? $c1Map[$code] : 0;
+    $row['conteo_2'] = isset($c2Map[$code]) ? $c2Map[$code] : 0;
+    $row['conteo_3'] = isset($c3Map[$code]) ? $c3Map[$code] : 0;
+    $row['sap']      = isset($sapMap[$code]) ? $sapMap[$code] : 0;
     $data[] = array_map('utf8_encode', $row);
   }
 
@@ -531,17 +500,13 @@ switch ($estatus) {
     $c3  = isset($c3Map[$code]) ? floatval($c3Map[$code]) : 0;
     $sap = isset($sapMap[$code]) ? floatval($sapMap[$code]) : 0;
 
-    $diferenciaConteos =
-      round($c1 - $c2, 2) != 0 ||
-      round($c1 - $c3, 2) != 0 ||
-      round($c2 - $c3, 2) != 0;
-
-    
     $diferenciaSAP = round($c3 - $sap, 2) != 0;
 
-    if ($diferenciaConteos || $diferenciaSAP) {
+    if ($diferenciaSAP) {
       $diffCodes[] = $code;
     }
+
+
   }
 
   $diffCodes = array_values(array_unique($diffCodes));

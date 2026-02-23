@@ -569,6 +569,7 @@ export default function CapturaInventario() {
 
   const confirmarInventario = async () => {
 
+  /*
   const hayCaptura = datos.some(
     (item) =>
       item.cant_invfis !== "" &&
@@ -583,7 +584,7 @@ export default function CapturaInventario() {
       "warning"
     );
     return;
-  }
+  }*/
 
 
   const confirmacion = await MySwal.fire({
