@@ -25,6 +25,19 @@ const coloresEstatus = {
 };
 
 
+const obtenerUltimoConteo = (item) => {
+  if (item.conteo4 !== null && item.conteo4 !== undefined)
+    return Number(item.conteo4);
+
+  if (item.conteo3 !== null && item.conteo3 !== undefined)
+    return Number(item.conteo3);
+
+  if (item.conteo2 !== null && item.conteo2 !== undefined)
+    return Number(item.conteo2);
+
+  return Number(item.conteo1 ?? 0);
+};
+
 export default function Mapa({ drawerRootId }) {
   const [almacenes, setAlmacenes] = useState([]);
   const [cia, setCia] = useState("");
@@ -178,10 +191,7 @@ export default function Mapa({ drawerRootId }) {
         const c2 = Number(item.conteo2 ?? 0);
         const c3 = Number(item.conteo3 ?? 0);
 
-        let conteo_final = 0;
-        if (c3 > 0) conteo_final = c3;
-        else if (c2 > 0) conteo_final = c2;
-        else conteo_final = c1;
+        const conteo_final = obtenerUltimoConteo(item);
 
         const sap_final = Number(item.inventario_sap ?? 0);
         const diferencia_cierre = conteo_final - sap_final;
@@ -338,11 +348,7 @@ export default function Mapa({ drawerRootId }) {
       const c4 = Number(item.conteo4 ?? 0);
 
 
-      const conteo_final =
-        c4 > 0 ? c4 :
-        c3 > 0 ? c3 :
-        c2 > 0 ? c2 :
-        c1;
+      const conteo_final = obtenerUltimoConteo(item);
 
       const sap_final = Number(item.inventario_sap ?? 0);
       const diferencia_cierre = Number((sap_final - conteo_final).toFixed(2));
@@ -423,9 +429,7 @@ export default function Mapa({ drawerRootId }) {
       const matchAlmacen =
         almacenFiltro === "TODOS" || item.almacen === almacenFiltro;
 
-      const tieneDiferencia = (item.diferencia_cierre ?? 0) !== 0;
-
-      return matchTexto && matchAlmacen && tieneDiferencia;
+      return matchTexto && matchAlmacen; //
     });
   }, [detalle, busqueda, almacenFiltro]);
 
@@ -626,11 +630,7 @@ export default function Mapa({ drawerRootId }) {
       const c4 = Number(item.conteo4 ?? 0);
       const sap = Number(item.inventario_sap ?? 0);
 
-      const ultimoConteo =
-        c4 > 0 ? c4 :
-        c3 > 0 ? c3 :
-        c2 > 0 ? c2 :
-        c1;
+      const ultimoConteo = obtenerUltimoConteo(item);
 
       const diferencia = Number((sap - ultimoConteo).toFixed(2));
 
@@ -713,6 +713,37 @@ export default function Mapa({ drawerRootId }) {
       blob,
       `mapa_${almacenSeleccionado || "almacen"}_${fecha}.xlsx`
     );
+  };
+
+ const fetchCatalogoCierre = async () => {
+
+    let almacenRef = null;
+
+    if (grupoSeleccionado?.almacenes?.length > 0) {
+      almacenRef = grupoSeleccionado.almacenes[0];
+    } else if (almacenSeleccionado) {
+      almacenRef = almacenSeleccionado;
+    }
+
+    if (!almacenRef) {
+      throw new Error("No hay almacén seleccionado.");
+    }
+
+    const res = await axios.get(
+      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/get_catalogo_cierre.php",
+      {
+        params: {
+          cia,
+          almacen: almacenRef,
+        },
+      }
+    );
+
+    if (!res.data.success) {
+      throw new Error(res.data.error || "Error al obtener catálogo de cierre.");
+    }
+
+    return res.data;
   };
 
 
@@ -2217,18 +2248,11 @@ const convertirImagenBase64 = (url) => {
 
                     {items.map((d, i) => {
 
-                      const ultimoConteo =
-                        Number(d.conteo4 ?? 0) > 0
-                          ? Number(d.conteo4)
-                          : Number(d.conteo3 ?? 0) > 0
-                          ? Number(d.conteo3)
-                          : Number(d.conteo2 ?? 0) > 0
-                          ? Number(d.conteo2)
-                          : Number(d.conteo1 ?? 0);
+                      const ultimoConteo = obtenerUltimoConteo(d);
 
                       const diferencia = Number(
-                        (d.inventario_sap - ultimoConteo).toFixed(2)
-                      );
+                          (Number(d.inventario_sap ?? 0) - ultimoConteo).toFixed(2)
+                        );
 
                       return (
                         <tr key={`${alm}-${i}`} className="hover:bg-gray-50">
