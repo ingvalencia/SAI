@@ -409,7 +409,9 @@ export default function Control() {
     const iso = (v) => toISODate(v);
     return configuraciones
       .filter(c => {
-        const coincideAlmacen = filtroAlmacen? c.almacen?.startsWith(filtroAlmacen + "-"): true;
+        const coincideAlmacen = filtroAlmacen
+        ? c.almacen?.trim().split("-")[0]?.trim() === filtroAlmacen
+        : true;
 
         const coincideConteo = filtroConteo? String(c.conteos || "")
             .split(",")
@@ -499,127 +501,145 @@ export default function Control() {
       </div>
 
       {vista === "usuarios" && (
-        <div className="bg-white shadow-lg rounded-xl p-6">
-          {(rolLogueado === 1 || rolLogueado === 2) && (
-            <div className="mb-6">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Filtrar por rol</label>
-              <select
-                value={filtroRol}
-                onChange={(e) => setFiltroRol(e.target.value)}
-                className="w-full md:w-64 px-3 py-2 border rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-red-600"
-              >
-                <option value="">Todos</option>
-                <option value="1">Administrador TI</option>
-                <option value="2">Administrador Sistema</option>
-                <option value="3">Jefe_Mesa_Control</option>
-                <option value="4">Operador_Inventario</option>
-              </select>
-            </div>
-          )}
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-md p-8">
 
-          <h2 className="text-lg font-bold text-gray-800 mb-4">Usuarios registrados</h2>
-          <div className="overflow-auto rounded-lg border border-gray-200 shadow-sm">
-            <table className="min-w-full text-sm text-left">
-              <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
-                <tr>
-                  <th className="px-4 py-2">Empleado</th>
-                  <th className="px-4 py-2">Nombre</th>
-                  <th className="px-4 py-2">Responsable</th>
-                  <th className="px-4 py-2">Estado</th>
-                  <th className="px-4 py-2">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
-                {usuariosPaginados.map((u, i) => (
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-2xl font-bold text-slate-800">
+              Gestión de Usuarios
+            </h2>
 
-                  <tr key={i} className="hover:bg-gray-50 transition">
-                    <td className="px-4 py-2 font-mono text-red-900">{u.empleado}</td>
-                    <td className="px-4 py-2 text-gray-800">{u.nombre}</td>
-                    <td className="px-4 py-2 text-gray-700">{u.responsable_nombre || "—"}</td>
-                    <td className="px-4 py-2">
-                      {u.activo ? (
-                        <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700 font-semibold">Activo</span>
-                      ) : (
-                        <span className="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-600">Inactivo</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 flex gap-2">
-                      <button
-                        onClick={() => toggleActivo(u.id, u.activo)}
-                        className={`px-3 py-1 rounded text-xs text-white ${
-                          u.activo
-                            ? "bg-green-600 hover:bg-green-700"
-                            : "bg-gray-400 hover:bg-gray-500"
-                        }`}
-                      >
-                        {u.activo ? "Desactivar" : "Activar"}
-                      </button>
-
-                      {(rolLogueado === 1 || rolLogueado === 2) && (
-                        <button
-                          onClick={() => eliminarUsuario(u.id)}
-                          className="px-3 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-xs"
-                        >
-                          Eliminar
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-
+            {(rolLogueado === 1 || rolLogueado === 2) && (
+              <div className="w-72">
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                  Filtrar por rol
+                </label>
+                <select
+                  value={filtroRol}
+                  onChange={(e) => setFiltroRol(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-700"
+                >
+                  <option value="">Todos</option>
+                  <option value="1">Administrador TI</option>
+                  <option value="2">Administrador Sistema</option>
+                  <option value="3">Jefe Mesa Control</option>
+                  <option value="4">Operador Inventario</option>
+                </select>
+              </div>
+            )}
           </div>
 
-          <div className="flex justify-center mt-6">
-              <div className="flex items-center gap-4 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 shadow-sm">
+          <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm">
+            <div className="overflow-auto">
+              <table className="min-w-full text-sm">
+                <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
+                  <tr>
+                    <th className="px-6 py-3 text-left">Empleado</th>
+                    <th className="px-6 py-3 text-left">Nombre</th>
+                    <th className="px-6 py-3 text-left">Responsable</th>
+                    <th className="px-6 py-3 text-left">Estado</th>
+                    <th className="px-6 py-3 text-left">Acciones</th>
+                  </tr>
+                </thead>
 
-                <button
-                  disabled={paginaActual === 1}
-                  onClick={() => setPaginaActual(p => p - 1)}
-                  className="px-3 py-1 rounded-md text-sm font-semibold
-                            bg-white border border-gray-300
-                            hover:bg-gray-100
-                            disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  ← Anterior
-                </button>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {usuariosPaginados.map((u, i) => (
+                    <tr key={i} className="hover:bg-slate-50 transition">
+                      <td className="px-6 py-3 font-mono text-red-800">{u.empleado}</td>
+                      <td className="px-6 py-3 text-slate-800">{u.nombre}</td>
+                      <td className="px-6 py-3 text-slate-700">{u.responsable_nombre || "—"}</td>
+                      <td className="px-6 py-3">
+                        {u.activo ? (
+                          <span className="px-3 py-1 text-xs rounded-full bg-emerald-100 text-emerald-700 font-semibold">
+                            Activo
+                          </span>
+                        ) : (
+                          <span className="px-3 py-1 text-xs rounded-full bg-slate-200 text-slate-600">
+                            Inactivo
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-3 flex gap-2">
+                        <button
+                          onClick={() => toggleActivo(u.id, u.activo)}
+                          className={`px-4 py-1.5 rounded-md text-xs font-semibold text-white transition
+                            ${u.activo ? "bg-emerald-600 hover:bg-emerald-700" : "bg-slate-500 hover:bg-slate-600"}`}
+                        >
+                          {u.activo ? "Desactivar" : "Activar"}
+                        </button>
 
-                <span className="text-sm font-medium text-gray-700">
-                  Página <span className="font-semibold">{paginaActual}</span>
-                  {" "}de{" "}
-                  <span className="font-semibold">{totalPaginas || 1}</span>
-                </span>
-
-                <button
-                  disabled={paginaActual === totalPaginas || totalPaginas === 0}
-                  onClick={() => setPaginaActual(p => p + 1)}
-                  className="px-3 py-1 rounded-md text-sm font-semibold
-                            bg-white border border-gray-300
-                            hover:bg-gray-100
-                            disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Siguiente →
-                </button>
-
-              </div>
+                        {(rolLogueado === 1 || rolLogueado === 2) && (
+                          <button
+                            onClick={() => eliminarUsuario(u.id)}
+                            className="px-4 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition"
+                          >
+                            Eliminar
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
+          </div>
+
+          {/* Paginación */}
+          <div className="flex justify-center mt-8">
+            <div className="flex items-center gap-6 bg-slate-50 border border-slate-200 rounded-xl px-6 py-3 shadow-sm">
+              <button
+                disabled={paginaActual === 1}
+                onClick={() => setPaginaActual(p => p - 1)}
+                className="px-4 py-1.5 rounded-md text-sm font-semibold bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-40"
+              >
+                ← Anterior
+              </button>
+
+              <span className="text-sm font-medium text-slate-700">
+                Página <span className="font-semibold">{paginaActual}</span> de{" "}
+                <span className="font-semibold">{totalPaginas || 1}</span>
+              </span>
+
+              <button
+                disabled={paginaActual === totalPaginas || totalPaginas === 0}
+                onClick={() => setPaginaActual(p => p + 1)}
+                className="px-4 py-1.5 rounded-md text-sm font-semibold bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-40"
+              >
+                Siguiente →
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
       {vista === "fecha" && (
-        <div className="space-y-10 max-w-6xl mx-auto">
+        <div className="max-w-7xl mx-auto space-y-8">
 
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-md p-8">
 
-          <div className="bg-white border border-gray-300 rounded-xl shadow p-8">
-            <h2 className="text-2xl font-bold mb-8 text-gray-800 flex items-center gap-2">
-              📋 Fechas de gestión existentes
-            </h2>
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl font-bold text-slate-800">
+                Fechas de Gestión
+              </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <button
+                onClick={() => {
+                  setFiltroAlmacen("");
+                  setFiltroConteo("");
+                  setFiltroFecha("");
+                }}
+                className="px-5 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg transition"
+              >
+                Limpiar filtros
+              </button>
+            </div>
+
+            {/* FILTROS */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
+
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Filtrar por almacén</label>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                  Almacén
+                </label>
                 <Select
                   options={familiasAlmacen}
                   value={
@@ -627,76 +647,63 @@ export default function Control() {
                       ? { value: filtroAlmacen, label: filtroAlmacen }
                       : null
                   }
-                  onChange={(opcion) => {
-                    setFiltroAlmacen(opcion ? opcion.value : "");
-                  }}
+                  onChange={(opcion) =>
+                    setFiltroAlmacen(opcion ? opcion.value : "")
+                  }
                   isClearable
-                  placeholder="Todos"
-                  classNamePrefix="react-select"
+                  placeholder="Seleccionar"
                 />
-
-
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Filtrar por conteo</label>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                  Nivel Conteo
+                </label>
                 <select
                   value={filtroConteo}
                   onChange={(e) => setFiltroConteo(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-700"
                 >
                   <option value="">Todos</option>
                   <option value="1">Conteo 1</option>
                   <option value="2">Conteo 2</option>
                   <option value="3">Conteo 3</option>
                   <option value="7">Conteo 4</option>
-                  <option value="4">Conteo Finalizado</option>
+                  <option value="4">Finalizado</option>
                 </select>
-
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Filtrar por fecha</label>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                  Fecha
+                </label>
                 <input
                   type="date"
                   value={filtroFecha}
                   onChange={(e) => setFiltroFecha(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-700"
                 />
               </div>
 
-              <div className="flex items-end">
-                <button
-                  onClick={() => {
-                    setFiltroAlmacen("");
-                    setFiltroConteo("");
-                    setFiltroFecha("");
-                  }}
-                  className="w-full px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg shadow-sm transition"
-                >
-                  🧹 Limpiar filtros
-                </button>
-              </div>
             </div>
 
-
-            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            {/* TABLA */}
+            <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm">
               <div className="overflow-auto">
-                <table className="min-w-full text-sm text-left">
+                <table className="min-w-full text-sm">
                   <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
                     <tr>
-                      <th className="px-4 py-3">CIA</th>
-                      <th className="px-4 py-3">Almacén</th>
-                      <th className="px-4 py-3">Fecha Asignación</th>
-                      <th className="px-4 py-3">Tipo Conteo</th>
-                      <th className="px-4 py-3">No. Conteo</th>
-                      <th className="px-4 py-3">Equipo</th>
+                      <th className="px-6 py-3 text-left">CIA</th>
+                      <th className="px-6 py-3 text-left">Almacén</th>
+                      <th className="px-6 py-3 text-left">Fecha</th>
+                      <th className="px-6 py-3 text-left">Tipo</th>
+                      <th className="px-6 py-3 text-left">Conteo</th>
+                      <th className="px-6 py-3 text-left">Equipo</th>
                     </tr>
                   </thead>
 
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody className="divide-y divide-slate-200 bg-white">
                     {configuracionesPaginadas.map((c, i) => {
-
                       const ultimoConteo = Number(
                         String(c.conteos || "")
                           .split(",")
@@ -704,53 +711,43 @@ export default function Control() {
                           .pop()
                       );
 
-
                       const etiquetaConteo =
                         {
                           1: "Conteo 1",
                           2: "Conteo 2",
                           3: "Conteo 3",
-                          4: "Conteo Finalizado",
-                          7: "Contero 4",
+                          4: "Finalizado",
+                          7: "Conteo 4",
                         }[ultimoConteo] || "—";
 
                       return (
-                        <tr
-                          key={i}
-                          className={`${
-                            i % 2 === 0 ? "bg-white" : "bg-slate-50"
-                          } hover:bg-slate-100 transition-colors`}
-                        >
-                          <td className="px-4 py-2 font-medium text-slate-800">
+                        <tr key={i} className="hover:bg-slate-50 transition">
+                          <td className="px-6 py-3 font-semibold text-slate-800">
                             {c.cia}
                           </td>
 
-                          <td className="px-4 py-2 text-slate-700">
+                          <td className="px-6 py-3 text-slate-700">
                             {c.almacen}
                           </td>
 
-                          <td className="px-4 py-2 text-slate-700">
+                          <td className="px-6 py-3 text-slate-700">
                             {formatSoloFecha(c.fecha_asignacion)}
                           </td>
 
-                          <td className="px-4 py-2">
-                            <span className="inline-flex items-center rounded-full border border-slate-300 bg-white px-2 py-0.5 text-xs font-semibold text-slate-700">
-                              {c.tipo_conteo}
-                            </span>
+                          <td className="px-6 py-3 text-slate-700">
+                            {c.tipo_conteo}
                           </td>
 
-
-                          <td className="px-4 py-2">
+                          <td className="px-6 py-3">
                             <span
                               className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold
-                                ${estilosConteo[ultimoConteo] || "bg-gray-100 text-gray-700 border-gray-300"}`}
+                              ${estilosConteo[ultimoConteo] || "bg-slate-100 text-slate-700 border-slate-300"}`}
                             >
                               {etiquetaConteo}
                             </span>
                           </td>
 
-
-                          <td className="px-4 py-2 text-slate-700 whitespace-pre-wrap">
+                          <td className="px-6 py-3 text-slate-700 whitespace-pre-wrap">
                             {c.equipo || "—"}
                           </td>
                         </tr>
@@ -758,48 +755,41 @@ export default function Control() {
                     })}
                   </tbody>
                 </table>
-
-
               </div>
-
             </div>
-            <div className="flex justify-center mt-6">
-                  <div className="flex items-center gap-4 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 shadow-sm">
 
-                    <button
-                      disabled={paginaFechas === 1}
-                      onClick={() => setPaginaFechas(p => p - 1)}
-                      className="px-3 py-1 rounded-md text-sm font-semibold
-                                bg-white border border-gray-300
-                                hover:bg-gray-100
-                                disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      ← Anterior
-                    </button>
+            {/* PAGINACIÓN */}
+            <div className="flex justify-center mt-8">
+              <div className="flex items-center gap-6 bg-slate-50 border border-slate-200 rounded-xl px-6 py-3 shadow-sm">
+                <button
+                  disabled={paginaFechas === 1}
+                  onClick={() => setPaginaFechas(p => p - 1)}
+                  className="px-4 py-1.5 rounded-md text-sm font-semibold bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-40"
+                >
+                  ← Anterior
+                </button>
 
-                    <span className="text-sm font-medium text-gray-700">
-                      Página <span className="font-semibold">{paginaFechas}</span>
-                      {" "}de{" "}
-                      <span className="font-semibold">{totalPaginasFechas || 1}</span>
-                    </span>
+                <span className="text-sm font-medium text-slate-700">
+                  Página <span className="font-semibold">{paginaFechas}</span> de{" "}
+                  <span className="font-semibold">{totalPaginasFechas || 1}</span>
+                </span>
 
-                    <button
-                      disabled={paginaFechas === totalPaginasFechas || totalPaginasFechas === 0}
-                      onClick={() => setPaginaFechas(p => p + 1)}
-                      className="px-3 py-1 rounded-md text-sm font-semibold
-                                bg-white border border-gray-300
-                                hover:bg-gray-100
-                                disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      Siguiente →
-                    </button>
-
-                  </div>
-                </div>
+                <button
+                  disabled={paginaFechas === totalPaginasFechas || totalPaginasFechas === 0}
+                  onClick={() => setPaginaFechas(p => p + 1)}
+                  className="px-4 py-1.5 rounded-md text-sm font-semibold bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-40"
+                >
+                  Siguiente →
+                </button>
+              </div>
+            </div>
 
           </div>
         </div>
       )}
+
+
+
     </div>
   );
 }

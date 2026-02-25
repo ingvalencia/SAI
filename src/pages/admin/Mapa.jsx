@@ -423,7 +423,9 @@ export default function Mapa({ drawerRootId }) {
       const matchAlmacen =
         almacenFiltro === "TODOS" || item.almacen === almacenFiltro;
 
-      return matchTexto && matchAlmacen;
+      const tieneDiferencia = (item.diferencia_cierre ?? 0) !== 0;
+
+      return matchTexto && matchAlmacen && tieneDiferencia;
     });
   }, [detalle, busqueda, almacenFiltro]);
 
@@ -553,9 +555,9 @@ export default function Mapa({ drawerRootId }) {
   }, [busqueda]);
 
 
-  const exportarExcelMapa = async () => {
-    const datosExportar = detalleFiltrado;
+ const exportarExcelMapa = async () => {
 
+    const datosExportar = detalleFiltrado;
 
     const headers = [
       "#",
@@ -571,35 +573,58 @@ export default function Mapa({ drawerRootId }) {
       "CONTEO 3",
       ...(mostrarConteo4 ? ["CONTEO 4"] : []),
       "DIFERENCIA",
+      "COBRO A PRECIO VENTA",
+      "TRANSFERENCIAS",
+      "CAMBIOS DE CÓDIGO",
+      "SALIDAS PENDIENTES",
     ];
 
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet("Mapa Operaciones");
+    const worksheet = workbook.addWorksheet("Mapa Operaciones", {
+      views: [{ state: "frozen", ySplit: 1 }],
+    });
 
-    worksheet.addRow(headers);
+    // ===== HEADER =====
+    const headerRow = worksheet.addRow(headers);
 
+    headers.forEach((header, idx) => {
+      const cell = headerRow.getCell(idx + 1);
 
-    headers.forEach((_, idx) => {
-      const cell = worksheet.getRow(1).getCell(idx + 1);
+      const esNuevaColumna =
+        header === "COBRO A PRECIO VENTA" ||
+        header === "TRANSFERENCIAS" ||
+        header === "CAMBIOS DE CÓDIGO" ||
+        header === "SALIDAS PENDIENTES";
+
       cell.fill = {
         type: "pattern",
         pattern: "solid",
-        fgColor: { argb: "9B1C1C" },
+        fgColor: { argb: esNuevaColumna ? "000000" : "9B1C1C" },
       };
+
       cell.font = {
         color: { argb: "FFFFFF" },
         bold: true,
+        size: 12,
+      };
+
+      cell.alignment = {
+        vertical: "middle",
+        horizontal: "center",
+        wrapText: true,
       };
     });
 
+    headerRow.height = 28;
 
+    // ===== DATA =====
     datosExportar.forEach((item, i) => {
+
       const c1 = Number(item.conteo1 ?? 0);
       const c2 = Number(item.conteo2 ?? 0);
       const c3 = Number(item.conteo3 ?? 0);
       const c4 = Number(item.conteo4 ?? 0);
       const sap = Number(item.inventario_sap ?? 0);
-
 
       const ultimoConteo =
         c4 > 0 ? c4 :
@@ -609,31 +634,77 @@ export default function Mapa({ drawerRootId }) {
 
       const diferencia = Number((sap - ultimoConteo).toFixed(2));
 
-      const row = [
+      const row = worksheet.addRow([
         i + 1,
         item.almacen ?? "-",
         item.codigo ?? "-",
         item.nombre ?? "-",
         item.familia ?? "-",
         item.subfamilia ?? "-",
-        item.precio ?? "-",
+        Number(item.precio ?? 0),
         sap,
         c1,
         c2,
         c3,
         ...(mostrarConteo4 ? [c4] : []),
         diferencia,
-      ];
+        "", "", "", "" // Nuevas columnas vacías listas para capturar
+      ]);
 
-      worksheet.addRow(row);
+      row.eachCell((cell, colNumber) => {
+
+        cell.border = {
+          top: { style: "thin" },
+          left: { style: "thin" },
+          bottom: { style: "thin" },
+          right: { style: "thin" },
+        };
+
+        // Formato numérico
+        if (colNumber >= 7 && colNumber <= headers.length) {
+          cell.numFmt = "#,##0.00";
+        }
+
+        cell.alignment = {
+          vertical: "middle",
+          horizontal: colNumber === 4 ? "left" : "center",
+        };
+      });
+
+      // Color diferencia
+      const diffColIndex = headers.indexOf("DIFERENCIA") + 1;
+      const diffCell = row.getCell(diffColIndex);
+
+      if (diferencia > 0) {
+        diffCell.font = { color: { argb: "008000" }, bold: true };
+      } else if (diferencia < 0) {
+        diffCell.font = { color: { argb: "FF0000" }, bold: true };
+      }
     });
 
+    // ===== AUTO FILTER =====
     worksheet.autoFilter = {
       from: { row: 1, column: 1 },
       to: { row: 1, column: headers.length },
     };
 
+    // ===== AJUSTE DE ANCHOS =====
+    worksheet.columns.forEach((column, index) => {
+      let maxLength = 12;
+
+      column.eachCell({ includeEmpty: true }, cell => {
+        const length = cell.value ? cell.value.toString().length : 10;
+        if (length > maxLength) {
+          maxLength = length;
+        }
+      });
+
+      column.width = Math.min(maxLength + 3, 40);
+    });
+
+    // ===== DESCARGA =====
     const buffer = await workbook.xlsx.writeBuffer();
+
     const blob = new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
@@ -643,50 +714,6 @@ export default function Mapa({ drawerRootId }) {
       `mapa_${almacenSeleccionado || "almacen"}_${fecha}.xlsx`
     );
   };
-
-
-  const grupos = {
-      0: almacenes.filter(a => a.estatus === 0),
-      1: almacenes.filter(a => a.estatus === 1),
-      2: almacenes.filter(a => a.estatus === 2),
-      3: almacenes.filter(a => a.estatus === 3),
-      4: almacenes.filter(a => a.estatus === 4),
-    };
-
-  const [catCierre, setCatCierre] = useState(null);
-
-  const fetchCatalogoCierre = async () => {
-
-
-    let almacenRef = null;
-
-    if (grupoSeleccionado && grupoSeleccionado.almacenes?.length > 0) {
-      almacenRef = grupoSeleccionado.almacenes[0];
-    } else if (almacenSeleccionado) {
-      almacenRef = almacenSeleccionado;
-    }
-
-    if (!almacenRef) {
-      throw new Error("No hay almacén seleccionado.");
-    }
-
-    const res = await axios.get(
-      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/get_catalogo_cierre.php",
-      {
-        params: {
-          cia: almacenRef, //
-        },
-      }
-    );
-
-    if (!res.data.success) {
-      throw new Error(res.data.error || "Error al obtener catálogo de cierre.");
-    }
-
-    setCatCierre(res.data);
-    return res.data;
-  };
-
 
 
  const confirmarCierre = async () => {
@@ -1336,7 +1363,7 @@ const convertirImagenBase64 = (url) => {
                       </p>
                     ) : (
                       <div className="overflow-x-auto max-h-[60vh]">
-                        <table className="min-w-full text-sm">
+                        <table className="w-full text-xs table-fixed">
                           <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
                             <tr>
                               <th className="px-3 py-2 text-left">Código</th>
@@ -1392,7 +1419,7 @@ const convertirImagenBase64 = (url) => {
                     </h3>
 
                     <div className="overflow-x-auto max-h-[65vh]">
-                      <table className="min-w-full text-sm">
+                      <table className="w-full text-xs table-fixed">
                         <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
                           <tr>
                             <th className="px-3 py-2 text-left">Código</th>
@@ -1535,7 +1562,7 @@ const convertirImagenBase64 = (url) => {
 
               <button
                 onClick={generarPDF}
-                className="px-4 py-2 bg-red-700 text-white text-sm font-semibold rounded-lg shadow-md hover:bg-red-800"
+                className="px-2 py-1 bg-red-700 text-white text-sm font-semibold rounded-lg shadow-md hover:bg-red-800"
               >
                 📄 Descargar PDF
               </button>
@@ -1574,7 +1601,7 @@ const convertirImagenBase64 = (url) => {
 
             {/* TABLA */}
             <div className="overflow-x-auto">
-              <table className="min-w-full text-sm border border-gray-300">
+              <table className="w-full text-xs table-fixed border border-gray-300">
 
             <thead>
               <tr className="bg-red-700 text-white text-xs uppercase">
@@ -1676,7 +1703,7 @@ const convertirImagenBase64 = (url) => {
 
             if (nuevaCia) fetchFechasDisponibles(nuevaCia);
           }}
-          className="border rounded-lg px-4 py-2 shadow-sm focus:ring-2 focus:ring-red-600"
+          className="border rounded-lg px-2 py-1 shadow-sm focus:ring-2 focus:ring-red-600"
         >
           <option value="">Selecciona CIA</option>
           <option value="recrefam">RECREFAM</option>
@@ -1686,22 +1713,43 @@ const convertirImagenBase64 = (url) => {
       </div>
 
 
-      <div className="bg-white border border-gray-300 rounded-2xl shadow-lg p-6 mb-8">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="text-2xl">📅</span>
-          <h2 className="text-xl font-bold text-gray-800">Fechas con datos</h2>
+      <div className="bg-white rounded-3xl shadow-2xl p-8 mb-10 border border-slate-200">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-extrabold text-slate-800 flex items-center gap-3">
+            <span className="text-indigo-600 text-3xl">📅</span>
+            Fechas con datos
+          </h2>
+
+          {fecha && (
+            <div className="px-4 py-2 bg-indigo-50 border border-indigo-200 rounded-xl text-sm font-semibold text-indigo-700 shadow-sm">
+              Fecha seleccionada: {fecha}
+            </div>
+          )}
         </div>
 
-        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
 
           <div className="w-full md:w-1/2">
             <Calendar
               onClickDay={(value) => {
-                const fechaSeleccionada = value.toISOString().split("T")[0];
-                setFecha(fechaSeleccionada);
-                setAlmacenSeleccionado(null);
-                setAlmacenes([]);
-              }}
+              const fechaSeleccionada = value.toISOString().split("T")[0];
+
+
+              setGrupoSeleccionado(null);
+              setAlmacenSeleccionado(null);
+              setDetalle([]);
+              setAlmacenes([]);
+              setBusqueda("");
+              setPaginaActual(1);
+              setAlmacenFiltro("TODOS");
+              setMostrarDrawer(false);
+              setMostrarResumenSAP(false);
+              setSapRefrescado(null);
+              setEstatusInventario(null);
+
+
+              setFecha(fechaSeleccionada);
+            }}
 
 
 
@@ -1729,40 +1777,28 @@ const convertirImagenBase64 = (url) => {
                 const registro = fechasDisponibles.find(f => f.fecha === fechaStr);
                 return registro ? "font-semibold bg-gray-50 rounded-lg" : "";
               }}
-              className="rounded-xl border border-gray-200 shadow-sm p-2 w-full"
+              className="rounded-2xl border border-slate-200 shadow-lg p-4 w-full bg-slate-50"
             />
           </div>
 
 
           <div className="w-full md:w-1/2 bg-gray-50 border border-gray-200 rounded-xl p-4 shadow-inner">
             <h3 className="text-md font-semibold text-gray-700 mb-3">📊 Indicadores de conteo</h3>
-            <ul className="text-sm text-gray-600 space-y-2">
-              <li className="flex items-center gap-2">
-                <span className={`h-3 w-3 ${coloresEstatus[1].color} rounded-full shadow-sm`}></span>
-                {coloresEstatus[1].label}
-              </li>
-              <li className="flex items-center gap-2">
-                <span className={`h-3 w-3 ${coloresEstatus[2].color} rounded-full shadow-sm`}></span>
-                {coloresEstatus[2].label}
-              </li>
-              <li className="flex items-center gap-2">
-                <span className={`h-3 w-3 ${coloresEstatus[3].color} rounded-full shadow-sm`}></span>
-                {coloresEstatus[3].label}
-              </li>
-              <li className="flex items-center gap-2">
-                <span className={`h-3 w-3 ${coloresEstatus[4].color} rounded-full shadow-sm`}></span>
-                {coloresEstatus[4].label}
-              </li>
-            </ul>
+            <div className="grid grid-cols-2 gap-4">
+              {[1,2,3,4].map((k) => (
+                <div
+                  key={k}
+                  className="flex items-center gap-3 bg-white p-4 rounded-2xl shadow-md border border-slate-200"
+                >
+                  <div className={`h-4 w-4 rounded-full ${coloresEstatus[k].color}`}></div>
+                  <span className="text-sm font-semibold text-slate-700">
+                    {coloresEstatus[k].label}
+                  </span>
+                </div>
+              ))}
+            </div>
 
-            {fecha && (
-              <div className="mt-5 p-3 bg-white border rounded-lg shadow-sm text-gray-700">
-                <p className="text-sm">
-                  Fecha seleccionada:{" "}
-                  <span className="font-semibold text-red-700">{fecha}</span>
-                </p>
-              </div>
-            )}
+
           </div>
         </div>
       </div>
@@ -1784,19 +1820,39 @@ const convertirImagenBase64 = (url) => {
                 {coloresEstatus[estatus]?.icono} {coloresEstatus[estatus]?.label}
               </h3>
 
-              <div className="flex gap-6 overflow-x-auto pb-4 px-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+              <div className="
+                min-w-[380px]
+                max-w-[420px]
+                flex-shrink-0
+                rounded-3xl
+                overflow-hidden
+                shadow-xl
+                bg-white
+                border
+                border-slate-200
+                transition-all
+                duration-300
+                hover:shadow-2xl
+              ">
                 {conjuntos.map((g, idx) => (
                   <div
                     key={`${estatus}-${g.base}-${idx}`}
                     className="min-w-[260px] flex-shrink-0 rounded-2xl overflow-hidden shadow-lg bg-white"
                   >
-                    <div className={`p-4 text-white ${coloresEstatus[estatus]?.color || "bg-gray-400"}`}>
+                    <div className={`
+                      px-6 py-6
+                      text-white
+                      ${coloresEstatus[estatus]?.color}
+                      bg-gradient-to-r
+                      from-black/10
+                      to-white/5
+                    `}>
                       <div className="flex items-center justify-between">
-                        <span className="text-lg font-bold truncate">{g.base}</span>
+                        <span className="text-2xl font-bold tracking-wide">{g.base}</span>
                         <span className="text-2xl">{coloresEstatus[estatus]?.icono}</span>
                       </div>
-                      <div className="text-xs opacity-90 mt-1">
-                        {g.items.length} almacén(es)
+                      <div className="text-sm opacity-90 mt-2">
+                        {g.items.length} almacenes asociados
                       </div>
                     </div>
 
@@ -1813,17 +1869,45 @@ const convertirImagenBase64 = (url) => {
                         }}
 
 
-                        className="w-full mb-3 px-3 py-2 rounded-lg bg-slate-700 text-white text-sm font-semibold hover:bg-slate-800"
+                className="
+                        w-full
+                        mb-5
+                        px-4 py-3
+                        rounded-xl
+                        bg-gradient-to-r
+                        from-slate-800
+                        to-slate-700
+                        text-white
+                        text-sm
+                        font-semibold
+                        shadow-md
+                        hover:from-slate-900
+                        hover:to-slate-800
+                        transition-all
+                        duration-200
+                      "
                       >
                         Ver detalle del grupo
                       </button>
 
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-3">
                         {g.items.map((r, j) => (
                           <button
                             key={`${r.almacen}-${j}`}
                             onClick={() => setAlmacenSeleccionado(r.almacen)}
-                            className="px-3 py-2 rounded-lg border text-sm font-semibold hover:bg-gray-50 transition"
+                            className="
+                              px-3 py-3
+                              rounded-xl
+                              border
+                              border-slate-200
+                              text-sm
+                              font-semibold
+                              bg-white
+                              hover:bg-slate-50
+                              hover:shadow-sm
+                              transition-all
+                              duration-200
+                            "
                             title="Ver detalle"
                           >
                             {r.almacen}
@@ -1848,44 +1932,134 @@ const convertirImagenBase64 = (url) => {
 
             {estatusInventario === 4 && sapRefrescado === false && (
               <button
-                onClick={refreshSAP}
-                disabled={procesandoRefresh}
-                className="
-                  px-5 py-3
-                  bg-yellow-600
-                  text-white
-                  text-sm
-                  font-semibold
-                  rounded-lg
-                  shadow-md
-                  transition-all
-                  duration-200
-                  hover:bg-yellow-700
-                  disabled:opacity-50
-                "
-              >
-                🔄 Actualizar datos de SAP
-              </button>
+              onClick={refreshSAP}
+              disabled={procesandoRefresh}
+              className="
+                group
+                relative
+                px-6 py-3
+                rounded-xl
+                bg-gradient-to-r from-amber-700 to-amber-600
+                hover:from-amber-800 hover:to-amber-700
+                text-white
+                text-sm
+                font-semibold
+                tracking-wide
+                shadow-lg
+                hover:shadow-xl
+                transition-all
+                duration-300
+                flex items-center gap-3
+                disabled:opacity-50
+                disabled:cursor-not-allowed
+              "
+            >
+              <div className="bg-white/15 p-2 rounded-lg">
+                <svg
+                  className={`w-5 h-5 ${procesandoRefresh ? "animate-spin" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4 4v5h.582M20 20v-5h-.581M5.64 18.36A9 9 0 1021 12"
+                  />
+                </svg>
+              </div>
+
+              <span>
+                {procesandoRefresh
+                  ? "Sincronizando con SAP..."
+                  : "Actualizar Datos SAP"}
+              </span>
+            </button>
             )}
 
 
            {estatusInventario === 4 && sapRefrescado === true && (
               <button
-                onClick={() => setMostrarDrawer(true)}
-                className="px-5 py-3 bg-slate-700 text-white text-sm font-semibold rounded-lg shadow-md hover:bg-slate-800"
-              >
-                Revisar Cierre del Inventario
-              </button>
+              onClick={() => setMostrarDrawer(true)}
+              className="
+                group
+                relative
+                px-6 py-3
+                rounded-xl
+                bg-gradient-to-r from-slate-800 to-slate-700
+                hover:from-slate-900 hover:to-slate-800
+                text-white
+                text-sm
+                font-semibold
+                tracking-wide
+                shadow-lg
+                hover:shadow-xl
+                transition-all
+                duration-300
+                flex items-center gap-3
+              "
+            >
+              <div className="bg-white/10 p-2 rounded-lg">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 17v-2a4 4 0 018 0v2M5 11V7a7 7 0 1114 0v4M3 21h18"
+                  />
+                </svg>
+              </div>
+
+              <span>Revisar Cierre de Inventario</span>
+            </button>
             )}
 
 
             {estatusInventario === 5 && (
               <button
-                onClick={fetchResumenSAP}
-                className="px-5 py-3 bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-md hover:bg-emerald-800"
-              >
-                📊 Ver Resumen Contable SAP
-              </button>
+              onClick={fetchResumenSAP}
+              className="
+                group
+                relative
+                px-6 py-3
+                rounded-xl
+                bg-gradient-to-r from-emerald-800 to-emerald-700
+                hover:from-emerald-900 hover:to-emerald-800
+                text-white
+                text-sm
+                font-semibold
+                tracking-wide
+                shadow-lg
+                hover:shadow-xl
+                transition-all
+                duration-300
+                flex items-center gap-3
+              "
+            >
+              <div className="bg-white/15 p-2 rounded-lg">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 17v-6M13 17v-4M17 17v-8M5 19h14"
+                  />
+                </svg>
+              </div>
+
+              <span>Resumen Contable SAP</span>
+            </button>
             )}
 
 
@@ -1894,20 +2068,62 @@ const convertirImagenBase64 = (url) => {
             <div className="flex gap-3">
               <button
                 onClick={exportarExcelMapa}
-                className="px-4 py-2 rounded-lg text-sm font-semibold bg-green-600 text-white hover:bg-green-700 shadow-md flex items-center gap-2"
+                className="
+                  group
+                  relative
+                  px-5 py-2.5
+                  rounded-xl
+                  bg-gradient-to-r from-emerald-700 to-emerald-600
+                  hover:from-emerald-800 hover:to-emerald-700
+                  text-white
+                  text-sm
+                  font-semibold
+                  tracking-wide
+                  shadow-lg
+                  hover:shadow-xl
+                  transition-all
+                  duration-300
+                  flex items-center gap-3
+                "
               >
-                <img src="https://img.icons8.com/color/20/microsoft-excel-2019.png" alt="excel" />
-                Exportar
+                <div className="bg-white/15 p-1.5 rounded-lg">
+                  <img
+                    src="https://img.icons8.com/color/20/microsoft-excel-2019.png"
+                    alt="excel"
+                    className="w-5 h-5"
+                  />
+                </div>
+
+                <span>Exportar Reporte </span>
               </button>
+
+
               <button
                 onClick={() => {
                   setAlmacenSeleccionado(null);
                   setGrupoSeleccionado(null);
                   setDetalle([]);
+                  setBusqueda("");
+                  setPaginaActual(1);
                 }}
-                className="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition"
+                className="
+                  px-5 py-3
+                  bg-gradient-to-r from-slate-800 to-slate-700
+                  text-white
+                  text-sm
+                  font-semibold
+                  rounded-xl
+                  shadow-lg
+                  transition-all
+                  duration-200
+                  hover:from-slate-900
+                  hover:to-slate-800
+                  hover:shadow-xl
+                  active:scale-[0.98]
+                  flex items-center gap-2
+                "
               >
-                ⬅️ Volver
+                🔄 Regresar Detalle Grupos
               </button>
 
             </div>
@@ -1917,7 +2133,7 @@ const convertirImagenBase64 = (url) => {
           <p className="text-gray-500">Sin registros para este almacén.</p>
         ) : (
 
-          <div className="border rounded-lg overflow-hidden">
+          <div className="border rounded-lg">
 
           <div className="flex flex-col md:flex-row gap-3 mb-3">
               <select
@@ -1941,7 +2157,7 @@ const convertirImagenBase64 = (url) => {
                 placeholder="Buscar por código, nombre, familia..."
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                className="flex-1 px-4 py-2 border rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-red-600"
+                className="flex-1 px-2 py-1 border rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-red-600"
               />
             </div>
 
@@ -1962,25 +2178,26 @@ const convertirImagenBase64 = (url) => {
             </span>
           </div>
 
-            <table className="min-w-full text-sm">
+            <table className="w-full text-xs table-fixed">
               <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
                 <tr>
-                  <th className="px-4 py-2">Almacén</th>
-                  <th className="px-4 py-2">Código</th>
-                  <th className="px-4 py-2">Nombre</th>
-                  <th className="px-4 py-2">Familia</th>
-                  <th className="px-4 py-2">Subfamilia</th>
-                  <th className="px-4 py-2">Precio</th>
-                  <th className="px-4 py-2">Existencia SAP</th>
-                  <th className="px-4 py-2">Conteo 1</th>
-                  <th className="px-4 py-2">Conteo 2</th>
-                  <th className="px-4 py-2">Conteo 3</th>
+                  <th className="w-[60px] px-2 py-1 text-center">#</th>
+                  <th className="px-2 py-1">Almacén</th>
+                  <th className="px-2 py-1">Código</th>
+                  <th className="px-2 py-1">Nombre</th>
+                  <th className="px-2 py-1">Familia</th>
+                  <th className="px-2 py-1">Subfamilia</th>
+                  <th className="px-2 py-1">Precio</th>
+                  <th className="px-2 py-1">Existencia SAP</th>
+                  <th className="px-2 py-1">Conteo 1</th>
+                  <th className="px-2 py-1">Conteo 2</th>
+                  <th className="px-2 py-1">Conteo 3</th>
 
                   {mostrarConteo4 && (
-                    <th className="px-4 py-2">Conteo 4</th>
+                    <th className="px-2 py-1">Conteo 4</th>
                   )}
 
-                  <th className="px-4 py-2">Diferencia</th>
+                  <th className="px-2 py-1">Diferencia</th>
                 </tr>
               </thead>
 
@@ -1990,8 +2207,8 @@ const convertirImagenBase64 = (url) => {
 
                     <tr className="bg-slate-200">
                       <td
-                        colSpan={mostrarConteo4 ? 11 : 10}
-                        className="px-4 py-2 font-bold text-slate-800"
+                        colSpan={mostrarConteo4 ? 12 : 11}
+                        className="px-2 py-1 font-bold text-slate-800"
                       >
                         📦 {alm}
                       </td>
@@ -2015,39 +2232,45 @@ const convertirImagenBase64 = (url) => {
 
                       return (
                         <tr key={`${alm}-${i}`} className="hover:bg-gray-50">
-                          <td className="px-4 py-2 font-semibold text-slate-700">
+
+                          <td className="px-2 py-1 text-center">
+                            <span className="bg-slate-100 text-slate-700 text-xs font-bold px-2 py-1 rounded-full">
+                              {(paginaActual - 1) * registrosPorPagina + i + 1}
+                            </span>
+                          </td>
+                          <td className="px-2 py-1 font-semibold text-slate-700">
                             {d.almacen}
                           </td>
-                          <td className="px-4 py-2 font-mono text-red-900">
+                          <td className="px-2 py-1 font-mono text-red-900">
                             {d.codigo}
                           </td>
-                          <td className="px-4 py-2 text-gray-800">
+                          <td className="px-2 py-1 text-gray-800">
                             {d.nombre}
                           </td>
-                          <td className="px-4 py-2 text-gray-700">
+                          <td className="px-2 py-1 text-gray-700">
                             {d.familia ?? "-"}
                           </td>
-                          <td className="px-4 py-2 text-gray-700">
+                          <td className="px-2 py-1 text-gray-700">
                             {d.subfamilia ?? "-"}
                           </td>
-                          <td className="px-4 py-2 text-gray-700">
+                          <td className="px-2 py-1 text-gray-700">
                             {d.precio ?? "-"}
                           </td>
-                          <td className="px-4 py-2 text-center">
+                          <td className="px-2 py-1 text-center">
                             {d.inventario_sap.toFixed(2)}
                           </td>
 
-                          <td className="px-4 py-2 text-center">{d.conteo1 ?? "-"}</td>
-                          <td className="px-4 py-2 text-center">{d.conteo2 ?? "-"}</td>
-                          <td className="px-4 py-2 text-center">{d.conteo3 ?? "-"}</td>
+                          <td className="px-2 py-1 text-center">{d.conteo1 ?? "-"}</td>
+                          <td className="px-2 py-1 text-center">{d.conteo2 ?? "-"}</td>
+                          <td className="px-2 py-1 text-center">{d.conteo3 ?? "-"}</td>
 
                           {mostrarConteo4 && (
-                            <td className="px-4 py-2 text-center">
+                            <td className="px-2 py-1 text-center">
                               {d.conteo4 ?? "-"}
                             </td>
                           )}
 
-                          <td className="px-4 py-2 text-center">
+                          <td className="px-2 py-1 text-center">
                             <span
                               className={`px-2 py-1 rounded-full text-xs font-bold ${
                                 diferencia === 0

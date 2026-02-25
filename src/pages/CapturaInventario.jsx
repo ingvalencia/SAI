@@ -782,6 +782,27 @@ export default function CapturaInventario() {
   let tiempoUltimo = 0;
   let bufferCodigo = "";
 
+  const pushHistorial = (producto, cantidadFinal) => {
+    const codigo = producto?.ItemCode || "";
+    const nombre = producto?.Itemname || "";
+    const qty = Number(cantidadFinal ?? 0);
+
+    setHistorial((prev) => {
+
+      const idx = prev.findIndex((h) => h.codigo === codigo);
+      if (idx !== -1) {
+        const copia = [...prev];
+        const nuevoQty = Number(copia[idx].cantidad ?? 0) + qty;
+        copia[idx] = { ...copia[idx], cantidad: nuevoQty };
+        return copia;
+      }
+
+
+      const nuevo = [{ codigo, nombre, cantidad: qty }, ...prev];
+      return nuevo.slice(0, 20);
+    });
+  };
+
   const handleCodigoDetectado = async (codigo) => {
     if (modalActivo) return;
     setModalActivo(true);
@@ -889,6 +910,8 @@ export default function CapturaInventario() {
         setDatos(nuevo);
 
         await autoGuardar(producto, cantidad);
+
+        pushHistorial(producto, cantidad);
 
         setBusqueda("");
         const inputPrincipal = document.getElementById("inputCaptura");

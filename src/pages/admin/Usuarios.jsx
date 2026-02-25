@@ -201,10 +201,6 @@ export default function Usuarios() {
   };
 
 
-
-
-
-
   // === Toggle locales en formulario ===
   const handleLocalesChange = (codigo) => {
     setForm((prev) => {
@@ -324,14 +320,27 @@ export default function Usuarios() {
     <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-3xl font-extrabold text-gray-900 mb-8">👥 Gestión de Usuarios</h1>
 
-      <div className="flex gap-4 mb-6">
+      <div className="flex border-b border-gray-200 mb-10">
+
+        <button
+          type="button"
+          onClick={() => setTabRegistro("admin")}
+          className={`px-8 py-3 text-sm font-semibold transition-all border-b-2 ${
+            tabRegistro === "admin"
+              ? "border-red-600 text-red-600"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Registro Administrador
+        </button>
+
         <button
           type="button"
           onClick={() => setTabRegistro("base")}
-          className={`px-4 py-2 rounded font-semibold ${
+          className={`px-8 py-3 text-sm font-semibold transition-all border-b-2 ${
             tabRegistro === "base"
-              ? "bg-red-600 text-white"
-              : "bg-gray-200 text-gray-700"
+              ? "border-red-600 text-red-600"
+              : "border-transparent text-gray-500 hover:text-gray-700"
           }`}
         >
           Registros de Usuarios
@@ -340,29 +349,16 @@ export default function Usuarios() {
         <button
           type="button"
           onClick={() => setTabRegistro("operador")}
-          className={`px-4 py-2 rounded font-semibold ${
+          className={`px-8 py-3 text-sm font-semibold transition-all border-b-2 ${
             tabRegistro === "operador"
-              ? "bg-red-600 text-white"
-              : "bg-gray-200 text-gray-700"
+              ? "border-red-600 text-red-600"
+              : "border-transparent text-gray-500 hover:text-gray-700"
           }`}
         >
           Registro Operador Inventario
         </button>
 
-        <button
-          type="button"
-          onClick={() => setTabRegistro("admin")}
-          className={`px-4 py-2 rounded font-semibold ${
-            tabRegistro === "admin"
-              ? "bg-red-600 text-white"
-              : "bg-gray-200 text-gray-700"
-          }`}
-        >
-          Registro Administrador
-        </button>
       </div>
-
-
 
       {/* Formulario */}
       {tabRegistro === "base" && (
@@ -924,5 +920,7 @@ export default function Usuarios() {
 
 
     </div>
+
+
   );
 }
