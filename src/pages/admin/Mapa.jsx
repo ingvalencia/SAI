@@ -26,16 +26,25 @@ const coloresEstatus = {
 
 
 const obtenerUltimoConteo = (item) => {
-  if (item.conteo4 !== null && item.conteo4 !== undefined)
-    return Number(item.conteo4);
+  const sap = Number(item.inventario_sap ?? 0);
+  const c1 = Number(item.conteo1 ?? 0);
+  const c2 = Number(item.conteo2 ?? 0);
+  const c3 = Number(item.conteo3 ?? 0);
+  const c4 = Number(item.conteo4 ?? 0);
 
-  if (item.conteo3 !== null && item.conteo3 !== undefined)
-    return Number(item.conteo3);
+  // Si ya cuadró en conteo 3 contra SAP, ahí se queda
+  if (c3 === sap) return c3;
 
-  if (item.conteo2 !== null && item.conteo2 !== undefined)
-    return Number(item.conteo2);
+  // Si existe conteo 4 (realmente usado)
+  if (c4 !== 0) return c4;
 
-  return Number(item.conteo1 ?? 0);
+  // Si existe conteo 3
+  if (c3 !== 0) return c3;
+
+  // Si existe conteo 2
+  if (c2 !== 0) return c2;
+
+  return c1;
 };
 
 export default function Mapa({ drawerRootId }) {
@@ -648,7 +657,7 @@ export default function Mapa({ drawerRootId }) {
         c3,
         ...(mostrarConteo4 ? [c4] : []),
         diferencia,
-        "", "", "", "" // Nuevas columnas vacías listas para capturar
+        "", "", "", "" //
       ]);
 
       row.eachCell((cell, colNumber) => {
@@ -676,10 +685,16 @@ export default function Mapa({ drawerRootId }) {
       const diffCell = row.getCell(diffColIndex);
 
       if (diferencia > 0) {
-        diffCell.font = { color: { argb: "008000" }, bold: true };
-      } else if (diferencia < 0) {
+        // Salida
         diffCell.font = { color: { argb: "FF0000" }, bold: true };
+      } else if (diferencia < 0) {
+        // Entrada
+        diffCell.font = { color: { argb: "008000" }, bold: true };
+      } else {
+        // Cero
+        diffCell.font = { color: { argb: "000000" }, bold: true };
       }
+
     });
 
     // ===== AUTO FILTER =====

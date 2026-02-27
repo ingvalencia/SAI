@@ -345,10 +345,10 @@ switch ($estatus) {
     $c3  = isset($c3Map[$code]) ? floatval($c3Map[$code]) : 0;
     $sap = isset($sapMap[$code]) ? floatval($sapMap[$code]) : 0;
 
-    $diferencia =
-        round($c1 - $c3, 2) != 0 ||
-        round($c2 - $c3, 2) != 0 ||
-        round($c3 - $sap, 2) != 0;
+    $diferencia = !(
+    round($c1,2) == round($c2,2) &&
+    round($c1,2) == round($sap,2)
+    );
 
     if ($diferencia) {
       $diffCodes[] = $code;
@@ -497,7 +497,34 @@ switch ($estatus) {
 
     $c1  = isset($c1Map[$code]) ? floatval($c1Map[$code]) : 0;
     $c2  = isset($c2Map[$code]) ? floatval($c2Map[$code]) : 0;
-    $c3  = isset($c3Map[$code]) ? floatval($c3Map[$code]) : 0;
+      $c1  = isset($c1Map[$code]) ? floatval($c1Map[$code]) : 0;
+    $c2  = isset($c2Map[$code]) ? floatval($c2Map[$code]) : 0;
+    $c3  = isset($c3Map[$code]) ? floatval($c3Map[$code]) : null;
+    $sap = isset($sapMap[$code]) ? floatval($sapMap[$code]) : 0;
+
+    /*
+    Reglas:
+    1) Si C1 = C2 = SAP → ignorar
+    2) Si existe C3 → evaluar C3 vs SAP
+    3) Si no existe C3 → evaluar C1/C2 vs SAP
+    */
+
+    if ($c1 == $c2 && $c1 == $sap) {
+        continue; // ya estaba validado
+    }
+
+    if ($c3 !== null) {
+        $diferenciaSAP = round($c3 - $sap, 2) != 0;
+    } else {
+        $diferenciaSAP = round($c1 - $sap, 2) != 0
+                      || round($c2 - $sap, 2) != 0;
+    }
+
+    if ($diferenciaSAP) {
+        $diffCodes[] = $code;
+    }
+
+    $c3  = floatval($c3Map[$code]);
     $sap = isset($sapMap[$code]) ? floatval($sapMap[$code]) : 0;
 
     $diferenciaSAP = round($c3 - $sap, 2) != 0;
