@@ -64,10 +64,12 @@ export default function CapturaInventario() {
   const [bloquearSeleccion, setBloquearSeleccion] = useState(false);
 
 
-  // === Regla: SOLO para conteo 3 y 4 (en tu flujo: 4to = estatus 7) y SOLO en brigada
+
   const esCuartoConteo = Number(estatus) === 7;
   const aplicarVistaDiferenciasBrigada =esBrigada && (Number(estatus) === 3 || Number(estatus) === 7);
   const [historialConteo, setHistorialConteo] = useState({});
+
+  const [modoLectura, setModoLectura] = useState("barra");
 
   const [editandoCelda, setEditandoCelda] = useState(false);
 
@@ -350,7 +352,7 @@ export default function CapturaInventario() {
     if (!estatusRes.data.success)
       throw new Error(estatusRes.data.error);
 
-    if (estatusRes.data.existe_conteo === true) {
+    if (estatusRes.data.estatus >= 4) {
       const conteoExistente = Number(estatusRes.data.nro_conteo || 0);
 
       Swal.close();
@@ -1026,15 +1028,33 @@ export default function CapturaInventario() {
       )}
 
       {datos.length > 0 && soportaCamara && esMovil && (
-        <button
-          onClick={() => {
-            setLectorActivo(false); //
-            setMostrarEscanerCamara(true); //
-          }}
-          className="mt-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded shadow-sm text-sm"
-        >
-          🎥 Escanear código
-        </button>
+        <div className="mt-2 flex gap-2">
+          <button
+            onClick={() => {
+              setModoLectura("barra");
+              setMostrarEscanerCamara(true);
+              setLectorActivo(false);
+            }}
+            className={`px-3 py-2 rounded text-white text-sm font-semibold ${
+              modoLectura === "barra" ? "bg-blue-700" : "bg-blue-500"
+            }`}
+          >
+            Escanear Barras
+          </button>
+
+          <button
+            onClick={() => {
+              setModoLectura("ocr");
+              setMostrarEscanerCamara(true);
+              setLectorActivo(false);
+            }}
+            className={`px-3 py-2 rounded text-white text-sm font-semibold ${
+              modoLectura === "ocr" ? "bg-purple-700" : "bg-purple-500"
+            }`}
+          >
+            Escanear Número
+          </button>
+        </div>
       )}
 
       <div className="bg-white border border-gray-300 rounded-lg shadow-sm p-4 mb-6">
@@ -1584,6 +1604,7 @@ export default function CapturaInventario() {
 
       {mostrarEscanerCamara && (
         <EscanerCamaraQuagga
+          modo={modoLectura}
           onScanSuccess={(codigo) => handleCodigoDetectado(codigo)}
           onClose={() => {
             setMostrarEscanerCamara(false);
