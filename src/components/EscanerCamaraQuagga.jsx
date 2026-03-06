@@ -12,22 +12,27 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
   const bufferRef = useRef([]);
   const cooldownRef = useRef(false);
 
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
   useEffect(() => {
 
-    const iniciarCamara = async () => {
+    const iniciarCamaraOCR = async () => {
 
       try {
 
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" }
+          video: { facingMode: { ideal: "environment" } }
         });
 
         streamRef.current = stream;
 
         const video = document.createElement("video");
         video.srcObject = stream;
-        video.setAttribute("playsinline", true);
         video.autoplay = true;
+        video.muted = true;
+        video.playsInline = true;
+        video.setAttribute("playsinline", true);
+        video.setAttribute("webkit-playsinline", true);
 
         videoRef.current = video;
 
@@ -56,15 +61,15 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
             type: "LiveStream",
             target: containerRef.current,
             constraints: {
-              facingMode: "environment",
+              facingMode: { ideal: "environment" },
               width: { ideal: 1280 },
               height: { ideal: 720 }
             },
             area: {
-              top: "15%",
-              right: "5%",
-              left: "5%",
-              bottom: "15%"
+              top: "20%",
+              right: "10%",
+              left: "10%",
+              bottom: "20%"
             }
           },
           locator: {
@@ -86,8 +91,8 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
             ]
           },
           locate: true,
-          frequency: 20,
-          numOfWorkers: navigator.hardwareConcurrency || 4
+          frequency: isIOS ? 6 : 18,
+          numOfWorkers: isIOS ? 0 : navigator.hardwareConcurrency || 4
         },
         (err) => {
 
@@ -107,7 +112,6 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
         if (cooldownRef.current) return;
 
         const code = data?.codeResult?.code;
-
         if (!code) return;
 
         bufferRef.current.push(code);
@@ -121,7 +125,7 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
 
           cooldownRef.current = true;
 
-          navigator.vibrate(80);
+          navigator.vibrate?.(80);
 
           onScanSuccess(code.trim());
 
@@ -138,19 +142,19 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
 
       Quagga.onProcessed((result) => {
 
-        const drawingCtx = Quagga.canvas.ctx.overlay;
-        const drawingCanvas = Quagga.canvas.dom.overlay;
+        const ctx = Quagga.canvas.ctx.overlay;
+        const canvas = Quagga.canvas.dom.overlay;
 
-        if (!drawingCtx) return;
+        if (!ctx) return;
 
-        drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         if (result && result.box) {
 
           Quagga.ImageDebug.drawPath(
             result.box,
             { x: 0, y: 1 },
-            drawingCtx,
+            ctx,
             { color: "#00FFFF", lineWidth: 4 }
           );
 
@@ -161,7 +165,7 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
     };
 
     if (modo === "barra") iniciarQuagga();
-    if (modo === "ocr") iniciarCamara();
+    if (modo === "ocr") iniciarCamaraOCR();
 
     return () => {
 
@@ -181,7 +185,7 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
 
     const video = videoRef.current;
 
-    if (!video) return;
+    if (!video || !video.videoWidth) return;
 
     const canvas = document.createElement("canvas");
 
@@ -224,7 +228,7 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
 
     if (match) {
 
-      navigator.vibrate(80);
+      navigator.vibrate?.(80);
 
       onScanSuccess(match[0]);
 
