@@ -13,15 +13,12 @@ import pdfFonts from "pdfmake/build/vfs_fonts";
 
 pdfMake.vfs = pdfFonts.vfs;
 
-
-
-
 const coloresEstatus = {
-  0: { color: "bg-gray-300", label: "Sin conteo", icono: "➕" },
-  1: { color: "bg-red-500", label: "Conteo 1", icono: "🔴" },
-  2: { color: "bg-yellow-400", label: "Conteo 2", icono: "🟡" },
-  3: { color: "bg-green-500", label: "Conteo 3", icono: "🟢" },
-  4: { color: "bg-blue-600", label: "Finalizado", icono: "🔵" },
+  0: { color: "bg-slate-600", label: "Sin conteo", icono: "📦" },
+  1: { color: "bg-red-600", label: "Conteo 1", icono: "🔴" },
+  2: { color: "bg-amber-500", label: "Conteo 2", icono: "🟡" },
+  3: { color: "bg-green-600", label: "Conteo 3", icono: "🟢" },
+  4: { color: "bg-[#611232]", label: "Finalizado", icono: "✔️" },
 };
 
 
@@ -1112,12 +1109,20 @@ const convertirImagenBase64 = (url) => {
 
   const logoBase64 = await convertirImagenBase64(logoDiniz);
 
+  const usuarioSesion =
+  sessionStorage.getItem("nombre") ||
+  sessionStorage.getItem("nombre_usuario") ||
+  document.querySelector("body")?.innerText
+    ?.match(/Usuario:\s*(.*?)\s*\(/)?.[1] ||
+  "USUARIO";
+
   const bodyRows = resumenSAP.map(row => ([
     { text: row.almacen, alignment: "left", fontSize: 10 },
     { text: `$${Number(row.FALTANTE).toFixed(2)}`, alignment: "right", color: "green", fontSize: 10 },
     { text: `$${Number(row.SOBRANTE).toFixed(2)}`, alignment: "right", color: "red", fontSize: 10 },
     { text: `$${Number(row.TOTAL).toFixed(2)}`, alignment: "right", bold: true, fontSize: 10 },
-    { text: row.DOC_FALTANTE !== "-" ? row.DOC_FALTANTE : row.DOC_SOBRANTE, alignment: "center", fontSize: 10 }
+    { text: row.DOC_FALTANTE !== "-" ? row.DOC_FALTANTE : "-", alignment: "center", fontSize: 10 },
+    { text: row.DOC_SOBRANTE !== "-" ? row.DOC_SOBRANTE : "-", alignment: "center", fontSize: 10 }
   ]));
 
   const docDefinition = {
@@ -1138,7 +1143,8 @@ const convertirImagenBase64 = (url) => {
           stack: [
             { text: "Código:", fontSize: 8 },
             { text: `Fecha emisión: ${fecha}`, fontSize: 8 },
-            { text: "Versión: 1", fontSize: 8 }
+            { text: "Versión: 1", fontSize: 8 },
+            { text: `Emitido por: ${usuarioSesion}`, fontSize: 8 }
           ]
         }
       ]
@@ -1170,21 +1176,22 @@ const convertirImagenBase64 = (url) => {
       {
         table: {
           headerRows: 1,
-          widths: ["*", 90, 90, 90, 100],
+          widths: ["*", 90, 90, 90, 120, 120],
           body: [
             [
               { text: "ALMACÉN", style: "tableHeader" },
               { text: "FALTANTE", style: "tableHeader", alignment: "right" },
               { text: "SOBRANTE", style: "tableHeader", alignment: "right" },
               { text: "TOTAL", style: "tableHeader", alignment: "right" },
-              { text: "DOC SAP", style: "tableHeader", alignment: "center" }
+              { text: "DOC SAP FALTANTE", style: "tableHeader", alignment: "center" },
+              { text: "DOC SAP SOBRANTE", style: "tableHeader", alignment: "center" }
             ],
             ...bodyRows
           ]
         },
         layout: {
           fillColor: (rowIndex, node) => {
-            if (rowIndex === 0) return "#b91c1c";
+            if (rowIndex === 0) return "#611232";
             const row = node.table.body[rowIndex];
             if (row?.[0]?.text === "TOTAL GENERAL") return "#f3f4f6";
             return null;
@@ -1208,7 +1215,8 @@ const convertirImagenBase64 = (url) => {
             width: "*",
             stack: [
               { text: "____________________________________________", alignment: "center" },
-              { text: "FIRMA DEL GERENTE DE OPERACIONES", alignment: "center", fontSize: 9, margin: [0,5,0,0] }
+              { text: usuarioSesion.toUpperCase(), alignment: "center", fontSize: 9, bold: true, margin: [0,3,0,0] },
+              { text: "GERENTE DE OPERACIONES", alignment: "center", fontSize: 9, margin: [0,2,0,0] }
             ]
           },
           {
@@ -1256,7 +1264,6 @@ const convertirImagenBase64 = (url) => {
 
   pdfMake.createPdf(docDefinition).download(`Resumen_SAP_${fecha}.pdf`);
 };
-
 
 
 
@@ -1408,7 +1415,7 @@ const convertirImagenBase64 = (url) => {
                     ) : (
                       <div className="overflow-x-auto max-h-[60vh]">
                         <table className="min-w-[1100px] text-xs table-auto">
-                          <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
+                          <thead className="sticky top-0 bg-gradient-to-r bg-gradient-to-r from-[#611232] via-[#7a173e] to-[#611232] text-white text-xs uppercase tracking-wider shadow-lg z-10">
                             <tr>
                               <th className="px-3 py-2 text-left">Código</th>
                               <th className="px-3 py-2 text-left">Nombre</th>
@@ -1464,7 +1471,7 @@ const convertirImagenBase64 = (url) => {
 
                     <div className="overflow-x-auto max-h-[65vh]">
                       <table className="min-w-[1100px] text-xs table-auto">
-                        <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
+                        <thead className="sticky top-0 bg-gradient-to-r bg-gradient-to-r from-[#611232] via-[#7a173e] to-[#611232] text-white text-xs uppercase tracking-wider shadow-lg z-10">
                           <tr>
                             <th className="px-3 py-2 text-left">Código</th>
                             <th className="px-3 py-2 text-left">Nombre</th>
@@ -1602,18 +1609,21 @@ const convertirImagenBase64 = (url) => {
               Resumen Contable SAP
             </h2>
 
-            <div className="flex gap-3">
+            <div className="flex items-center gap-2">
 
               <button
                 onClick={generarPDF}
-                className="px-2 py-1 bg-red-700 text-white text-sm font-semibold rounded-lg shadow-md hover:bg-red-800"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#611232] hover:bg-[#4f0e28] text-white text-xs font-semibold shadow-md transition-all"
               >
-                📄 Descargar PDF
+                <span className="bg-white/10 p-1 rounded">
+                  📄
+                </span>
+                Descargar PDF
               </button>
 
               <button
                 onClick={() => setMostrarResumenSAP(false)}
-                className="text-gray-500 hover:text-black text-lg"
+                className="w-7 h-7 flex items-center justify-center rounded-md text-gray-500 hover:text-black hover:bg-gray-100 transition"
               >
                 ×
               </button>
@@ -1648,12 +1658,13 @@ const convertirImagenBase64 = (url) => {
               <table className="w-full text-xs table-fixed border border-gray-300">
 
             <thead>
-              <tr className="bg-red-700 text-white text-xs uppercase">
+              <tr className="bg-[#611232] text-white text-xs uppercase">
                 <th className="px-4 py-3 text-left">Almacén</th>
                 <th className="px-4 py-3 text-right">Faltante</th>
                 <th className="px-4 py-3 text-right">Sobrante</th>
                 <th className="px-4 py-3 text-right">Total</th>
-                <th className="px-4 py-3 text-center">Doc SAP</th>
+                <th className="px-4 py-3 text-center">Doc SAP FALTANTE</th>
+                <th className="px-4 py-3 text-center">Doc SAP SOBRANTE</th>
               </tr>
             </thead>
 
@@ -1685,6 +1696,10 @@ const convertirImagenBase64 = (url) => {
 
                     <td className="px-4 py-3 text-center">
                       {row.DOC_FALTANTE !== "-" ? row.DOC_FALTANTE : row.DOC_SOBRANTE}
+                    </td>
+
+                    <td className="px-4 py-3 text-center">
+                      {row.DOC_SOBRANTE !== "-" ? row.DOC_SOBRANTE : row.DOC_FALTANTE}
                     </td>
                   </tr>
                 );
@@ -1849,122 +1864,133 @@ const convertirImagenBase64 = (url) => {
 
 
       {!almacenSeleccionado && !grupoSeleccionado ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8">
 
-         {Object.entries(gruposUI)
-        .sort((a, b) => Number(b[0]) - Number(a[0]))
-        .map(([estatus, conjuntos]) => (
-          conjuntos.length > 0 && (
-            <div key={estatus} className="mb-10 animar-grupo">
-              <h3
-                className={`grupo-header ${
-                  coloresEstatus[estatus]?.color || "bg-gray-400"
-                } bg-gradient-to-r from-white/10 to-black/10`}
-              >
-                {coloresEstatus[estatus]?.icono} {coloresEstatus[estatus]?.label}
-              </h3>
+          {Object.entries(gruposUI)
+            .sort((a, b) => Number(b[0]) - Number(a[0]))
+            .map(([estatus, conjuntos]) => (
+              conjuntos.length > 0 && (
+                <div key={estatus} className="space-y-6">
 
-              <div className="
-                min-w-[380px]
-                max-w-[420px]
-                flex-shrink-0
-                rounded-3xl
-                overflow-hidden
-                shadow-xl
-                bg-white
-                border
-                border-slate-200
-                transition-all
-                duration-300
-                hover:shadow-2xl
-              ">
-                {conjuntos.map((g, idx) => (
-                  <div
-                    key={`${estatus}-${g.base}-${idx}`}
-                    className="min-w-[260px] flex-shrink-0 rounded-2xl overflow-hidden shadow-lg bg-white"
+                  <h3
+                    className={`grupo-header ${
+                      coloresEstatus[estatus]?.color || "bg-gray-400"
+                    } bg-gradient-to-r from-white/10 to-black/10`}
                   >
-                    <div className={`
-                      px-6 py-6
-                      text-white
-                      ${coloresEstatus[estatus]?.color}
-                      bg-gradient-to-r
-                      from-black/10
-                      to-white/5
-                    `}>
-                      <div className="flex items-center justify-between">
-                        <span className="text-2xl font-bold tracking-wide">{g.base}</span>
-                        <span className="text-2xl">{coloresEstatus[estatus]?.icono}</span>
-                      </div>
-                      <div className="text-sm opacity-90 mt-2">
-                        {g.items.length} almacenes asociados
-                      </div>
-                    </div>
+                    {coloresEstatus[estatus]?.icono} {coloresEstatus[estatus]?.label}
+                  </h3>
 
-                    <div className="p-4">
+                  <div className="flex flex-col gap-6">
 
-                      <button
-                        onClick={() => {
-                          setAlmacenSeleccionado(null);
-                          setGrupoSeleccionado({
-                            base: g.base,
-                            almacenes: g.items.map(x => x.almacen),
-                            estatus: Number(estatus),
-                          });
-                        }}
-
-
-                className="
-                        w-full
-                        mb-5
-                        px-4 py-3
-                        rounded-xl
-                        bg-gradient-to-r
-                        from-slate-800
-                        to-slate-700
-                        text-white
-                        text-sm
-                        font-semibold
-                        shadow-md
-                        hover:from-slate-900
-                        hover:to-slate-800
-                        transition-all
-                        duration-200
-                      "
+                    {conjuntos.map((g, idx) => (
+                      <div
+                        key={`${estatus}-${g.base}-${idx}`}
+                        className="
+                          w-full
+                          rounded-2xl
+                          overflow-hidden
+                          shadow-lg
+                          bg-white
+                          border
+                          border-slate-200
+                          transition-all
+                          duration-300
+                          hover:shadow-2xl
+                        "
                       >
-                        Ver detalle del grupo
-                      </button>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        {g.items.map((r, j) => (
+                        <div className={`
+                          px-6 py-6
+                          text-white
+                          ${coloresEstatus[estatus]?.color}
+                          bg-gradient-to-r
+                          from-black/10
+                          to-white/5
+                        `}>
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-xl font-bold tracking-wide">
+                              {g.base}
+                            </span>
+
+                            <span className="text-xl">
+                              {coloresEstatus[estatus]?.icono}
+                            </span>
+                          </div>
+
+                          <div className="text-sm opacity-90 mt-2">
+                            {g.items.length} almacenes asociados
+                          </div>
+
+                        </div>
+
+                        <div className="p-4 space-y-4">
+
                           <button
-                            key={`${r.almacen}-${j}`}
-                            onClick={() => setAlmacenSeleccionado(r.almacen)}
+                            onClick={() => {
+                              setAlmacenSeleccionado(null);
+                              setGrupoSeleccionado({
+                                base: g.base,
+                                almacenes: g.items.map(x => x.almacen),
+                                estatus: Number(estatus),
+                              });
+                            }}
                             className="
-                              px-3 py-3
+                              w-full
+                              px-4 py-3
                               rounded-xl
-                              border
-                              border-slate-200
+                              bg-gradient-to-r
+                              from-slate-800
+                              to-slate-700
+                              text-white
                               text-sm
                               font-semibold
-                              bg-white
-                              hover:bg-slate-50
-                              hover:shadow-sm
+                              shadow-md
+                              hover:from-slate-900
+                              hover:to-slate-800
                               transition-all
                               duration-200
                             "
-                            title="Ver detalle"
                           >
-                            {r.almacen}
+                            Ver detalle del grupo
                           </button>
-                        ))}
+
+                          <div className="grid grid-cols-2 gap-3">
+
+                            {g.items.map((r, j) => (
+                              <button
+                                key={`${r.almacen}-${j}`}
+                                onClick={() => setAlmacenSeleccionado(r.almacen)}
+                                className="
+                                  px-3 py-3
+                                  rounded-xl
+                                  border
+                                  border-slate-200
+                                  text-sm
+                                  font-semibold
+                                  bg-white
+                                  hover:bg-slate-50
+                                  hover:shadow-sm
+                                  transition-all
+                                  duration-200
+                                "
+                              >
+                                {r.almacen}
+                              </button>
+                            ))}
+
+                          </div>
+
+                        </div>
+
                       </div>
-                    </div>
+                    ))}
+
                   </div>
-                ))}
-              </div>
-            </div>
-          )
-        ))}
+
+                </div>
+              )
+            ))}
 
         </div>
       ) : (
@@ -1976,7 +2002,7 @@ const convertirImagenBase64 = (url) => {
 
            <div className="flex items-center gap-4">
 
-        
+
               <button
                 onClick={() => {
                   if (grupoSeleccionado) {
@@ -2247,7 +2273,7 @@ const convertirImagenBase64 = (url) => {
           </div>
 
             <table className="min-w-[1100px] text-xs table-auto">
-              <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
+              <thead className="sticky top-0 bg-gradient-to-r bg-gradient-to-r from-[#611232] via-[#7a173e] to-[#611232] text-white text-xs uppercase tracking-wider shadow-lg z-10">
                 <tr>
                   <th className="w-[60px] px-2 py-1 text-center">#</th>
                   <th className="px-2 py-1">Almacén</th>
@@ -2275,7 +2301,7 @@ const convertirImagenBase64 = (url) => {
 
                     <tr className="bg-slate-200">
                       <td
-                        colSpan={mostrarConteo4 ? 12 : 11}
+                        colSpan={mostrarConteo4 ? 13 : 12}
                         className="px-2 py-1 font-bold text-slate-800"
                       >
                         📦 {alm}
@@ -2296,7 +2322,7 @@ const convertirImagenBase64 = (url) => {
 
                           <td className="px-2 py-1 text-center">
                             <span className="bg-slate-100 text-slate-700 text-xs font-bold px-2 py-1 rounded-full">
-                              {(paginaActual - 1) * registrosPorPagina + i + 1}
+                             {indiceInicial + detallePaginado.indexOf(d) + 1}
                             </span>
                           </td>
                           <td className="px-2 py-1 font-semibold text-slate-700">
