@@ -916,18 +916,21 @@ export default function CompararInventario() {
 
       </div>
 
-      <div className="relative w-full overflow-x-auto max-h-[70vh] border rounded-lg shadow-md">
+      <div
+          className="relative w-full overflow-x-auto overflow-y-auto max-h-[70vh] border rounded-lg shadow-md bg-white"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
 
-        <table className="min-w-[1100px] text-sm table-auto">
-          <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
+        <table className="w-full min-w-[980px] md:min-w-[1100px] text-xs md:text-sm table-auto">
+          <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-[10px] md:text-xs uppercase tracking-wider shadow-lg z-10">
             <tr>
-              <th className="p-3 text-left w-10">#</th>
-              <th className="p-3 text-left">No Empleado</th>
-              <th className="p-3 text-left">Almacen</th>
-              <th className="p-3 text-left">CIA</th>
-              <th className="p-3 text-left">Código</th>
-              <th className="p-3 text-left w-64 max-w-[16rem]">NOMBRE</th>
-              <th className="p-3 text-left">Código de Barras</th>
+              <th className="px-2 py-2 md:px-3 md:py-3 text-left w-10">#</th>
+              <th className="px-2 py-2 md:px-3 md:py-3 text-left">No Empleado</th>
+              <th className="px-2 py-2 md:px-3 md:py-3 text-left">Almacen</th>
+              <th className="px-2 py-2 md:px-3 md:py-3 text-left">CIA</th>
+              <th className="px-2 py-2 md:px-3 md:py-3 text-left">Código</th>
+              <th className="px-2 py-2 md:px-3 md:py-3 text-left w-64 max-w-[16rem]">NOMBRE</th>
+              <th className="px-2 py-2 md:px-3 md:py-3 text-left">Código de Barras</th>
               {/*
               <th className="p-3 text-right">Existencia SAP</th>
               */}
@@ -997,8 +1000,10 @@ export default function CompararInventario() {
 
 
               const claseConteo = (n) =>
-                `p-3 text-sm text-right font-semibold ${
-                  estatus === n ? "bg-yellow-100 text-gray-900 ring-2 ring-yellow-400" : "bg-gray-50 text-gray-700"
+                `px-2 py-2 md:px-3 md:py-3 text-xs md:text-sm text-right font-semibold ${
+                  estatus === n
+                    ? "bg-yellow-100 text-gray-900 ring-2 ring-yellow-400"
+                    : "bg-gray-50 text-gray-700"
                 }`;
 
               return (
@@ -1007,36 +1012,36 @@ export default function CompararInventario() {
                   className="hover:bg-red-50 transition duration-150 ease-in-out"
                 >
 
-                  <td className="p-3 text-sm text-gray-500 font-semibold whitespace-nowrap">
+                  <td className="px-2 py-2 md:px-3 md:py-3 text-xs md:text-sm text-gray-500 font-semibold whitespace-nowrap">
                     {indiceInicial + i + 1}
                   </td>
 
-                  <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+                  <td className="px-2 py-2 md:px-3 md:py-3 text-xs md:text-sm text-gray-700 whitespace-nowrap">
                     {item.usuario ?? "-"}
                   </td>
 
-                  <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+                  <td className="px-2 py-2 md:px-3 md:py-3 text-xs md:text-sm text-gray-700 whitespace-nowrap">
                     {item.almacen ?? "-"}
                   </td>
 
-                  <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+                  <td className="px-2 py-2 md:px-3 md:py-3 text-xs md:text-sm text-gray-700 whitespace-nowrap">
                     {item.cias ?? "-"}
                   </td>
 
-                  <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+                  <td className="px-2 py-2 md:px-3 md:py-3 text-xs md:text-sm text-gray-700 whitespace-nowrap">
                     {item.ItemCode ?? "-"}
                   </td>
 
-                  <td className="p-3 text-sm text-gray-700 whitespace-nowrap truncate max-w-[16rem]">
+                  <td className="px-2 py-2 md:px-3 md:py-3 text-xs md:text-sm text-gray-700 whitespace-nowrap truncate max-w-[16rem]">
                     {item.Itemname ?? "-"}
                   </td>
 
-                  <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
+                  <td className="px-2 py-2 md:px-3 md:py-3 text-xs md:text-sm text-gray-700 whitespace-nowrap">
                     {item.codebars ?? "-"}
                   </td>
 
                   {/*
-                  <td className="p-3 text-sm text-right text-gray-700">
+                  <td className="px-2 py-2 md:px-3 md:py-3 text-xs md:text-sm text-right text-gray-700">
                     {sap.toFixed(2)}
                   </td>
                   */}
@@ -1046,7 +1051,7 @@ export default function CompararInventario() {
                     <td className={claseConteo(1)}>
                       <div>{c1.toFixed(2)}</div>
                       {estatus === 1 && (
-                        <div className="text-[10px] text-gray-500">
+                        <div className="text-[9px] md:text-[10px] text-gray-500">
                           Conteo activo
                         </div>
                       )}
@@ -1059,7 +1064,7 @@ export default function CompararInventario() {
                     <td className={claseConteo(2)}>
                       <div>{c2.toFixed(2)}</div>
                       {estatus === 2 && (
-                        <div className="text-[10px] text-gray-500">
+                        <div className="text-[9px] md:text-[10px] text-gray-500">
                           Conteo activo
                         </div>
                       )}
@@ -1072,7 +1077,7 @@ export default function CompararInventario() {
                     <td className={claseConteo(3)}>
                       <div>{c3.toFixed(2)}</div>
                       {estatus === 3 && (
-                        <div className="text-[10px] text-gray-500">
+                        <div className="text-[9px] md:text-[10px] text-gray-500">
                           Conteo activo
                         </div>
                       )}
@@ -1085,7 +1090,7 @@ export default function CompararInventario() {
                     <td className={claseConteo(7)}>
                       <div>{c4.toFixed(2)}</div>
                       {estatus === 7 && (
-                        <div className="text-[10px] text-gray-500">
+                       <div className="text-[9px] md:text-[10px] text-gray-500">
                           Conteo activo
                         </div>
                       )}
@@ -1096,7 +1101,7 @@ export default function CompararInventario() {
 
                   {/*
                   <td
-                    className="p-3 text-sm text-right font-bold"
+                    className="px-2 py-2 md:px-3 md:py-3 text-xs md:text-sm text-right font-bold"
                     style={{ color: colorDifSap }}
                   >
                     {difSap.toFixed(2)}
@@ -1107,7 +1112,7 @@ export default function CompararInventario() {
                   {esBrigada && (
 
                     <td
-                      className="p-3 text-sm text-right font-bold"
+                      className="px-2 py-2 md:px-3 md:py-3 text-xs md:text-sm text-right font-bold"
                       style={{ color: Number(item.diferenciaBrigada ?? 0) === 0 ? "green" : "red" }}
                     >
                       {Number(item.diferenciaBrigada ?? 0).toFixed(2)}
@@ -1133,11 +1138,11 @@ export default function CompararInventario() {
 
       </div>
 
-      <div className="mt-4 flex justify-center items-center gap-4 text-sm text-gray-700 font-medium">
+      <div className="mt-4 flex flex-col md:flex-row justify-center items-center gap-3 md:gap-4 text-xs md:text-sm text-gray-700 font-medium">
             <button
               onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
               disabled={paginaActual === 1}
-              className={`px-3 py-1 rounded border ${
+              className={`px-3 py-1.5 text-xs md:text-sm rounded border ${
                 paginaActual === 1
                   ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                   : "bg-white hover:bg-red-100 text-red-700"
@@ -1159,7 +1164,7 @@ export default function CompararInventario() {
                 )
               }
               disabled={paginaActual >= Math.ceil(datosFiltrados.length / registrosPorPagina)}
-              className={`px-3 py-1 rounded border ${
+              className={`px-3 py-1.5 text-xs md:text-sm rounded border ${
                 paginaActual >= Math.ceil(datosFiltrados.length / registrosPorPagina)
                   ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                   : "bg-white hover:bg-red-100 text-red-700"

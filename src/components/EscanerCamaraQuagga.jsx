@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import Quagga from "quagga";
+import Quagga from "@ericblade/quagga2";
 import Swal from "sweetalert2";
 import Tesseract from "tesseract.js";
 
@@ -14,14 +14,29 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
 
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
+  const detectorIntervalRef = useRef(null);
+  const barcodeDetectorRef = useRef(null);
+
   useEffect(() => {
 
-    const iniciarCamaraOCR = async () => {
-
+    const iniciarBarcodeDetector = async () => {
       try {
+        if (!("BarcodeDetector" in window)) return false;
+
+        const formatosSoportados = await window.BarcodeDetector.getSupportedFormats();
+        const formatosDeseados = ["code_39", "ean_13", "ean_8", "upc_a", "upc_e", "codabar"];
+        const formatosFinales = formatosDeseados.filter((f) =>
+          formatosSoportados.includes(f)
+        );
+
+        if (formatosFinales.length === 0) return false;
 
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } }
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
         });
 
         streamRef.current = stream;
@@ -34,27 +49,89 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
         video.setAttribute("playsinline", true);
         video.setAttribute("webkit-playsinline", true);
 
+        await video.play();
+
         videoRef.current = video;
 
-        containerRef.current.innerHTML = "";
-        containerRef.current.appendChild(video);
+        if (containerRef.current) {
+          containerRef.current.innerHTML = "";
+          containerRef.current.appendChild(video);
+        }
 
-      } catch {
-
-        Swal.fire({
-          icon: "warning",
-          title: "Permiso de cámara requerido",
-          text: "Debes habilitar la cámara para usar el escáner"
+        barcodeDetectorRef.current = new window.BarcodeDetector({
+          formats: formatosFinales,
         });
 
-        onClose();
+        detectorIntervalRef.current = setInterval(async () => {
+          if (cooldownRef.current) return;
+          if (!videoRef.current || videoRef.current.readyState < 2) return;
 
+          try {
+            const barcodes = await barcodeDetectorRef.current.detect(videoRef.current);
+            if (!barcodes || !barcodes.length) return;
+
+            const code = barcodes[0]?.rawValue;
+            if (!code) return;
+
+            cooldownRef.current = true;
+            navigator.vibrate?.(80);
+            onScanSuccess(code.trim());
+
+            setTimeout(() => {
+              cooldownRef.current = false;
+            }, 900);
+          } catch (err) {
+            console.error("BarcodeDetector error:", err);
+          }
+        }, 250);
+
+        return true;
+      } catch (err) {
+        console.error("No se pudo iniciar BarcodeDetector:", err);
+        return false;
       }
-
     };
 
-    const iniciarQuagga = () => {
+    const iniciarCamaraOCR = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      });
 
+      streamRef.current = stream;
+
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      video.autoplay = true;
+      video.muted = true;
+      video.playsInline = true;
+      video.setAttribute("playsinline", "true");
+      video.setAttribute("webkit-playsinline", "true");
+
+      await video.play();
+
+      videoRef.current = video;
+
+      if (containerRef.current) {
+        containerRef.current.innerHTML = "";
+        containerRef.current.appendChild(video);
+      }
+    } catch {
+      Swal.fire({
+        icon: "warning",
+        title: "Permiso de cámara requerido",
+        text: "Debes habilitar la cámara para usar el escáner",
+      });
+
+      onClose();
+    }
+  };
+
+    const iniciarQuagga = () => {
       Quagga.init(
         {
           inputStream: {
@@ -63,18 +140,18 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
             constraints: {
               facingMode: { ideal: "environment" },
               width: { ideal: 1280 },
-              height: { ideal: 720 }
+              height: { ideal: 720 },
             },
             area: {
-              top: "20%",
-              right: "10%",
-              left: "10%",
-              bottom: "20%"
-            }
+              top: "22%",
+              right: "8%",
+              left: "8%",
+              bottom: "22%",
+            },
           },
           locator: {
-            patchSize: "large",
-            halfSample: true
+            patchSize: isIOS ? "medium" : "large",
+            halfSample: true,
           },
           decoder: {
             readers: [
@@ -82,166 +159,270 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
                 format: "code_39_reader",
                 config: {
                   checksum: false,
-                  extended: true
-                }
+                  extended: true,
+                },
               },
               "ean_reader",
               "ean_8_reader",
-              "upc_reader"
-            ]
+              "upc_reader",
+            ],
           },
           locate: true,
-          frequency: isIOS ? 6 : 18,
-          numOfWorkers: isIOS ? 0 : navigator.hardwareConcurrency || 4
+          frequency: isIOS ? 8 : 18,
+          numOfWorkers: isIOS ? 0 : Math.min(4, navigator.hardwareConcurrency || 4),
         },
         (err) => {
-
           if (err) {
-            console.error(err);
+            console.error("Error inicializando Quagga:", err);
             onClose();
             return;
           }
 
           Quagga.start();
-
         }
       );
 
-      Quagga.onDetected((data) => {
-
+      const onDetected = (data) => {
         if (cooldownRef.current) return;
 
-        const code = data?.codeResult?.code;
+        const code = data?.codeResult?.code?.trim();
         if (!code) return;
 
         bufferRef.current.push(code);
 
-        if (bufferRef.current.length > 5)
+        if (bufferRef.current.length > 6) {
           bufferRef.current.shift();
-
-        const iguales = bufferRef.current.filter(c => c === code).length;
-
-        if (iguales >= 3) {
-
-          cooldownRef.current = true;
-
-          navigator.vibrate?.(80);
-
-          onScanSuccess(code.trim());
-
-          setTimeout(() => {
-
-            cooldownRef.current = false;
-            bufferRef.current = [];
-
-          }, 900);
-
         }
 
-      });
+        const iguales = bufferRef.current.filter((c) => c === code).length;
 
-      Quagga.onProcessed((result) => {
+        if (iguales >= 3) {
+          cooldownRef.current = true;
+          navigator.vibrate?.(80);
+          onScanSuccess(code);
 
-        const ctx = Quagga.canvas.ctx.overlay;
-        const canvas = Quagga.canvas.dom.overlay;
+          setTimeout(() => {
+            cooldownRef.current = false;
+            bufferRef.current = [];
+          }, 900);
+        }
+      };
 
-        if (!ctx) return;
+      const onProcessed = (result) => {
+        const ctx = Quagga?.canvas?.ctx?.overlay;
+        const canvas = Quagga?.canvas?.dom?.overlay;
+
+        if (!ctx || !canvas) return;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        if (result && result.box) {
-
+        if (result?.box) {
           Quagga.ImageDebug.drawPath(
             result.box,
             { x: 0, y: 1 },
             ctx,
             { color: "#00FFFF", lineWidth: 4 }
           );
-
         }
+      };
 
-      });
+      Quagga.offDetected?.();
+      Quagga.offProcessed?.();
 
+      Quagga.onDetected(onDetected);
+      Quagga.onProcessed(onProcessed);
     };
 
-    if (modo === "barra") iniciarQuagga();
-    if (modo === "ocr") iniciarCamaraOCR();
-
-    return () => {
-
-      try { Quagga.stop(); } catch {}
-
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop());
+    const iniciar = async () => {
+      if (modo === "barra") {
+        const usoDetectorNativo = await iniciarBarcodeDetector();
+        if (!usoDetectorNativo) {
+          iniciarQuagga();
+        }
       }
 
+      if (modo === "ocr") {
+        iniciarCamaraOCR();
+      }
+    };
+
+    iniciar();
+
+    return () => {
+      try {
+        Quagga.offDetected?.();
+        Quagga.offProcessed?.();
+        Quagga.stop();
+      } catch {}
+
+      if (detectorIntervalRef.current) {
+        clearInterval(detectorIntervalRef.current);
+        detectorIntervalRef.current = null;
+      }
+
+      barcodeDetectorRef.current = null;
+
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      }
+
+      if (containerRef.current) {
+        containerRef.current.innerHTML = "";
+      }
     };
 
   }, [modo]);
 
 
 
-  const leerOCR = async () => {
+  const obtenerZonaGuia = (w, h) => {
+    const guiaX = Math.floor(w * 0.12);
+    const guiaY = Math.floor(h * 0.22);
+    const guiaW = Math.floor(w * 0.76);
+    const guiaH = Math.floor(h * 0.42);
 
+    return { guiaX, guiaY, guiaW, guiaH };
+  };
+
+const leerOCR = async () => {
     const video = videoRef.current;
 
-    if (!video || !video.videoWidth) return;
-
-    const canvas = document.createElement("canvas");
+    if (!video || !video.videoWidth || !video.videoHeight) {
+      await Swal.fire("Cámara no lista", "No se pudo obtener imagen de la cámara.", "warning");
+      return;
+    }
 
     const w = video.videoWidth;
     const h = video.videoHeight;
 
-    canvas.width = w;
-    canvas.height = h * 0.25;
+    const { guiaX, guiaY, guiaW, guiaH } = obtenerZonaGuia(w, h);
 
-    const ctx = canvas.getContext("2d");
+    const zonas = [
+      {
+        sx: guiaX,
+        sy: guiaY + Math.floor(guiaH * 0.58),
+        sw: guiaW,
+        sh: Math.floor(guiaH * 0.18),
+      },
+      {
+        sx: guiaX,
+        sy: guiaY + Math.floor(guiaH * 0.62),
+        sw: guiaW,
+        sh: Math.floor(guiaH * 0.22),
+      },
+      {
+        sx: guiaX,
+        sy: guiaY + Math.floor(guiaH * 0.66),
+        sw: guiaW,
+        sh: Math.floor(guiaH * 0.24),
+      },
+    ];
 
-    ctx.drawImage(
-      video,
-      0,
-      h * 0.35,
-      w,
-      h * 0.25,
-      0,
-      0,
-      w,
-      h * 0.25
-    );
+    const procesarCanvas = (canvas, threshold = null) => {
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return canvas;
+
+      if (threshold === null) return canvas;
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const gris = Math.round((data[i] + data[i + 1] + data[i + 2]) / 3);
+        const binario = gris > threshold ? 255 : 0;
+        data[i] = binario;
+        data[i + 1] = binario;
+        data[i + 2] = binario;
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+      return canvas;
+    };
+
+    const crearCanvasZona = ({ sx, sy, sw, sh }, escala = 2) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = sw * escala;
+      canvas.height = sh * escala;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+
+      ctx.drawImage(
+        video,
+        sx,
+        sy,
+        sw,
+        sh,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+
+      return canvas;
+    };
+
+    const intentarOCR = async (canvas) => {
+      const resultado = await Tesseract.recognize(canvas, "eng", {
+        tessedit_char_whitelist: "0123456789",
+        tessedit_pageseg_mode: 7,
+      });
+
+      const textoLimpio = String(resultado?.data?.text || "")
+        .replace(/[^\d]/g, "")
+        .trim();
+
+      const match = textoLimpio.match(/\d{6,18}/);
+      return match ? match[0] : null;
+    };
 
     Swal.fire({
       title: "Leyendo número...",
+      text: "Procesando número impreso",
       allowOutsideClick: false,
-      didOpen: () => Swal.showLoading()
+      allowEscapeKey: false,
+      didOpen: () => Swal.showLoading(),
     });
 
-    const { data } = await Tesseract.recognize(canvas, "eng", {
-      tessedit_char_whitelist: "0123456789",
-      tessedit_pageseg_mode: 7
-    });
+    try {
+      for (const zona of zonas) {
+        const baseCanvas = crearCanvasZona(zona, 2.2);
+        if (!baseCanvas) continue;
 
-    Swal.close();
+        const variantes = [
+          baseCanvas,
+          procesarCanvas(crearCanvasZona(zona, 2.2), 160),
+          procesarCanvas(crearCanvasZona(zona, 2.2), 180),
+        ].filter(Boolean);
 
-    const texto = data.text.replace(/\s/g, "");
+        for (const canvas of variantes) {
+          const codigo = await intentarOCR(canvas);
+          if (codigo) {
+            Swal.close();
+            navigator.vibrate?.(80);
+            onScanSuccess(codigo);
+            return;
+          }
+        }
+      }
 
-    const match = texto.match(/\d{8,14}/);
-
-    if (match) {
-
-      navigator.vibrate?.(80);
-
-      onScanSuccess(match[0]);
-
-    } else {
-
-      Swal.fire(
+      Swal.close();
+      await Swal.fire(
         "No se pudo leer",
-        "Acerca la cámara al número impreso",
+        "Alinea el número con la línea amarilla y acércalo un poco más.",
         "warning"
       );
+    } catch (error) {
+      Swal.close();
+      console.error("Error OCR:", error);
 
+      await Swal.fire(
+        "Error de lectura",
+        "No se pudo procesar el número impreso.",
+        "error"
+      );
     }
-
   };
 
 
@@ -251,10 +432,18 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
 
       <div className="w-full max-w-sm border border-green-400 rounded-lg bg-black p-2">
 
-        <div
-          ref={containerRef}
-          className="w-full h-[320px] bg-black rounded overflow-hidden"
-        />
+        <div className="relative w-full h-[320px] bg-black rounded overflow-hidden">
+          <div
+            ref={containerRef}
+            className="absolute inset-0"
+          />
+
+          <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+            <div className="relative w-[76%] h-[42%] border-2 border-green-400 rounded-md shadow-[0_0_0_9999px_rgba(0,0,0,0.28)]">
+              <div className="absolute inset-x-0 top-[62%] border-t-2 border-dashed border-yellow-300" />
+            </div>
+          </div>
+        </div>
 
         <div className="text-center mt-2">
           <p className="text-green-400 font-mono animate-pulse">

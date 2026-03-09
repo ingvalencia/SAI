@@ -276,6 +276,34 @@ export default function CapturaInventario() {
     return "";
   };
 
+  const normalizarValorEscaneado = (valor) => {
+    return String(valor || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s\r\n-]+/g, "");
+  };
+
+  const generarVariantesCodigo = (valor) => {
+    const limpio = normalizarValorEscaneado(valor);
+    const variantes = new Set();
+
+    if (!limpio) return [];
+
+    variantes.add(limpio);
+
+    if (/^\d+$/.test(limpio)) {
+      variantes.add(limpio.replace(/^0+/, ""));
+      variantes.add(`0${limpio}`);
+      variantes.add(`00${limpio}`);
+
+      if (limpio.length > 1 && limpio.startsWith("0")) {
+        variantes.add(limpio.slice(1));
+      }
+    }
+
+    return Array.from(variantes).filter(Boolean);
+  };
+
 
   const iniciarCaptura = async () => {
     const cia = asignacionCargada ? ciaAsignada : ciaSeleccionada;
@@ -805,160 +833,228 @@ export default function CapturaInventario() {
     });
   };
 
+  const indiceBusqueda = useMemo(() => {
+    const map = new Map();
+
+    datos.forEach((item) => {
+      const codebars = normalizarValorEscaneado(item.codebars);
+      const itemCode = normalizarValorEscaneado(item.ItemCode);
+
+      if (codebars) map.set(codebars, item);
+      if (itemCode) map.set(itemCode, item);
+    });
+
+    return map;
+  }, [datos]);
+
+  const quitarCerosIzquierda = (valor) => {
+  const limpio = normalizarValorEscaneado(valor);
+  return limpio.replace(/^0+/, "") || "0";
+};
+
+const buscarProductoEscaneado = (valor) => {
+    const scan = normalizarValorEscaneado(valor);
+    const scanSinCeros = quitarCerosIzquierda(valor);
+
+    for (const item of datos) {
+      const codebars = normalizarValorEscaneado(item.codebars);
+      const itemCode = normalizarValorEscaneado(item.ItemCode);
+
+      if (scan === codebars || scan === itemCode) {
+        return item;
+      }
+    }
+
+    for (const item of datos) {
+      const codebars = normalizarValorEscaneado(item.codebars);
+      const itemCode = normalizarValorEscaneado(item.ItemCode);
+
+      const codebarsSinCeros = quitarCerosIzquierda(item.codebars);
+      const itemCodeSinCeros = quitarCerosIzquierda(item.ItemCode);
+
+      if (
+        scanSinCeros === codebarsSinCeros ||
+        scanSinCeros === itemCodeSinCeros
+      ) {
+        return item;
+      }
+    }
+
+    for (const item of datos) {
+      const codebars = normalizarValorEscaneado(item.codebars);
+      const itemCode = normalizarValorEscaneado(item.ItemCode);
+
+      if (
+        codebars.includes(scan) ||
+        itemCode.includes(scan) ||
+        scan.includes(codebars) ||
+        scan.includes(itemCode)
+      ) {
+        return item;
+      }
+    }
+
+    return null;
+  };
+
   const handleCodigoDetectado = async (codigo) => {
     if (modalActivo) return;
     setModalActivo(true);
 
-    const codigoNormalizado = (codigo || "")
-      .toString()
-      .trim()
-      .replace(/[\s\r\n]+/g, "")
-      .toLowerCase();
+    try {
+      const codigoNormalizado = normalizarValorEscaneado(codigo);
+      const producto = buscarProductoEscaneado(codigoNormalizado);
 
-    const index = datos.findIndex(
-      (item) => item.codebars?.toLowerCase().trim() === codigoNormalizado
-    );
+      const index = producto
+        ? datos.findIndex(
+            (item) =>
+              item.ItemCode === producto.ItemCode &&
+              item.almacen === producto.almacen
+          )
+        : -1;
 
-    if (index !== -1) {
-      const producto = datos[index];
-      setBusqueda(producto.ItemCode);
+      if (index !== -1) {
+        setBusqueda(producto.ItemCode);
 
-      const { value: cantidad } = await MySwal.fire({
-        title: `<div class="text-xl font-bold text-gray-800 text-center">
-                  Producto encontrado: ${producto.Itemname}
-                </div>`,
-        html: `
-          <div class="text-left text-sm text-gray-700 leading-relaxed mb-2">
-            <p>🧾 <strong>Código:</strong> ${producto.ItemCode}</p>
-            <p>🏬 <strong>Almacén:</strong> ${producto.almacen}</p>
-            <p>📁 <strong>Familia:</strong> ${producto.nom_fam}</p>
-            <p class="mt-2 text-blue-700 font-semibold">
-              📦 Cantidad actual: ${parseFloat(producto.cant_invfis) || 0}
-            </p>
-            <p class="text-xs text-gray-500 mt-1">
-              Usa <strong>+ / -</strong> para sumar o restar (ej: +10, -5)
-            </p>
-          </div>
+        const { value: cantidad } = await MySwal.fire({
+          title: `<div class="text-xl font-bold text-gray-800 text-center">
+                    Producto encontrado: ${producto.Itemname}
+                  </div>`,
+          html: `
+            <div class="text-left text-sm text-gray-700 leading-relaxed mb-2">
+              <p>🧾 <strong>Código:</strong> ${producto.ItemCode}</p>
+              <p>🏬 <strong>Almacén:</strong> ${producto.almacen}</p>
+              <p>📁 <strong>Familia:</strong> ${producto.nom_fam}</p>
+              <p class="mt-2 text-blue-700 font-semibold">
+                📦 Cantidad actual: ${parseFloat(producto.cant_invfis) || 0}
+              </p>
+              <p class="text-xs text-gray-500 mt-1">
+                Usa <strong>+ / -</strong> para sumar o restar (ej: +10, -5)
+              </p>
+            </div>
 
-          <input
-            type="text"
-            id="cantidad"
-            class="swal2-input text-center text-lg font-bold"
-            placeholder="Ej: 10+20+30 o +5"
-            inputmode="text"
-          />
+            <input
+              type="text"
+              id="cantidad"
+              class="swal2-input text-center text-lg font-bold"
+              placeholder="Ej: 10+20+30 o +5"
+              inputmode="text"
+            />
+          `,
+          focusConfirm: false,
+          confirmButtonText: "Guardar",
+          showCancelButton: true,
+          cancelButtonText: "Cancelar",
+          allowOutsideClick: false,
+          didOpen: () => {
+            const input = document.getElementById("cantidad");
+            if (input) {
+              input.focus();
+              input.addEventListener("keydown", (e) => {
+                const ahora = Date.now();
+                const delta = ahora - tiempoUltimo;
+                tiempoUltimo = ahora;
 
-        `,
-        focusConfirm: false,
-        confirmButtonText: "Guardar",
-        showCancelButton: true,
-        cancelButtonText: "Cancelar",
-        allowOutsideClick: false,
+                if (delta < 35 && /^[0-9]$/.test(e.key)) {
+                  bufferCodigo += e.key;
+                  clearTimeout(window.timerScanner);
+                  window.timerScanner = setTimeout(() => {
+                    if (bufferCodigo.length >= 6) {
+                      document.querySelector(".swal2-confirm")?.click();
+                    }
+                    bufferCodigo = "";
+                  }, 80);
+                }
 
-        didOpen: () => {
-          const input = document.getElementById("cantidad");
-          if (input) {
-            input.focus();
-            input.addEventListener("keydown", (e) => {
-              const ahora = Date.now();
-              const delta = ahora - tiempoUltimo;
-              tiempoUltimo = ahora;
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  document.querySelector(".swal2-confirm")?.click();
+                }
+              });
+            }
+          },
+          preConfirm: () => {
+            let raw = document.getElementById("cantidad").value || "";
+            raw = raw.trim().replace(/\s+/g, "");
 
-              if (delta < 35 && /^[0-9]$/.test(e.key)) {
-                bufferCodigo += e.key;
-                clearTimeout(window.timerScanner);
-                window.timerScanner = setTimeout(() => {
-                  if (bufferCodigo.length >= 6) {
-                    document.querySelector(".swal2-confirm")?.click();
-                  }
-                  bufferCodigo = "";
-                }, 80);
-              }
+            if (!raw) {
+              Swal.showValidationMessage("Ingresa una cantidad");
+              return false;
+            }
 
-              if (e.key === "Enter") {
-                e.preventDefault();
-                document.querySelector(".swal2-confirm")?.click();
-              }
-            });
+            const base = parseFloat(producto.cant_invfis) || 0;
+            const { ok, total, error } = calcularTotalDesdeInput(raw, base);
+
+            if (!ok) {
+              Swal.showValidationMessage(error);
+              return false;
+            }
+
+            return total;
+          },
+        });
+
+        if (cantidad !== undefined) {
+          const nuevo = [...datos];
+          nuevo[index].cant_invfis = cantidad;
+          setDatos(nuevo);
+
+          await autoGuardar(producto, cantidad);
+          pushHistorial(producto, cantidad);
+
+          setBusqueda("");
+
+          const inputPrincipal = document.getElementById("inputCaptura");
+          if (inputPrincipal) inputPrincipal.focus();
+
+          const elemento = document.getElementById(`fila-${producto.ItemCode}-${producto.almacen}`);
+          if (elemento) {
+            elemento.scrollIntoView({ behavior: "smooth", block: "center" });
+            elemento.classList.add("ring-2", "ring-green-400");
+            setTimeout(() => {
+              elemento.classList.remove("ring-2", "ring-green-400");
+            }, 1500);
           }
-        },
-
-        preConfirm: () => {
-          let raw = document.getElementById("cantidad").value || "";
-          raw = raw.trim().replace(/\s+/g, "");
-
-          if (!raw) {
-            Swal.showValidationMessage("Ingresa una cantidad");
-            return false;
-          }
-
-          const base = parseFloat(producto.cant_invfis) || 0;
-
-          const { ok, total, error } = calcularTotalDesdeInput(raw, base);
-
-          if (!ok) {
-            Swal.showValidationMessage(error);
-            return false;
-          }
-
-          return total; //
         }
-
-      });
-
-      if (cantidad !== undefined) {
-        const nuevo = [...datos];
-        nuevo[index].cant_invfis = cantidad;
-        setDatos(nuevo);
-
-        await autoGuardar(producto, cantidad);
-
-        pushHistorial(producto, cantidad);
-
-        setBusqueda("");
+      } else {
         const inputPrincipal = document.getElementById("inputCaptura");
-        if (inputPrincipal) inputPrincipal.focus();
+        setLectorActivo(false);
+        inputPrincipal?.blur();
 
-        const elemento = document.getElementById(`fila-${producto.id}`);
-        if (elemento) {
-          elemento.scrollIntoView({ behavior: "smooth", block: "center" });
-          elemento.classList.add("ring-2", "ring-green-400");
-          setTimeout(() => elemento.classList.remove("ring-2", "ring-green-400"), 1500);
-        }
+        await new Promise((r) => setTimeout(r, 150));
+
+        await MySwal.fire({
+          title: "No encontrado",
+          text: `El código ${codigoNormalizado} no está en la tabla actual`,
+          icon: "warning",
+          confirmButtonText: "OK",
+          allowOutsideClick: false,
+          allowEnterKey: false,
+          heightAuto: false,
+        });
+
+        setLectorActivo(true);
+        inputPrincipal?.focus();
       }
-    } else {
-      const inputPrincipal = document.getElementById("inputCaptura");
-      setLectorActivo(false);
-      inputPrincipal?.blur();
-
-      await new Promise((r) => setTimeout(r, 150));
-
-      await MySwal.fire({
-        title: "No encontrado",
-        text: `El código ${codigoNormalizado} no está en la tabla actual`,
-        icon: "warning",
-        confirmButtonText: "OK",
-        allowOutsideClick: false,
-        allowEnterKey: false,
-        heightAuto: false,
-      });
-
-      setLectorActivo(true);
-      inputPrincipal?.focus();
+    } finally {
+      setModalActivo(false);
     }
-
-    setModalActivo(false);
   };
 
 
   const datosFiltrados = useMemo(() => {
-    const q = busqueda.trim().toLowerCase();
+    const q = normalizarValorEscaneado(busqueda);
 
     return datos.filter((item) => {
+      const itemCode = normalizarValorEscaneado(item.ItemCode);
+      const itemName = String(item.Itemname || "").toLowerCase().trim();
+      const codebars = normalizarValorEscaneado(item.codebars);
+
       const matchBusqueda =
-        (item.ItemCode && item.ItemCode.toLowerCase().includes(q)) ||
-        (item.Itemname && item.Itemname.toLowerCase().includes(q)) ||
-        (item.codebars && item.codebars.toLowerCase().includes(q));
+        q === "" ||
+        itemCode.includes(q) ||
+        itemName.includes(busqueda.toLowerCase().trim()) ||
+        codebars.includes(q);
 
       const matchFamilia =
         !familiaSeleccionada || item.nom_fam === familiaSeleccionada;
@@ -1239,12 +1335,10 @@ export default function CapturaInventario() {
             </div>
           )}
 
-
-
           <div className="bg-white border border-gray-300 rounded-lg shadow-sm p-4 mb-4">
             <h2 className="text-sm font-semibold text-gray-700 mb-2">🎯 Filtros de captura</h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-center">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 items-end">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Familia</label>
                 <select
@@ -1342,9 +1436,9 @@ export default function CapturaInventario() {
           ) : (
 
 
-            <div className="w-full overflow-x-auto max-h-[70vh] border rounded-lg shadow-md">
-              <table className="min-w-[1200px] text-sm table-auto">
-                <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
+            <div className="w-full overflow-x-auto overflow-y-auto max-h-[70vh] border rounded-lg shadow-md bg-white"style={{ WebkitOverflowScrolling: "touch" }}>
+              <table className="w-full min-w-[1100px] text-xs md:text-sm table-auto">
+                <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-[10px] md:text-xs uppercase tracking-wider shadow-lg z-10">
                   <tr>
                     <th className="p-3 text-left w-10">#</th>
                     <th className="p-3 text-left">CIA</th>
@@ -1396,18 +1490,18 @@ export default function CapturaInventario() {
                           {indiceInicial + i + 1}
                         </td>
 
-                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.cias}</td>
-                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.almacen}</td>
-                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.nom_fam}</td>
-                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.nom_subfam}</td>
-                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.ItemCode}</td>
+                        <td className="px-2 py-2 md:px-3 md:py-3 text-xs md:text-sm text-gray-700 whitespace-nowrap">{item.cias}</td>
+                        <td className="px-2 py-2 md:px-3 md:py-3 text-xs md:text-sm text-gray-700 whitespace-nowrap">{item.almacen}</td>
+                        <td className="px-2 py-2 md:px-3 md:py-3 text-xs md:text-sm text-gray-700 whitespace-nowrap">{item.nom_fam}</td>
+                        <td className="px-2 py-2 md:px-3 md:py-3 text-xs md:text-sm text-gray-700 whitespace-nowrap">{item.nom_subfam}</td>
+                        <td className="px-2 py-2 md:px-3 md:py-3 text-xs md:text-sm text-gray-700 whitespace-nowrap">{item.ItemCode}</td>
 
-                        <td className="p-3 text-sm text-gray-700 max-w-[16rem] whitespace-normal break-words leading-snug">
+                        <td className="px-2 py-2 md:px-3 md:py-3 text-xs md:text-sm text-gray-700 min-w-[180px] max-w-[220px] md:max-w-[280px] whitespace-normal break-words leading-snug">
                           {item.Itemname}
                         </td>
 
 
-                        <td className="p-3 text-sm text-gray-700 whitespace-nowrap">{item.codebars}</td>
+                        <td className="px-2 py-2 md:px-3 md:py-3 text-xs md:text-sm text-gray-700 whitespace-nowrap">{item.codebars}</td>
 
                         {aplicarVistaDiferenciasBrigada && (
                           <>
@@ -1438,7 +1532,7 @@ export default function CapturaInventario() {
                                 type="text"
                                 inputMode="numeric"
                                 value={valor}
-                                className="w-24 px-2 py-1 border rounded text-sm text-right"
+                                className="w-20 md:w-24 px-2 py-1 border rounded text-xs md:text-sm text-right"
                                 onFocus={(e) => {
                                   setEditandoCelda(true);
                                   setLectorActivo(false);
@@ -1527,7 +1621,7 @@ export default function CapturaInventario() {
             </div>
           )}
 
-          <div className="mt-4 flex justify-center items-center gap-4 text-sm text-gray-700 font-medium">
+          <div className="mt-4 flex flex-col md:flex-row justify-center items-center gap-3 md:gap-4 text-xs md:text-sm text-gray-700 font-medium">
             <button
               onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
               disabled={paginaActual === 1}
@@ -1605,10 +1699,25 @@ export default function CapturaInventario() {
       {mostrarEscanerCamara && (
         <EscanerCamaraQuagga
           modo={modoLectura}
-          onScanSuccess={(codigo) => handleCodigoDetectado(codigo)}
+          onScanSuccess={async (codigo) => {
+            setMostrarEscanerCamara(false);
+            setLectorActivo(false);
+
+            await handleCodigoDetectado(codigo);
+
+            setTimeout(() => {
+              setLectorActivo(true);
+              const inputPrincipal = document.getElementById("inputCaptura");
+              inputPrincipal?.focus();
+            }, 300);
+          }}
           onClose={() => {
             setMostrarEscanerCamara(false);
-            setTimeout(() => setLectorActivo(true), 300);
+            setTimeout(() => {
+              setLectorActivo(true);
+              const inputPrincipal = document.getElementById("inputCaptura");
+              inputPrincipal?.focus();
+            }, 300);
           }}
         />
       )}
