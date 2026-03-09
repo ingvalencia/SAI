@@ -470,15 +470,15 @@ export default function Control() {
     };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-3 md:p-6 w-full max-w-none mx-auto">
       <h1 className="text-3xl font-extrabold text-gray-900 mb-8">⚙️ Control de Operaciones</h1>
 
-      <div className="flex gap-3 mb-8">
+      <div className="flex flex-wrap gap-3 mb-6">
         <button
           onClick={() => setVista("usuarios")}
           className={`px-6 py-2 rounded-lg font-medium shadow-sm transition-all ${
             vista === "usuarios"
-              ? "bg-red-700 text-white"
+              ? "bg-[#611232] text-white"
               : "bg-gray-200 text-gray-700 hover:bg-gray-300"
           }`}
         >
@@ -491,7 +491,7 @@ export default function Control() {
             onClick={() => setVista("fecha")}
             className={`px-6 py-2 rounded-lg font-medium shadow-sm transition-all ${
               vista === "fecha"
-                ? "bg-red-700 text-white"
+                ? "bg-[#611232] text-white"
                 : "bg-gray-200 text-gray-700 hover:bg-gray-300"
             }`}
           >
@@ -529,10 +529,11 @@ export default function Control() {
           </div>
 
           <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm">
-            <div className="overflow-auto">
-              <table className="min-w-full text-sm">
+            <div className="w-full overflow-x-auto overflow-y-auto">
+              <table className="min-w-[900px] text-sm">
                 <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
                   <tr>
+                    <th className="px-6 py-3 text-left">#</th>
                     <th className="px-6 py-3 text-left">Empleado</th>
                     <th className="px-6 py-3 text-left">Nombre</th>
                     <th className="px-6 py-3 text-left">Responsable</th>
@@ -542,42 +543,50 @@ export default function Control() {
                 </thead>
 
                 <tbody className="divide-y divide-slate-200 bg-white">
-                  {usuariosPaginados.map((u, i) => (
-                    <tr key={i} className="hover:bg-slate-50 transition">
-                      <td className="px-6 py-3 font-mono text-red-800">{u.empleado}</td>
-                      <td className="px-6 py-3 text-slate-800">{u.nombre}</td>
-                      <td className="px-6 py-3 text-slate-700">{u.responsable_nombre || "—"}</td>
-                      <td className="px-6 py-3">
-                        {u.activo ? (
-                          <span className="px-3 py-1 text-xs rounded-full bg-emerald-100 text-emerald-700 font-semibold">
-                            Activo
-                          </span>
-                        ) : (
-                          <span className="px-3 py-1 text-xs rounded-full bg-slate-200 text-slate-600">
-                            Inactivo
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-3 flex gap-2">
-                        <button
-                          onClick={() => toggleActivo(u.id, u.activo)}
-                          className={`px-4 py-1.5 rounded-md text-xs font-semibold text-white transition
-                            ${u.activo ? "bg-emerald-600 hover:bg-emerald-700" : "bg-slate-500 hover:bg-slate-600"}`}
-                        >
-                          {u.activo ? "Desactivar" : "Activar"}
-                        </button>
+                  {usuariosPaginados.map((u, i) => {
+                    const numero = (paginaActual - 1) * porPagina + i + 1;
 
-                        {(rolLogueado === 1 || rolLogueado === 2) && (
+                    return (
+                      <tr key={i} className="hover:bg-slate-50 transition">
+                        <td className="px-6 py-3 font-semibold text-slate-500">
+                          {numero}
+                        </td>
+                        <td className="px-6 py-3 font-mono text-red-800">{u.empleado}</td>
+                        <td className="px-6 py-3 text-slate-800">{u.nombre}</td>
+                        <td className="px-6 py-3 text-slate-700">{u.responsable_nombre || "—"}</td>
+                        <td className="px-6 py-3">
+                          {u.activo ? (
+                            <span className="px-3 py-1 text-xs rounded-full bg-emerald-100 text-emerald-700 font-semibold">
+                              Activo
+                            </span>
+                          ) : (
+                            <span className="px-3 py-1 text-xs rounded-full bg-slate-200 text-slate-600">
+                              Inactivo
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="px-6 py-3 flex gap-2">
                           <button
-                            onClick={() => eliminarUsuario(u.id)}
-                            className="px-4 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition"
+                            onClick={() => toggleActivo(u.id, u.activo)}
+                            className={`px-4 py-1.5 rounded-md text-xs font-semibold text-white transition
+                              ${u.activo ? "bg-emerald-600 hover:bg-emerald-700" : "bg-slate-500 hover:bg-slate-600"}`}
                           >
-                            Eliminar
+                            {u.activo ? "Desactivar" : "Activar"}
                           </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+
+                          {(rolLogueado === 1 || rolLogueado === 2) && (
+                            <button
+                              onClick={() => eliminarUsuario(u.id)}
+                              className="px-4 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition"
+                            >
+                              Eliminar
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -689,10 +698,11 @@ export default function Control() {
 
             {/* TABLA */}
             <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm">
-              <div className="overflow-auto">
-                <table className="min-w-full text-sm">
+              <div className="w-full overflow-x-auto overflow-y-auto">
+                <table className="min-w-[900px] text-sm">
                   <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
                     <tr>
+                      <th className="px-6 py-3 text-left">#</th>
                       <th className="px-6 py-3 text-left">CIA</th>
                       <th className="px-6 py-3 text-left">Almacén</th>
                       <th className="px-6 py-3 text-left">Fecha</th>
@@ -704,6 +714,8 @@ export default function Control() {
 
                   <tbody className="divide-y divide-slate-200 bg-white">
                     {configuracionesPaginadas.map((c, i) => {
+                      const numero = (paginaFechas - 1) * porPaginaFechas + i + 1;
+
                       const ultimoConteo = Number(
                         String(c.conteos || "")
                           .split(",")
@@ -722,6 +734,10 @@ export default function Control() {
 
                       return (
                         <tr key={i} className="hover:bg-slate-50 transition">
+                          <td className="px-6 py-3 font-semibold text-slate-500">
+                            {numero}
+                          </td>
+
                           <td className="px-6 py-3 font-semibold text-slate-800">
                             {c.cia}
                           </td>

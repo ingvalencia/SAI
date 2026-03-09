@@ -1013,7 +1013,7 @@ export default function CapturaInventario() {
 
   return (
 
-    <div className="max-w-7xl mx-auto p-6">
+    <div className="w-full max-w-none mx-auto px-3 md:px-6">
 
       <h1 className="text-3xl md:text-4xl font-extrabold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-red-700 via-indigo-600 to-green-600 tracking-tight drop-shadow-sm text-center">
         📦 Captura de Inventario Físico
@@ -1244,7 +1244,7 @@ export default function CapturaInventario() {
           <div className="bg-white border border-gray-300 rounded-lg shadow-sm p-4 mb-4">
             <h2 className="text-sm font-semibold text-gray-700 mb-2">🎯 Filtros de captura</h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-center">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Familia</label>
                 <select
@@ -1342,8 +1342,8 @@ export default function CapturaInventario() {
           ) : (
 
 
-            <div className="overflow-auto max-h-[70vh] border rounded-lg shadow-md">
-              <table className="min-w-full text-sm table-auto">
+            <div className="w-full overflow-x-auto max-h-[70vh] border rounded-lg shadow-md">
+              <table className="min-w-[1200px] text-sm table-auto">
                 <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
                   <tr>
                     <th className="p-3 text-left w-10">#</th>

@@ -33,7 +33,7 @@ const obtenerUltimoConteo = (item) => {
   const c4 = Number(item.conteo4 ?? 0);
 
   // Si ya cuadró en conteo 3 contra SAP, ahí se queda
-  if (c3 === sap) return c3;  
+  if (c3 === sap) return c3;
 
   // Si existe conteo 4 (realmente usado)
   if (c4 !== 0) return c4;
@@ -843,13 +843,13 @@ export default function Mapa({ drawerRootId }) {
                   font-size:13px;
                   letter-spacing:.5px;
               ">
-                Comentario (máx 30 caracteres)
+                Comentario (máx 50 caracteres)
               </label>
 
               <div style="position:relative;">
                 <textarea
                   id="sw_comentario"
-                  maxlength="30"
+                  maxlength="50"
                   placeholder="Escribe un comentario para el cierre..."
                   style="
                     width:100%;
@@ -866,10 +866,10 @@ export default function Mapa({ drawerRootId }) {
                   onfocus="this.style.borderColor='#2563eb'; this.style.boxShadow='0 0 0 3px rgba(37,99,235,.15)'"
                   onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='0 1px 3px rgba(0,0,0,.08)'"
                   oninput="
-                    if(this.value.length > 30) this.value = this.value.slice(0,30);
+                    if(this.value.length > 50) this.value = this.value.slice(0,50);
                     const counter = document.getElementById('sw_counter');
-                    counter.innerText = this.value.length + '/30';
-                    counter.style.color = this.value.length >= 30 ? '#dc2626' : '#6b7280';
+                    counter.innerText = this.value.length + '/50';
+                    counter.style.color = this.value.length >= 50 ? '#dc2626' : '#6b7280';
                   "
 
                 ></textarea>
@@ -882,7 +882,7 @@ export default function Mapa({ drawerRootId }) {
                     color:#6b7280;
                     font-weight:500;
                 ">
-                  0/30
+                  0/50
                 </div>
               </div>
             </div>
@@ -916,8 +916,8 @@ export default function Mapa({ drawerRootId }) {
             return;
           }
 
-          if (comentario.length > 30) {
-            Swal.showValidationMessage("El comentario no puede exceder 30 caracteres.");
+          if (comentario.length > 50) {
+            Swal.showValidationMessage("El comentario no puede exceder 50 caracteres.");
             return;
           }
 
@@ -1263,7 +1263,7 @@ const convertirImagenBase64 = (url) => {
 
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-3 md:p-6 w-full max-w-none mx-auto">
       <h1 className="text-3xl font-extrabold text-gray-900 mb-6">
         📊 Mapa de Operaciones
       </h1>
@@ -1396,8 +1396,6 @@ const convertirImagenBase64 = (url) => {
 
               </div>
 
-
-
                   <div className="bg-white rounded-lg shadow-md p-6">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4">
                       Artículos con diferencia (ordenados por impacto)
@@ -1409,7 +1407,7 @@ const convertirImagenBase64 = (url) => {
                       </p>
                     ) : (
                       <div className="overflow-x-auto max-h-[60vh]">
-                        <table className="w-full text-xs table-fixed">
+                        <table className="min-w-[1100px] text-xs table-auto">
                           <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
                             <tr>
                               <th className="px-3 py-2 text-left">Código</th>
@@ -1465,7 +1463,7 @@ const convertirImagenBase64 = (url) => {
                     </h3>
 
                     <div className="overflow-x-auto max-h-[65vh]">
-                      <table className="w-full text-xs table-fixed">
+                      <table className="min-w-[1100px] text-xs table-auto">
                         <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
                           <tr>
                             <th className="px-3 py-2 text-left">Código</th>
@@ -1646,7 +1644,7 @@ const convertirImagenBase64 = (url) => {
             </h2>
 
             {/* TABLA */}
-            <div className="overflow-x-auto">
+            <div className="w-full overflow-x-auto">
               <table className="w-full text-xs table-fixed border border-gray-300">
 
             <thead>
@@ -1976,6 +1974,39 @@ const convertirImagenBase64 = (url) => {
               🔎 Detalle: {grupoSeleccionado ? `Grupo ${grupoSeleccionado.base}` : almacenSeleccionado}
             </h2>
 
+           <div className="flex items-center gap-4">
+
+        
+              <button
+                onClick={() => {
+                  if (grupoSeleccionado) {
+                    fetchDetalleGrupo(grupoSeleccionado);
+                  } else if (almacenSeleccionado) {
+                    fetchDetalle();
+                  }
+                }}
+                className="
+                  flex items-center gap-2
+                  px-4 py-2
+                  rounded-lg
+                  bg-[#611232] hover:bg-[#4f0e28]
+                  text-white
+                  text-xs font-semibold
+                  shadow-md
+                  transition-all
+                "
+              >
+                <span className="bg-white/10 p-1.5 rounded-md">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-3.51-7.03" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 3v6h-6" />
+                  </svg>
+                </span>
+                Actualizar
+              </button>
+
+            </div>
+
             {estatusInventario === 4 && sapRefrescado === false && (
               <button
               onClick={refreshSAP}
@@ -2001,18 +2032,9 @@ const convertirImagenBase64 = (url) => {
               "
             >
               <div className="bg-white/15 p-2 rounded-lg">
-                <svg
-                  className={`w-5 h-5 ${procesandoRefresh ? "animate-spin" : ""}`}
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M4 4v5h.582M20 20v-5h-.581M5.64 18.36A9 9 0 1021 12"
-                  />
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-3.51-7.03" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 3v6h-6" />
                 </svg>
               </div>
 
@@ -2224,7 +2246,7 @@ const convertirImagenBase64 = (url) => {
             </span>
           </div>
 
-            <table className="w-full text-xs table-fixed">
+            <table className="min-w-[1100px] text-xs table-auto">
               <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
                 <tr>
                   <th className="w-[60px] px-2 py-1 text-center">#</th>

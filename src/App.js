@@ -16,8 +16,21 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 
 function FullscreenLoader({ text = "Verificando acceso al sistema..." }) {
   return (
-    <div className="flex items-center justify-center h-screen bg-black text-green-400 font-mono text-xl">
-      {text}
+    <div className="flex items-center justify-center h-screen bg-[#611232] text-white text-xl font-semibold">
+      <div className="flex flex-col items-center gap-6">
+
+        <div className="relative w-16 h-16">
+          <div className="absolute inset-0 border-4 border-white/20 rounded-full"></div>
+          <div className="absolute inset-0 border-4 border-t-white border-white/40 rounded-full animate-spin"></div>
+        </div>
+
+        <p className="tracking-wide">{text}</p>
+
+        <div className="w-48 h-1 bg-white/20 rounded overflow-hidden">
+          <div className="h-full bg-white animate-pulse"></div>
+        </div>
+
+      </div>
     </div>
   );
 }
@@ -88,21 +101,24 @@ function AppRoutes() {
   return (
     <>
       {location.pathname !== "/login" && (
-        <div className="flex justify-between items-center bg-red-800 text-white px-4 py-2">
-          <span>
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2 bg-[#611232] text-white px-4 py-3 shadow">
+
+          <div className="text-sm md:text-base">
             Usuario: <strong>{nombre || "Sin nombre"}</strong> ({empleado || "—"})
-          </span>
+          </div>
+
           <button
             onClick={handleLogout}
-            className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm font-semibold"
+            className="bg-white text-[#611232] hover:bg-gray-200 px-3 py-1 rounded text-sm font-semibold transition"
           >
             Cerrar sesión
           </button>
+
         </div>
       )}
 
       {modo_forzado && location.pathname !== "/login" && (
-        <div className="bg-yellow-900 text-yellow-300 px-4 py-2 font-mono text-xs text-center border-b border-yellow-700">
+        <div className="bg-yellow-900 text-yellow-300 px-4 py-2 text-xs text-center border-b border-yellow-700">
           ⚠ Acceso de desarrollador. Sistema en mantenimiento para otros usuarios.
         </div>
       )}

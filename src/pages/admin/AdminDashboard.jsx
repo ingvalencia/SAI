@@ -5,7 +5,7 @@ import Mapa from "./Mapa";
 
 export default function AdminDashboard() {
   const [vista, setVista] = useState("inicio");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   const menuItems = [
     { id: "usuarios", label: "Usuarios y permisos", icon: "👥" },
@@ -14,109 +14,132 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="flex h-screen bg-gray-100 font-sans overflow-hidden">
+    <div className="flex h-screen bg-gray-100 overflow-hidden">
 
       <aside
-        className={`relative h-full bg-gradient-to-b from-red-900 to-red-700 text-white shadow-2xl transition-all duration-300 ease-in-out
-        ${sidebarCollapsed ? "w-20" : "w-72"}`}
+        className={`bg-[#611232] text-white transition-all duration-300 ease-in-out shadow-2xl flex flex-col
+        ${collapsed ? "w-20" : "w-72"}`}
       >
-        <div className="flex items-center justify-between p-5 border-b border-red-600">
-          {!sidebarCollapsed && (
+
+        <div className="flex items-center justify-between px-4 h-16 border-b border-white/20">
+
+          {!collapsed && (
             <div>
-              <h2 className="text-xl font-bold tracking-wide">SICAF</h2>
-              <p className="text-xs text-red-200">Administrador</p>
+              <h2 className="text-lg font-bold tracking-wide">SICAF</h2>
+              <p className="text-xs text-white/70">Administrador</p>
             </div>
           )}
 
           <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="bg-white/10 hover:bg-white/20 p-2 rounded-lg transition"
+            onClick={() => setCollapsed(!collapsed)}
+            className="relative w-10 h-10 flex items-center justify-center group"
           >
-            {sidebarCollapsed ? "▶" : "◀"}
+            <div className="w-6 flex flex-col gap-1">
+              <span
+                className={`block h-0.5 bg-white transition-all duration-300
+                ${collapsed ? "rotate-45 translate-y-1.5" : ""}`}
+              ></span>
+
+              <span
+                className={`block h-0.5 bg-white transition-all duration-300
+                ${collapsed ? "opacity-0" : ""}`}
+              ></span>
+
+              <span
+                className={`block h-0.5 bg-white transition-all duration-300
+                ${collapsed ? "-rotate-45 -translate-y-1.5" : ""}`}
+              ></span>
+            </div>
           </button>
+
         </div>
 
-        <nav className="mt-4 space-y-2 px-2">
+        <nav className="mt-6 flex-1 px-2 space-y-2">
+
           {menuItems.map((item) => (
             <button
               key={item.id}
               onClick={() => setVista(item.id)}
-              className={`group relative flex items-center gap-4 w-full px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300
+              className={`group flex items-center gap-4 w-full px-4 py-3 rounded-xl text-sm font-medium transition-all
               ${
                 vista === item.id
-                  ? "bg-red-600 shadow-lg"
-                  : "hover:bg-red-800 text-red-100"
+                  ? "bg-white text-[#611232] shadow-lg"
+                  : "hover:bg-white/10 text-white/90"
               }`}
             >
+
               <span className="text-xl">{item.icon}</span>
 
-              {!sidebarCollapsed && (
+              {!collapsed && (
                 <span className="whitespace-nowrap">
                   {item.label}
                 </span>
               )}
 
-              {sidebarCollapsed && (
-                <span className="absolute left-full ml-3 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
+              {collapsed && (
+                <span className="absolute left-20 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
                   {item.label}
                 </span>
               )}
+
             </button>
           ))}
+
         </nav>
 
-        {!sidebarCollapsed && (
-          <div className="absolute bottom-0 w-full p-4 border-t border-red-600 text-xs text-red-200 text-center">
+        {!collapsed && (
+          <div className="p-4 border-t border-white/20 text-xs text-white/70 text-center">
             © {new Date().getFullYear()} SICAF
           </div>
         )}
+
       </aside>
 
-      <main className="flex-1 p-10 overflow-y-auto transition-all duration-300">
+      <main
+        className={`flex-1 overflow-y-auto transition-all duration-300
+        ${collapsed ? "p-6" : "p-10"}`}
+      >
+
         {vista === "inicio" && (
-          <div className="flex items-center justify-center h-full bg-gradient-to-br from-gray-100 to-gray-200 px-6">
-            <div className="relative bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden">
+          <div className="flex items-center justify-center h-full">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full p-12 text-center">
 
-              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600"></div>
+              <h1 className="text-4xl font-extrabold text-gray-900 mb-4">
+                Administrador SICAF
+              </h1>
 
-              <div className="p-14">
+              <div className="w-20 h-1 bg-[#611232] mx-auto mb-6 rounded-full"></div>
 
-                <div className="flex flex-col items-center text-center">
+              <h2 className="text-lg font-semibold text-gray-700 mb-6">
+                Sistema de Captura de Inventarios Físicos
+              </h2>
 
-                  <span className="text-xs tracking-[0.35em] text-gray-400 mb-4">
-                   
-                  </span>
+              <p className="text-gray-600 leading-relaxed max-w-2xl mx-auto">
+                Plataforma centralizada para supervisar operaciones de inventario,
+                gestionar capturistas y monitorear el estado de los procesos
+                operativos dentro del sistema SICAF.
+              </p>
 
-                  <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight mb-3">
-                    Administrador SICAF
-                  </h1>
+              <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8 text-center">
 
-                  <div className="w-20 h-1 bg-indigo-600 rounded-full mb-6"></div>
-
-                  <h2 className="text-lg font-semibold text-gray-700 mb-6">
-                    Sistema de Captura de Inventarios Físicos
-                  </h2>
-
-                  <p className="text-gray-600 leading-relaxed max-w-2xl">
-                    Plataforma centralizada para la gestión, supervisión y control
-                    estratégico de los procesos de inventario físico dentro de la organización.
+                <div className="bg-gray-50 rounded-xl p-6">
+                  <p className="text-3xl font-bold text-[#611232]">v1.0</p>
+                  <p className="text-xs text-gray-500 mt-1 tracking-wider">
+                    VERSIÓN DEL SISTEMA
                   </p>
-
                 </div>
 
-                <div className="mt-12 grid grid-cols-2 gap-8 text-center">
-                  <div>
-                    <p className="text-3xl font-bold text-indigo-600">v1.0</p>
-                    <p className="text-xs tracking-wider text-gray-500 mt-1">VERSIÓN DEL SISTEMA</p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">ÁREA DE TI</p>
-                    <p className="text-xs tracking-wider text-gray-500 mt-1">DESARROLLO SAP</p>
-                  </div>
+                <div className="bg-gray-50 rounded-xl p-6">
+                  <p className="text-sm font-semibold text-gray-800">
+                    ÁREA DE TI
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1 tracking-wider">
+                    DESARROLLO SAP
+                  </p>
                 </div>
 
               </div>
+
             </div>
           </div>
         )}
@@ -124,9 +147,11 @@ export default function AdminDashboard() {
         {vista === "usuarios" && <Usuarios />}
         {vista === "control" && <Control />}
         {vista === "mapa" && <Mapa drawerRootId="drawer-root" />}
+
       </main>
 
       <div id="drawer-root"></div>
+
     </div>
   );
 }

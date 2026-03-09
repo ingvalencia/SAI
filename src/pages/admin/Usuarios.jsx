@@ -201,7 +201,6 @@ export default function Usuarios() {
   };
 
 
-  // === Toggle locales en formulario ===
   const handleLocalesChange = (codigo) => {
     setForm((prev) => {
       const selected = prev.locales.includes(codigo)
@@ -317,18 +316,19 @@ export default function Usuarios() {
 
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-3 md:p-6 w-full max-w-none mx-auto">
       <h1 className="text-3xl font-extrabold text-gray-900 mb-8">👥 Gestión de Usuarios</h1>
 
-      <div className="flex border-b border-gray-200 mb-10">
+      <div className="flex flex-wrap gap-2 border-b border-gray-200 mb-6">
 
         <button
           type="button"
           onClick={() => setTabRegistro("admin")}
-          className={`px-8 py-3 text-sm font-semibold transition-all border-b-2 ${
+          className={`px-6 py-3 text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm
+          ${
             tabRegistro === "admin"
-              ? "border-red-600 text-red-600"
-              : "border-transparent text-gray-500 hover:text-gray-700"
+              ? "bg-[#611232] text-white shadow-md"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
         >
           Registro Administrador
@@ -337,10 +337,11 @@ export default function Usuarios() {
         <button
           type="button"
           onClick={() => setTabRegistro("base")}
-          className={`px-8 py-3 text-sm font-semibold transition-all border-b-2 ${
+          className={`px-6 py-3 text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm
+          ${
             tabRegistro === "base"
-              ? "border-red-600 text-red-600"
-              : "border-transparent text-gray-500 hover:text-gray-700"
+              ? "bg-[#611232] text-white shadow-md"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
         >
           Registros de Usuarios
@@ -349,10 +350,11 @@ export default function Usuarios() {
         <button
           type="button"
           onClick={() => setTabRegistro("operador")}
-          className={`px-8 py-3 text-sm font-semibold transition-all border-b-2 ${
+          className={`px-6 py-3 text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm
+          ${
             tabRegistro === "operador"
-              ? "border-red-600 text-red-600"
-              : "border-transparent text-gray-500 hover:text-gray-700"
+              ? "bg-[#611232] text-white shadow-md"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
         >
           Registro Operador Inventario
@@ -403,7 +405,7 @@ export default function Usuarios() {
             Registro base de usuarios
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <input
               type="text"
               required
@@ -463,7 +465,7 @@ export default function Usuarios() {
               type="submit"
               disabled={loading}
               className={`px-6 py-3 rounded-lg text-white font-semibold ${
-                loading ? "bg-gray-400" : "bg-red-600 hover:bg-red-700"
+                loading ? "bg-gray-400" : "bg-[#611232] hover:bg-[#7a163f]"
               }`}
             >
               {loading ? "Registrando..." : "Registrar usuario base"}
@@ -523,7 +525,7 @@ export default function Usuarios() {
                   setForm((prev) => ({ ...prev, cia, locales: [] }));
                   if (cia) await fetchLocales(cia);
                 }}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-red-600"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-[#611232]"
               >
                 <option value="">— Selecciona una CIA —</option>
                 <option value="recrefam">RECREFAM</option>
@@ -538,7 +540,7 @@ export default function Usuarios() {
           {/* Datos generales */}
           {/* Si es Individual, mostramos los campos actuales */}
           {tipoConteo === "Individual" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* selector de usuario (reemplaza Empleado/Nombre/Email/Password) */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -549,7 +551,7 @@ export default function Usuarios() {
                   type="text"
                   list="usuarios-list"
                   placeholder="Buscar por empleado o nombre"
-                  className="border rounded-lg px-3 py-2 w-full shadow-sm focus:ring-2 focus:ring-red-600"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-[#611232]"
                   onChange={(e) => {
                     const value = e.target.value;
 
@@ -607,7 +609,7 @@ export default function Usuarios() {
                   placeholder="Buscar por empleado o nombre"
                   value={busquedaOperador}
                   onChange={(e) => setBusquedaOperador(e.target.value)}
-                  className="w-full mb-2 px-3 py-2 border rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-red-600"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-[#611232]"
                 />
 
                 <div className="grid grid-cols-1 gap-2 border rounded-lg p-3 bg-gray-50">
@@ -646,7 +648,7 @@ export default function Usuarios() {
               </div>
 
               {/*  niveles solo informativos */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Nivel de conteo (Operador 1)
@@ -767,8 +769,8 @@ export default function Usuarios() {
             <button
               type="submit"
               disabled={loading}
-              className={`px-6 py-3 rounded-lg shadow-md text-white font-semibold transition ${
-                loading ? "bg-red-300 cursor-not-allowed" : "bg-red-600 hover:bg-red-700"
+              className={`px-6 py-3 rounded-lg text-white font-semibold ${
+                loading ? "bg-gray-400" : "bg-[#611232] hover:bg-[#7a163f]"
               }`}
             >
               {loading ? "Registrando..." : "Registrar usuario"}
@@ -831,7 +833,7 @@ export default function Usuarios() {
           Registrar Administrador
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <input
             type="text"
             required
@@ -909,8 +911,8 @@ export default function Usuarios() {
             type="submit"
             disabled={loading}
             className={`px-6 py-3 rounded-lg text-white font-semibold ${
-              loading ? "bg-gray-400" : "bg-red-600 hover:bg-red-700"
-            }`}
+                loading ? "bg-gray-400" : "bg-[#611232] hover:bg-[#7a163f]"
+              }`}
           >
             {loading ? "Registrando..." : "Registrar Administrador"}
           </button>

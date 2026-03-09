@@ -422,7 +422,7 @@ export default function CompararInventario() {
     let baseOriginal = null;
 
     if (miActual === 3 || miActual === 7) {
-      
+
       baseOriginal = comp === 1 ? 2 : 1;
     } else {
       baseOriginal = miActual;
@@ -664,7 +664,7 @@ export default function CompararInventario() {
 
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
+    <div className="w-full max-w-none mx-auto px-3 md:px-6">
       <h1 className="text-3xl font-bold mb-6 text-gray-800 flex items-center gap-2">
         {`Comparación de Inventarios - ${
           estatus === 1
@@ -916,9 +916,9 @@ export default function CompararInventario() {
 
       </div>
 
-      <div className="relative overflow-auto max-h-[70vh] border rounded-lg shadow-md">
+      <div className="relative w-full overflow-x-auto max-h-[70vh] border rounded-lg shadow-md">
 
-        <table className="min-w-full text-sm table-auto">
+        <table className="min-w-[1100px] text-sm table-auto">
           <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
             <tr>
               <th className="p-3 text-left w-10">#</th>

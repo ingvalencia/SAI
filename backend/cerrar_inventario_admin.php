@@ -193,7 +193,7 @@ $id_cierre = intval($row["id"]);
 $proy_safe = str_replace("'", "''", $proyecto);
 $em_safe   = str_replace("'", "''", $cuenta_em);
 $sm_safe   = str_replace("'", "''", $cuenta_sm);
-$comentario_front = str_replace("'", "''", substr($comentario_front, 0, 30));
+$comentario_front = str_replace("'", "''", substr($comentario_front, 0, 50));
 
 
 mssql_query("
