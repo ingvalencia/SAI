@@ -11,11 +11,57 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
 
   const bufferRef = useRef([]);
   const cooldownRef = useRef(false);
+  const lecturasNativasRef = useRef([]);
 
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   const detectorIntervalRef = useRef(null);
   const barcodeDetectorRef = useRef(null);
+
+  const normalizarLectura = (valor) => {
+    return String(valor || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s\r\n-]+/g, "");
+  };
+
+  const lecturaConfiable = (data) => {
+    const code = data?.codeResult?.code;
+    const errores = data?.codeResult?.decodedCodes;
+
+    if (!code || !errores) return false;
+
+    const promedio =
+      errores
+        .filter(e => e.error !== undefined)
+        .reduce((a, b) => a + b.error, 0) / errores.length;
+
+    if (promedio > 0.30) return false;
+
+    if (code.length < 6) return false;
+
+    return true;
+  };
+
+  const confirmarLecturaNativa = (codigo) => {
+    const limpio = normalizarLectura(codigo);
+    if (!limpio) return null;
+
+    lecturasNativasRef.current.push(limpio);
+
+    if (lecturasNativasRef.current.length > 6) {
+      lecturasNativasRef.current.shift();
+    }
+
+    const repeticiones = lecturasNativasRef.current.filter((x) => x === limpio).length;
+
+    if (repeticiones >= 3) {
+      lecturasNativasRef.current = [];
+      return limpio;
+    }
+
+    return null;
+  };
 
   useEffect(() => {
 
@@ -24,7 +70,15 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
         if (!("BarcodeDetector" in window)) return false;
 
         const formatosSoportados = await window.BarcodeDetector.getSupportedFormats();
-        const formatosDeseados = ["code_39", "ean_13", "ean_8", "upc_a", "upc_e", "codabar"];
+        const formatosDeseados = [
+          "code_39",
+          "code_128",
+          "ean_13",
+          "ean_8",
+          "upc_a",
+          "upc_e",
+          "codabar"
+        ];
         const formatosFinales = formatosDeseados.filter((f) =>
           formatosSoportados.includes(f)
         );
@@ -34,8 +88,8 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: { ideal: "environment" },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
           },
         });
 
@@ -73,9 +127,12 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
             const code = barcodes[0]?.rawValue;
             if (!code) return;
 
+            const confirmado = confirmarLecturaNativa(code);
+            if (!confirmado) return;
+
             cooldownRef.current = true;
             navigator.vibrate?.(80);
-            onScanSuccess(code.trim());
+            onScanSuccess(confirmado);
 
             setTimeout(() => {
               cooldownRef.current = false;
@@ -83,7 +140,7 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
           } catch (err) {
             console.error("BarcodeDetector error:", err);
           }
-        }, 250);
+        }, 120);
 
         return true;
       } catch (err) {
@@ -97,8 +154,8 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
         },
       });
 
@@ -139,36 +196,34 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
             target: containerRef.current,
             constraints: {
               facingMode: { ideal: "environment" },
-              width: { ideal: 1280 },
-              height: { ideal: 720 },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
             },
             area: {
-              top: "22%",
-              right: "8%",
-              left: "8%",
-              bottom: "22%",
+              top: "15%",
+              right: "2%",
+              left: "2%",
+              bottom: "15%",
             },
           },
           locator: {
-            patchSize: isIOS ? "medium" : "large",
-            halfSample: true,
+            patchSize: "x-large",
+            halfSample: false,
           },
           decoder: {
-            readers: [
-              {
-                format: "code_39_reader",
-                config: {
-                  checksum: false,
-                  extended: true,
-                },
-              },
-              "ean_reader",
-              "ean_8_reader",
-              "upc_reader",
-            ],
-          },
+            multiple: false,
+          readers: [
+            "code_39_reader",
+            "code_128_reader",
+            "ean_reader",
+            "ean_8_reader",
+            "upc_reader",
+            "upc_e_reader",
+            "codabar_reader"
+          ]
+        },
           locate: true,
-          frequency: isIOS ? 8 : 18,
+          frequency: isIOS ? 12 : 45,
           numOfWorkers: isIOS ? 0 : Math.min(4, navigator.hardwareConcurrency || 4),
         },
         (err) => {
@@ -184,6 +239,8 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
 
       const onDetected = (data) => {
         if (cooldownRef.current) return;
+
+        if (!lecturaConfiable(data)) return;
 
         const code = data?.codeResult?.code?.trim();
         if (!code) return;
@@ -254,6 +311,10 @@ export default function EscanerCamaraQuagga({ modo = "barra", onScanSuccess, onC
         Quagga.offProcessed?.();
         Quagga.stop();
       } catch {}
+
+      bufferRef.current = [];
+      lecturasNativasRef.current = [];
+      cooldownRef.current = false;
 
       if (detectorIntervalRef.current) {
         clearInterval(detectorIntervalRef.current);

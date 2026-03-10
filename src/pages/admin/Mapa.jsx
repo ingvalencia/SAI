@@ -1270,21 +1270,21 @@ const convertirImagenBase64 = (url) => {
 
 
   return (
-    <div className="p-3 md:p-6 w-full max-w-none mx-auto">
-      <h1 className="text-3xl font-extrabold text-gray-900 mb-6">
+    <div className="w-full max-w-[1400px] mx-auto px-3 py-4 sm:px-4 md:px-6 lg:px-8">
+      <h1 className="text-2xl lg:text-3xl font-extrabold text-slate-900 mb-6">
         📊 Mapa de Operaciones
       </h1>
 
     {mostrarDrawer &&
       createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-start z-[600]">
+        <div className="fixed inset-0 bg-black/50 flex justify-center items-start z-[600] p-0 sm:p-4">
 
 
 
-          <div className="w-full max-w-[1500px] h-screen bg-white shadow-2xl overflow-y-auto rounded-lg">
+          <div className="w-full h-screen sm:h-[95vh] sm:max-w-[1400px] bg-white shadow-2xl overflow-y-auto sm:rounded-2xl">
 
 
-            <div className="sticky top-0 bg-gray-100 p-5 shadow flex justify-between items-center border-b z-[650]">
+            <div className="sticky top-0 bg-gray-100 px-4 py-4 sm:px-5 shadow flex items-center gap-3 border-b z-[650]">
 
               <button
                 onClick={() => setMostrarDrawer(false)}
@@ -1293,7 +1293,7 @@ const convertirImagenBase64 = (url) => {
                 ← Regresar
               </button>
 
-              <h2 className="text-xl font-bold text-gray-800 text-center flex-1">
+              <h2 className="text-base sm:text-lg lg:text-xl font-bold text-gray-800 text-center flex-1">
                 Cierre del Inventario –{" "}
                 {grupoSeleccionado
                   ? `Grupo ${grupoSeleccionado.base}`
@@ -1312,7 +1312,7 @@ const convertirImagenBase64 = (url) => {
             </div>
 
 
-            <div className="sticky top-[64px] bg-white border-b flex z-[650]">
+            <div className="sticky top-[64px] bg-white border-b flex overflow-x-auto z-[650]">
 
               <button
                 onClick={() => setTabActiva("resumen")}
@@ -1633,10 +1633,10 @@ const convertirImagenBase64 = (url) => {
           </div>
 
 
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl p-10">
+          <div className="bg-white rounded-2xl border border-slate-200 w-full p-4 sm:p-6 lg:p-8">
 
             {/* HEADER */}
-            <div className="flex justify-between items-start border-b pb-6 mb-6">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 border-b pb-6 mb-6">
 
               <div>
                 <img src={logoDiniz} alt="Grupo Diniz" className="h-16 object-contain" />
@@ -1711,7 +1711,7 @@ const convertirImagenBase64 = (url) => {
             </div>
 
             {/* FIRMAS */}
-            <div className="mt-16 grid grid-cols-2 gap-16 text-sm text-gray-800">
+            <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 gap-10 sm:gap-16 text-sm text-gray-800">
 
               <div>
                 <div className="border-t-2 border-gray-400 pt-2 text-center">
@@ -1748,7 +1748,7 @@ const convertirImagenBase64 = (url) => {
     )}
 
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 items-end">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 items-end">
         <select
           value={cia}
           onChange={(e) => {
@@ -1762,7 +1762,7 @@ const convertirImagenBase64 = (url) => {
 
             if (nuevaCia) fetchFechasDisponibles(nuevaCia);
           }}
-          className="border rounded-lg px-2 py-1 shadow-sm focus:ring-2 focus:ring-red-600"
+          className="w-full border border-slate-300 rounded-xl px-4 py-2.5 shadow-sm text-sm focus:ring-2 focus:ring-[#611232] focus:border-[#611232]"
         >
           <option value="">Selecciona CIA</option>
           <option value="recrefam">RECREFAM</option>
@@ -1772,23 +1772,23 @@ const convertirImagenBase64 = (url) => {
       </div>
 
 
-      <div className="bg-white rounded-3xl shadow-2xl p-8 mb-10 border border-slate-200">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-6 lg:p-8 mb-8 border border-slate-100">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h2 className="text-2xl font-extrabold text-slate-800 flex items-center gap-3">
             <span className="text-indigo-600 text-3xl">📅</span>
             Fechas con datos
           </h2>
 
           {fecha && (
-            <div className="px-4 py-2 bg-indigo-50 border border-indigo-200 rounded-xl text-sm font-semibold text-indigo-700 shadow-sm">
+            <div className="w-full sm:w-auto px-4 py-2 bg-indigo-50 border border-indigo-200 rounded-xl text-sm font-semibold text-indigo-700 shadow-sm">
               Fecha seleccionada: {fecha}
             </div>
           )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8 items-start">
 
-          <div className="w-full md:w-1/2">
+          <div className="w-full">
             <Calendar
               onClickDay={(value) => {
               const fechaSeleccionada = value.toISOString().split("T")[0];
@@ -1841,13 +1841,13 @@ const convertirImagenBase64 = (url) => {
           </div>
 
 
-          <div className="w-full md:w-1/2 bg-gray-50 border border-gray-200 rounded-xl p-4 shadow-inner">
+          <div className="w-full bg-gray-50 border border-gray-200 rounded-2xl p-4 sm:p-5 shadow-inner">
             <h3 className="text-md font-semibold text-gray-700 mb-3">📊 Indicadores de conteo</h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {[1,2,3,4].map((k) => (
                 <div
                   key={k}
-                  className="flex items-center gap-3 bg-white p-4 rounded-2xl shadow-md border border-slate-200"
+                  className="flex items-center gap-3 bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-slate-200"
                 >
                   <div className={`h-4 w-4 rounded-full ${coloresEstatus[k].color}`}></div>
                   <span className="text-sm font-semibold text-slate-700">
@@ -1864,7 +1864,7 @@ const convertirImagenBase64 = (url) => {
 
 
       {!almacenSeleccionado && !grupoSeleccionado ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
 
           {Object.entries(gruposUI)
             .sort((a, b) => Number(b[0]) - Number(a[0]))
@@ -1889,18 +1889,18 @@ const convertirImagenBase64 = (url) => {
                           w-full
                           rounded-2xl
                           overflow-hidden
-                          shadow-lg
+                          shadow-sm
                           bg-white
                           border
                           border-slate-200
                           transition-all
                           duration-300
-                          hover:shadow-2xl
+                          hover:shadow-lg
                         "
                       >
 
                         <div className={`
-                          px-6 py-6
+                          px-4 sm:px-5 py-4 sm:py-5
                           text-white
                           ${coloresEstatus[estatus]?.color}
                           bg-gradient-to-r
@@ -1924,7 +1924,7 @@ const convertirImagenBase64 = (url) => {
 
                         </div>
 
-                        <div className="p-4 space-y-4">
+                        <div className="p-4 space-y-3">
 
                           <button
                             onClick={() => {
@@ -1955,7 +1955,7 @@ const convertirImagenBase64 = (url) => {
                             Ver detalle del grupo
                           </button>
 
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
                             {g.items.map((r, j) => (
                               <button
@@ -1994,13 +1994,13 @@ const convertirImagenBase64 = (url) => {
 
         </div>
       ) : (
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <div className="flex justify-between items-center mb-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 sm:p-6">
+          <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-6">
             <h2 className="text-xl font-bold text-gray-800">
               🔎 Detalle: {grupoSeleccionado ? `Grupo ${grupoSeleccionado.base}` : almacenSeleccionado}
             </h2>
 
-           <div className="flex items-center gap-4">
+           <div className="flex flex-col lg:flex-row lg:flex-wrap gap-3">
 
 
               <button
@@ -2229,14 +2229,14 @@ const convertirImagenBase64 = (url) => {
 
           <div className="border rounded-lg">
 
-          <div className="flex flex-col md:flex-row gap-3 mb-3">
+          <div className="flex flex-col lg:flex-row gap-3 mb-4">
               <select
                 value={almacenFiltro}
                 onChange={(e) => {
                   setAlmacenFiltro(e.target.value);
                   setPaginaActual(1);
                 }}
-                className="px-3 py-2 border rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-red-600"
+                className="w-full lg:w-72 px-3 py-2 border rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-red-600"
               >
                 <option value="TODOS">📦 Todos los almacenes</option>
                 {almacenesDisponibles.map((alm) => (
@@ -2251,7 +2251,7 @@ const convertirImagenBase64 = (url) => {
                 placeholder="Buscar por código, nombre, familia..."
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                className="flex-1 px-2 py-1 border rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-red-600"
+                className="w-full flex-1 px-3 py-2 border rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-red-600"
               />
             </div>
 
@@ -2379,7 +2379,7 @@ const convertirImagenBase64 = (url) => {
             </table>
 
 
-            <div className="mt-4 flex justify-center items-center gap-4 text-sm text-gray-700 font-medium">
+            <div className="mt-6 flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4 text-sm text-gray-700 font-medium">
               <button
                 onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
                 disabled={paginaActual === 1}

@@ -470,10 +470,12 @@ export default function Control() {
     };
 
   return (
-    <div className="p-3 md:p-6 w-full max-w-none mx-auto">
-      <h1 className="text-3xl font-extrabold text-gray-900 mb-8">⚙️ Control de Operaciones</h1>
+    <div className="w-full max-w-[1400px] mx-auto px-3 py-4 sm:px-4 md:px-6 lg:px-8">
+      <h1 className="text-2xl lg:text-3xl font-extrabold text-slate-900 mb-6">
+        ⚙️ Control de Operaciones
+      </h1>
 
-      <div className="flex flex-wrap gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-6">
         <button
           onClick={() => setVista("usuarios")}
           className={`px-6 py-2 rounded-lg font-medium shadow-sm transition-all ${
@@ -501,15 +503,15 @@ export default function Control() {
       </div>
 
       {vista === "usuarios" && (
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-md p-8">
+        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 sm:p-6 lg:p-8">
 
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-2xl font-bold text-slate-800">
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-6">
+            <h2 className="text-xl lg:text-2xl font-bold text-slate-800">
               Gestión de Usuarios
             </h2>
 
             {(rolLogueado === 1 || rolLogueado === 2) && (
-              <div className="w-72">
+              <div className="w-full lg:w-72">
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
                   Filtrar por rol
                 </label>
@@ -528,17 +530,17 @@ export default function Control() {
             )}
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm">
-            <div className="w-full overflow-x-auto overflow-y-auto">
-              <table className="min-w-[900px] text-sm">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <div className="w-full overflow-x-auto">
+              <table className="w-full min-w-[950px] text-sm">
                 <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
                   <tr>
-                    <th className="px-6 py-3 text-left">#</th>
-                    <th className="px-6 py-3 text-left">Empleado</th>
-                    <th className="px-6 py-3 text-left">Nombre</th>
-                    <th className="px-6 py-3 text-left">Responsable</th>
-                    <th className="px-6 py-3 text-left">Estado</th>
-                    <th className="px-6 py-3 text-left">Acciones</th>
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">#</th>
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Empleado</th>
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Nombre</th>
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Responsable</th>
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Estado</th>
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Acciones</th>
                   </tr>
                 </thead>
 
@@ -548,13 +550,13 @@ export default function Control() {
 
                     return (
                       <tr key={i} className="hover:bg-slate-50 transition">
-                        <td className="px-6 py-3 font-semibold text-slate-500">
+                        <td className="px-3 sm:px-4 md:px-6 py-3 font-semibold text-slate-500">
                           {numero}
                         </td>
-                        <td className="px-6 py-3 font-mono text-red-800">{u.empleado}</td>
-                        <td className="px-6 py-3 text-slate-800">{u.nombre}</td>
-                        <td className="px-6 py-3 text-slate-700">{u.responsable_nombre || "—"}</td>
-                        <td className="px-6 py-3">
+                        <td className="px-3 sm:px-4 md:px-6 py-3 font-mono text-red-800">{u.empleado}</td>
+                        <td className="px-3 sm:px-4 md:px-6 py-3 text-slate-800">{u.nombre}</td>
+                        <td className="px-3 sm:px-4 md:px-6 py-3 text-slate-700">{u.responsable_nombre || "—"}</td>
+                        <td className="px-3 sm:px-4 md:px-6 py-3">
                           {u.activo ? (
                             <span className="px-3 py-1 text-xs rounded-full bg-emerald-100 text-emerald-700 font-semibold">
                               Activo
@@ -566,23 +568,25 @@ export default function Control() {
                           )}
                         </td>
 
-                        <td className="px-6 py-3 flex gap-2">
-                          <button
-                            onClick={() => toggleActivo(u.id, u.activo)}
-                            className={`px-4 py-1.5 rounded-md text-xs font-semibold text-white transition
-                              ${u.activo ? "bg-emerald-600 hover:bg-emerald-700" : "bg-slate-500 hover:bg-slate-600"}`}
-                          >
-                            {u.activo ? "Desactivar" : "Activar"}
-                          </button>
-
-                          {(rolLogueado === 1 || rolLogueado === 2) && (
+                        <td className="px-3 sm:px-4 md:px-6 py-3">
+                          <div className="flex flex-col xl:flex-row gap-2">
                             <button
-                              onClick={() => eliminarUsuario(u.id)}
-                              className="px-4 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition"
+                              onClick={() => toggleActivo(u.id, u.activo)}
+                              className={`w-full xl:w-auto px-4 py-1.5 rounded-md text-xs font-semibold text-white transition
+                                ${u.activo ? "bg-emerald-600 hover:bg-emerald-700" : "bg-slate-500 hover:bg-slate-600"}`}
                             >
-                              Eliminar
+                              {u.activo ? "Desactivar" : "Activar"}
                             </button>
-                          )}
+
+                            {(rolLogueado === 1 || rolLogueado === 2) && (
+                              <button
+                                onClick={() => eliminarUsuario(u.id)}
+                                className="w-full xl:w-auto px-4 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition"
+                              >
+                                Eliminar
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -593,8 +597,8 @@ export default function Control() {
           </div>
 
           {/* Paginación */}
-          <div className="flex justify-center mt-8">
-            <div className="flex items-center gap-6 bg-slate-50 border border-slate-200 rounded-xl px-6 py-3 shadow-sm">
+          <div className="flex justify-center mt-6">
+            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6 bg-slate-50 border border-slate-200 rounded-xl px-4 md:px-6 py-3 shadow-sm w-full sm:w-auto">
               <button
                 disabled={paginaActual === 1}
                 onClick={() => setPaginaActual(p => p - 1)}
@@ -623,10 +627,10 @@ export default function Control() {
       {vista === "fecha" && (
         <div className="max-w-7xl mx-auto space-y-8">
 
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-md p-8">
+          <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 sm:p-6 lg:p-8">
 
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-bold text-slate-800">
+            <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-6">
+              <h2 className="text-xl lg:text-2xl font-bold text-slate-800">
                 Fechas de Gestión
               </h2>
 
@@ -643,7 +647,7 @@ export default function Control() {
             </div>
 
             {/* FILTROS */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6 mb-8">
 
               <div>
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
@@ -661,6 +665,16 @@ export default function Control() {
                   }
                   isClearable
                   placeholder="Seleccionar"
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      minHeight: 42,
+                    }),
+                    menu: (base) => ({
+                      ...base,
+                      zIndex: 9999,
+                    }),
+                  }}
                 />
               </div>
 
@@ -697,18 +711,18 @@ export default function Control() {
             </div>
 
             {/* TABLA */}
-            <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm">
-              <div className="w-full overflow-x-auto overflow-y-auto">
-                <table className="min-w-[900px] text-sm">
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <div className="w-full overflow-x-auto">
+                <table className="w-full min-w-[950px] text-sm">
                   <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
                     <tr>
-                      <th className="px-6 py-3 text-left">#</th>
-                      <th className="px-6 py-3 text-left">CIA</th>
-                      <th className="px-6 py-3 text-left">Almacén</th>
-                      <th className="px-6 py-3 text-left">Fecha</th>
-                      <th className="px-6 py-3 text-left">Tipo</th>
-                      <th className="px-6 py-3 text-left">Conteo</th>
-                      <th className="px-6 py-3 text-left">Equipo</th>
+                      <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">#</th>
+                      <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">CIA</th>
+                      <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Almacén</th>
+                      <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Fecha</th>
+                      <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Tipo</th>
+                      <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Conteo</th>
+                      <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Equipo</th>
                     </tr>
                   </thead>
 
@@ -734,27 +748,27 @@ export default function Control() {
 
                       return (
                         <tr key={i} className="hover:bg-slate-50 transition">
-                          <td className="px-6 py-3 font-semibold text-slate-500">
+                          <td className="px-3 sm:px-4 md:px-6 py-3 font-semibold text-slate-500">
                             {numero}
                           </td>
 
-                          <td className="px-6 py-3 font-semibold text-slate-800">
+                          <td className="px-3 sm:px-4 md:px-6 py-3 font-semibold text-slate-800">
                             {c.cia}
                           </td>
 
-                          <td className="px-6 py-3 text-slate-700">
+                          <td className="px-3 sm:px-4 md:px-6 py-3 text-slate-700">
                             {c.almacen}
                           </td>
 
-                          <td className="px-6 py-3 text-slate-700">
+                          <td className="px-3 sm:px-4 md:px-6 py-3 text-slate-700">
                             {formatSoloFecha(c.fecha_asignacion)}
                           </td>
 
-                          <td className="px-6 py-3 text-slate-700">
+                          <td className="px-3 sm:px-4 md:px-6 py-3 text-slate-700">
                             {c.tipo_conteo}
                           </td>
 
-                          <td className="px-6 py-3">
+                          <td className="px-3 sm:px-4 md:px-6 py-3">
                             <span
                               className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold
                               ${estilosConteo[ultimoConteo] || "bg-slate-100 text-slate-700 border-slate-300"}`}
@@ -763,7 +777,7 @@ export default function Control() {
                             </span>
                           </td>
 
-                          <td className="px-6 py-3 text-slate-700 whitespace-pre-wrap">
+                          <td className="px-3 sm:px-4 md:px-6 py-3 text-slate-700 whitespace-pre-wrap">
                             {c.equipo || "—"}
                           </td>
                         </tr>
@@ -775,8 +789,8 @@ export default function Control() {
             </div>
 
             {/* PAGINACIÓN */}
-            <div className="flex justify-center mt-8">
-              <div className="flex items-center gap-6 bg-slate-50 border border-slate-200 rounded-xl px-6 py-3 shadow-sm">
+            <div className="flex justify-center mt-6">
+              <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6 bg-slate-50 border border-slate-200 rounded-xl px-4 md:px-6 py-3 shadow-sm w-full sm:w-auto">
                 <button
                   disabled={paginaFechas === 1}
                   onClick={() => setPaginaFechas(p => p - 1)}

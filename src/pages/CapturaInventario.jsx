@@ -852,7 +852,43 @@ export default function CapturaInventario() {
   return limpio.replace(/^0+/, "") || "0";
 };
 
-const buscarProductoEscaneado = (valor) => {
+const esCodigoValidoEnTabla = (codigoLeido) => {
+  if (!codigoLeido) return false;
+
+  const producto = buscarProductoEscaneado(codigoLeido);
+  return !!producto;
+};
+
+  const validarCodigoEscaneado = (codigoLeido, origen = "barra") => {
+    const limpio = normalizarValorEscaneado(codigoLeido);
+
+    if (!limpio) {
+      return { ok: false, motivo: "Código vacío" };
+    }
+
+    if (!/^[0-9a-z]+$/i.test(limpio)) {
+      return { ok: false, motivo: "Caracteres inválidos" };
+    }
+
+    if (limpio.length < 4 || limpio.length > 25) {
+      return { ok: false, motivo: "Longitud inválida" };
+    }
+
+    const producto = buscarProductoEscaneado(limpio);
+
+    if (!producto) {
+      return { ok: false, motivo: "No existe en la tabla actual" };
+    }
+
+    return {
+      ok: true,
+      codigo: limpio,
+      producto,
+      origen,
+    };
+  };
+
+  const buscarProductoEscaneado = (valor) => {
     const scan = normalizarValorEscaneado(valor);
     const scanSinCeros = quitarCerosIzquierda(valor);
 
@@ -866,29 +902,12 @@ const buscarProductoEscaneado = (valor) => {
     }
 
     for (const item of datos) {
-      const codebars = normalizarValorEscaneado(item.codebars);
-      const itemCode = normalizarValorEscaneado(item.ItemCode);
-
       const codebarsSinCeros = quitarCerosIzquierda(item.codebars);
       const itemCodeSinCeros = quitarCerosIzquierda(item.ItemCode);
 
       if (
         scanSinCeros === codebarsSinCeros ||
         scanSinCeros === itemCodeSinCeros
-      ) {
-        return item;
-      }
-    }
-
-    for (const item of datos) {
-      const codebars = normalizarValorEscaneado(item.codebars);
-      const itemCode = normalizarValorEscaneado(item.ItemCode);
-
-      if (
-        codebars.includes(scan) ||
-        itemCode.includes(scan) ||
-        scan.includes(codebars) ||
-        scan.includes(itemCode)
       ) {
         return item;
       }
@@ -1700,10 +1719,23 @@ const buscarProductoEscaneado = (valor) => {
         <EscanerCamaraQuagga
           modo={modoLectura}
           onScanSuccess={async (codigo) => {
+            const validacion = validarCodigoEscaneado(codigo, modoLectura);
+
+            if (!validacion.ok) {
+              await MySwal.fire({
+                icon: "warning",
+                title: "Lectura descartada",
+                text: `Se detectó "${codigo}" pero no se aceptó: ${validacion.motivo}`,
+                timer: 1200,
+                showConfirmButton: false,
+              });
+              return;
+            }
+
             setMostrarEscanerCamara(false);
             setLectorActivo(false);
 
-            await handleCodigoDetectado(codigo);
+            await handleCodigoDetectado(validacion.codigo);
 
             setTimeout(() => {
               setLectorActivo(true);
