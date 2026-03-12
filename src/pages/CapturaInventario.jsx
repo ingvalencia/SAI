@@ -208,17 +208,30 @@ export default function CapturaInventario() {
 
 
 
-  const esMovil = navigator.userAgentData?.mobile ??
-                /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const esTouch = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
 
-  const getEmpleadoSeguro = () => {
-    return (
-      sessionStorage.getItem("empleado") ||
-      localStorage.getItem("empleado") ||
-      empleado ||
-      ""
-    );
-  };
+  const esIPadOS =
+    navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+
+  const ua = navigator.userAgent || "";
+
+  const esTelefono = /Android.*Mobile|iPhone|iPod/i.test(ua);
+
+  const esTablet =
+    /iPad/i.test(ua) ||
+    esIPadOS ||
+    (/Android/i.test(ua) && !/Mobile/i.test(ua));
+
+  const esDispositivoMovilOTablet = esTelefono || esTablet || esTouch;
+
+    const getEmpleadoSeguro = () => {
+      return (
+        sessionStorage.getItem("empleado") ||
+        localStorage.getItem("empleado") ||
+        empleado ||
+        ""
+      );
+    };
 
 
   const getParametrosEfectivos = () => {
@@ -243,7 +256,11 @@ export default function CapturaInventario() {
     return JSON.stringify({ cia, almacen, fecha, empleado, estatus });
   };
 
-  const soportaCamara = !!(navigator.mediaDevices?.getUserMedia) && window.isSecureContext;
+  const soportaCamara =
+  typeof window !== "undefined" &&
+  !!navigator.mediaDevices &&
+  !!navigator.mediaDevices.getUserMedia &&
+  window.isSecureContext;
 
   const toISODate = (v) => {
     if (!v) return "";
@@ -1142,7 +1159,7 @@ const esCodigoValidoEnTabla = (codigoLeido) => {
         />
       )}
 
-      {datos.length > 0 && soportaCamara && esMovil && (
+      {datos.length > 0 && soportaCamara && esDispositivoMovilOTablet && (
         <div className="mt-2 flex gap-2">
           <button
             onClick={() => {
@@ -1224,7 +1241,7 @@ const esCodigoValidoEnTabla = (codigoLeido) => {
 
           </p>
 
-          {esMovil && (
+          {esDispositivoMovilOTablet && (
             <div className="flex justify-center mb-6">
               <button
                 onClick={() => setMostrarModoRapido((prev) => !prev)}
@@ -1238,7 +1255,7 @@ const esCodigoValidoEnTabla = (codigoLeido) => {
             </div>
           )}
 
-          {(!esMovil || mostrarModoRapido) && (
+          {(!esDispositivoMovilOTablet || mostrarModoRapido) && (
             <div className="relative bg-gradient-to-br from-white via-gray-50 to-white border border-gray-200 rounded-3xl shadow-2xl p-10 mb-10">
               {/* Encabezado */}
               <h2 className="text-center text-3xl font-extrabold text-gray-800 mb-10 tracking-tight flex items-center justify-center gap-3">
