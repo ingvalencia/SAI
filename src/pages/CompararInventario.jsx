@@ -43,6 +43,7 @@ export default function CompararInventario() {
   const [mostrarCuartoConteo, setMostrarCuartoConteo] = useState(false);
   const [modoResuelto, setModoResuelto] = useState(false);
   const [conteoBase, setConteoBase] = useState(null);
+  const [mostrarConfirmarDiferencias, setMostrarConfirmarDiferencias] = useState(false);
 
 
  const exportarExcel = async () => {
@@ -226,101 +227,101 @@ export default function CompararInventario() {
     if (datos.length === 0) {
 
    const obtenerComparacion = async () => {
-        try {
-          const res = await axios.get(
-            "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/comparar_inventarios.php",
-            { params: { almacen, fecha, usuario: empleado, cia } }
+      try {
+        const res = await axios.get(
+          "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/comparar_inventarios.php",
+          { params: { almacen, fecha, usuario: empleado, cia } }
+        );
+
+        if (!res.data.success) throw new Error(res.data.error);
+
+        setResGlobal(res.data);
+
+        const estaBloqueado = res.data.error?.includes("bloqueado");
+        setBloqueado(estaBloqueado);
+
+        const esBrig = res.data.brigada == true || res.data.brigada == "1";
+        const hayDif = res.data.hay_diferencias_brigada == true || res.data.hay_diferencias_brigada == "1";
+        const tercerAsignado = res.data.tercer_conteo_asignado == true || res.data.tercer_conteo_asignado == "1";
+
+        setMiEmpleado(res.data.mi_empleado);
+        setEmpleadoCompanero(res.data.empleado_companero);
+        setNroConteoMio(Number(res.data.mi_nro_conteo));
+
+        if (!conteoBase) {
+          setConteoBase(Number(res.data.mi_nro_conteo));
+        }
+
+        setNroConteoComp(Number(res.data.nro_conteo_companero));
+        setHayDiferenciasBrigada(hayDif);
+
+        let estatusActual;
+
+        if (res.data.brigada == true || res.data.brigada == "1") {
+          estatusActual = Number(res.data.nro_conteo ?? 1);
+        } else {
+          estatusActual = Number(res.data.nro_conteo ?? res.data.estatus ?? 1);
+        }
+
+        setEstatus(estatusActual);
+
+        const hayDifVsSap =
+          (res.data.hay_dif_mio_vs_sap == true || res.data.hay_dif_mio_vs_sap == "1") ||
+          (res.data.hay_dif_comp_vs_sap == true || res.data.hay_dif_comp_vs_sap == "1");
+
+        setMostrarCuartoConteo(estatusActual === 3 && hayDifVsSap && !estaBloqueado);
+
+        setEsBrigada(esBrig);
+        setModoResuelto(true);
+
+        const mostrarTercer =
+          esBrig &&
+          hayDif &&
+          !tercerAsignado &&
+          Number(res.data.estatus_global) < 7;
+
+        setMostrarTercerConteo(mostrarTercer);
+
+        const debeMostrarConfirmar =
+          !estaBloqueado &&
+          !diferenciaConfirmada &&
+          (
+            estatusActual === 7 ||
+            (esBrig && !hayDif)
           );
 
-          if (!res.data.success) throw new Error(res.data.error);
+        setMostrarConfirmarDiferencias(debeMostrarConfirmar);
 
-          setResGlobal(res.data);
+        const datosFinal = res.data.data.map((item) => {
+          const sap = Number(item.cant_sap ?? 0);
+          const c1 = Number(item.conteo1 ?? 0);
+          const c2 = Number(item.conteo2 ?? 0);
+          const c3 = Number(item.conteo3 ?? 0);
+          const c4 = Number(item.conteo4 ?? 0);
 
-         if (res.data.error?.includes("bloqueado")) {
-            setBloqueado(true);
-          } else {
-            setBloqueado(false);
-          }
+          const conteoActual = estatusActual === 3 ? c3 : estatusActual === 2 ? c2 : c1;
 
-          const esBrig = res.data.brigada == true || res.data.brigada == "1";
-          const hayDif = res.data.hay_diferencias_brigada == true || res.data.hay_diferencias_brigada == "1";
-          const tercerAsignado = res.data.tercer_conteo_asignado == true || res.data.tercer_conteo_asignado == "1";
+          return {
+            ...item,
+            cant_sap: sap,
+            conteo1: c1,
+            conteo2: c2,
+            conteo3: c3,
+            conteo4: c4,
+            diferencia: Number((sap - conteoActual).toFixed(2)),
+            diferenciaBrigada: Number((c1 - c2).toFixed(2)),
+          };
+        });
 
-          setMiEmpleado(res.data.mi_empleado);
-          setEmpleadoCompanero(res.data.empleado_companero);
-          setNroConteoMio(Number(res.data.mi_nro_conteo));
+        setDatos(datosFinal);
 
-          if (!conteoBase) {
-            setConteoBase(Number(res.data.mi_nro_conteo));
-          }
-
-
-          setNroConteoComp(Number(res.data.nro_conteo_companero));
-          setHayDiferenciasBrigada(hayDif);
-
-          let estatusActual;
-
-          if (res.data.brigada == true || res.data.brigada == "1") {
-            estatusActual = Number(res.data.nro_conteo ?? 1);
-          } else {
-            estatusActual = Number(res.data.nro_conteo ?? res.data.estatus ?? 1);
-          }
-
-          setEstatus(estatusActual);
-
-
-          const hayDifVsSap =
-            (res.data.hay_dif_mio_vs_sap == true || res.data.hay_dif_mio_vs_sap == "1") ||
-            (res.data.hay_dif_comp_vs_sap == true || res.data.hay_dif_comp_vs_sap == "1");
-
-          setMostrarCuartoConteo(estatusActual === 3 && hayDifVsSap && !bloqueado);
-
-          setEsBrigada(esBrig);
-          setModoResuelto(true);
-
-          const mostrarTercer =
-                esBrig &&
-                hayDif &&
-                !tercerAsignado &&
-                Number(res.data.estatus_global) < 7;
-
-
-          setMostrarTercerConteo(mostrarTercer);
-
-          const datosFinal = res.data.data.map((item) => {
-            const sap = Number(item.cant_sap ?? 0);
-            const c1 = Number(item.conteo1 ?? 0);
-            const c2 = Number(item.conteo2 ?? 0);
-            const c3 = Number(item.conteo3 ?? 0);
-            const c4 = Number(item.conteo4 ?? 0);
-
-            const conteoActual = estatusActual === 3 ? c3 : estatusActual === 2 ? c2 : c1;
-
-            return {
-              ...item,
-              cant_sap: sap,
-              conteo1: c1,
-              conteo2: c2,
-              conteo3: c3,
-              conteo4: c4,
-              diferencia: Number((sap - conteoActual).toFixed(2)),
-
-              diferenciaBrigada: Number((c1 - c2).toFixed(2)),
-            };
-          });
-
-
-
-          setDatos(datosFinal);
-
-          if (estatusActual === 4) setDiferenciaConfirmada(true);
-
-        } catch (error) {
-          console.error("Error al obtener diferencias", error.message);
-        } finally {
-          setLoading(false);
-        }
-      };
+        if (estatusActual === 4) setDiferenciaConfirmada(true);
+      } catch (error) {
+        console.error("Error al obtener diferencias", error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
 
       obtenerComparacion();
     }
@@ -852,9 +853,8 @@ export default function CompararInventario() {
         >
           {mostrarSoloDiferencias ? "Mostrar todo" : "Mostrar solo diferencias"}
         </button>
-        */}
 
-        <button
+         <button
           onClick={exportarExcel}
           className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2
                     bg-green-200 text-green-900 hover:bg-green-300 transition shadow-sm"
@@ -866,6 +866,9 @@ export default function CompararInventario() {
           />
           Exportar a Excel
         </button>
+        */}
+
+
 
         {/*
         <button
@@ -898,7 +901,7 @@ export default function CompararInventario() {
           </button>
         )}
 
-        {!diferenciaConfirmada && estatusCalc === 7 && (
+        {mostrarConfirmarDiferencias && (
           <button
             onClick={confirmarDiferencia}
             className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2

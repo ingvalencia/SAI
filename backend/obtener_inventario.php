@@ -82,22 +82,25 @@ function loadSapMap($conn, $almacen, $fecha, $empleado, $cia, $soloNoCero = true
   return $map;
 }
 
-function loadConteoMap_CapInventario($conn, $almacen, $fecha, $cia, $estatus, $usuario = null)
+function loadConteoMap_CapInventario($conn, $almacen, $fecha, $cia, $nroConteo, $usuario = null)
 {
-  $whereUser = ($usuario !== null) ? " AND usuario = $usuario " : "";
+  $whereUser = ($usuario !== null) ? " AND i.usuario = $usuario " : "";
   $res = run("
-    SELECT ItemCode, cant_invfis
-    FROM CAP_INVENTARIO
-    WHERE almacen   = '$almacen'
-      AND fecha_inv = '$fecha'
-      AND cias      = '$cia'
-      AND estatus   = $estatus
+    SELECT i.ItemCode, SUM(ct.cantidad) AS cantidad
+    FROM CAP_INVENTARIO i
+    JOIN CAP_INVENTARIO_CONTEOS ct
+      ON ct.id_inventario = i.id
+     AND ct.nro_conteo = $nroConteo
+    WHERE i.almacen   = '$almacen'
+      AND i.fecha_inv = '$fecha'
+      AND i.cias      = '$cia'
       $whereUser
-  ", $conn, "Error consultando CAP_INVENTARIO estatus=$estatus: ");
+    GROUP BY i.ItemCode
+  ", $conn, "Error consultando CAP_INVENTARIO_CONTEOS nro_conteo=$nroConteo: ");
 
   $map = [];
   while ($r = mssql_fetch_assoc($res)) {
-    $map[trim($r['ItemCode'])] = floatval($r['cant_invfis']);
+    $map[trim($r['ItemCode'])] = floatval($r['cantidad']);
   }
   return $map;
 }

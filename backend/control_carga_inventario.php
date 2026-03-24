@@ -178,6 +178,7 @@ $capturista = null;
 $mensaje    = "";
 
 
+
 if ($modo === 'solo lectura') {
 
   $sqlUsuario = "
