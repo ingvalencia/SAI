@@ -686,7 +686,7 @@ export default function Mapa({ drawerRootId }) {
         diffCell.font = { color: { argb: "FF0000" }, bold: true };
       } else if (diferencia < 0) {
         // Entrada
-        diffCell.font = { color: { argb: "008000" }, bold: true };
+        diffCell.font = { color: { argb: "B8860B" }, bold: true };
       } else {
         // Cero
         diffCell.font = { color: { argb: "000000" }, bold: true };
@@ -1442,7 +1442,7 @@ const convertirImagenBase64 = (url) => {
                                     <span
                                       className={`px-2 py-1 rounded-full text-xs font-semibold ${
                                         dif < 0
-                                          ? "bg-green-100 text-green-800"   // Entrada
+                                          ? "bg-amber-400 text-amber-950"   // Entrada
                                           : dif > 0
                                           ? "bg-red-100 text-red-800"   // Salida
                                           : "bg-gray-100 text-gray-500"
@@ -1542,7 +1542,7 @@ const convertirImagenBase64 = (url) => {
                                       dif === 0
                                         ? "bg-gray-100 text-gray-500"
                                         : dif < 0
-                                        ? "bg-green-100 text-green-700"
+                                        ? "bg-amber-400 text-amber-950"
                                         : "bg-red-100 text-red-700"
                                     }`}
 
@@ -2361,7 +2361,7 @@ const convertirImagenBase64 = (url) => {
                             <span
                               className={`px-2 py-1 rounded-full text-xs font-bold ${
                                 diferencia === 0
-                                  ? "bg-green-100 text-green-700"
+                                  ? "bg-amber-400 text-amber-950"
                                   : diferencia > 0
                                   ? "bg-yellow-100 text-yellow-700"
                                   : "bg-red-100 text-red-700"
