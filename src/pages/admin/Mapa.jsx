@@ -215,177 +215,205 @@ export default function Mapa({ drawerRootId }) {
       });
     };
 
+    const actualizarDatosVista = async () => {
+      if (!cia || !fecha) {
+        Swal.fire("Faltan datos", "Selecciona una CIA y una fecha.", "warning");
+        return;
+      }
+
+      try {
+        Swal.fire({
+          title: "Actualizando...",
+          text: "Recargando información del mapa",
+          allowOutsideClick: false,
+          didOpen: () => Swal.showLoading(),
+        });
+
+        await fetchAlmacenes();
+
+        if (grupoSeleccionado) {
+          await fetchDetalleGrupo(grupoSeleccionado);
+        } else if (almacenSeleccionado) {
+          await fetchDetalle();
+        }
+
+        Swal.close();
+      } catch (error) {
+        Swal.close();
+        Swal.fire("Error", "No se pudo actualizar la información.", "error");
+      }
+    };
 
     const fetchDetalle = async () => {
-    if (!cia || !fecha || !almacenSeleccionado) return;
+      if (!cia || !fecha || !almacenSeleccionado) return;
+
+      try {
+        Swal.fire({
+          title: "Procesando...",
+          text: "Obteniendo detalle del almacén, por favor espera",
+          allowOutsideClick: false,
+          didOpen: () => Swal.showLoading(),
+        });
+
+        const res = await axios.get(
+          "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/mapa_detalle.php",
+          { params: { almacen: almacenSeleccionado, fecha, cia } }
+        );
+
+        Swal.close();
+
+        if (res.data.success) {
+          setEstatusInventario(Number(res.data.estatus));
+
+          try {
+            const resp = await axios.get(
+              "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/estado_refresh_sap.php",
+              { params: { almacen: almacenSeleccionado, fecha, cia } }
+            );
+
+            if (resp.data.success) {
+              setSapRefrescado(Number(resp.data.sap_refrescado) === 1);
+            } else {
+              setSapRefrescado(null);
+            }
+          } catch {
+            setSapRefrescado(null);
+          }
+
+          const hayConteo4 = (Array.isArray(res.data.data) ? res.data.data : []).some(
+            (row) => Number(row.conteo4 ?? 0) > 0
+          );
+
+          setMostrarConteo4(hayConteo4);
+
+          const detalleConFinal = normalizarDetalle(res.data.data);
+
+          setDetalle(filtrarArticulosValidos(detalleConFinal));
+          setPaginaActual(1);
+
+          if (res.data.data.length === 0) {
+            Swal.fire("Sin datos", "No hay información para este almacén y fecha.", "info");
+          }
+        } else {
+          Swal.fire("Error", res.data.error || "No se pudo obtener el detalle.", "error");
+        }
+      } catch (err) {
+        Swal.close();
+        console.error("Error al obtener detalle:", err);
+        Swal.fire("Error", "No se pudo obtener el detalle del almacén.", "error");
+      }
+    };
+
+  const fetchDetalleGrupo = async (grupo) => {
+    if (!cia || !fecha || !grupo?.base || !grupo?.almacenes?.length) return;
 
     try {
       Swal.fire({
         title: "Procesando...",
-        text: "Obteniendo detalle del almacén, por favor espera",
+        text: `Obteniendo detalle del grupo ${grupo.base}...`,
         allowOutsideClick: false,
         didOpen: () => Swal.showLoading(),
       });
 
+
       const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/mapa_detalle.php",
-        { params: { almacen: almacenSeleccionado, fecha, cia } }
-      );
-
-      Swal.close();
-
-      if (res.data.success) {
-
-        setEstatusInventario(Number(res.data.estatus));
-
-
-        try {
-          const resp = await axios.get(
-            "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/estado_refresh_sap.php",
-            { params: { almacen: almacenSeleccionado, fecha, cia } }
-          );
-
-          if (resp.data.success) {
-            setSapRefrescado(Number(resp.data.sap_refrescado) === 1);
-
-          } else {
-            setSapRefrescado(null);
-          }
-        } catch {
-          setSapRefrescado(null);
-        }
-
-
-
-        const detalleConFinal = normalizarDetalle(res.data.data);
-
-       setDetalle(filtrarArticulosValidos(detalleConFinal));
-
-        setPaginaActual(1);
-
-        if (res.data.data.length === 0) {
-          Swal.fire("Sin datos", "No hay información para este almacén y fecha.", "info");
-        }
-      } else {
-        Swal.fire("Error", res.data.error || "No se pudo obtener el detalle.", "error");
-      }
-    } catch (err) {
-      Swal.close();
-      console.error("Error al obtener detalle:", err);
-      Swal.fire("Error", "No se pudo obtener el detalle del almacén.", "error");
-    }
-  };
-
- const fetchDetalleGrupo = async (grupo) => {
-  if (!cia || !fecha || !grupo?.base || !grupo?.almacenes?.length) return;
-
-  try {
-    Swal.fire({
-      title: "Procesando...",
-      text: `Obteniendo detalle del grupo ${grupo.base}...`,
-      allowOutsideClick: false,
-      didOpen: () => Swal.showLoading(),
-    });
-
-
-    const res = await axios.get(
-      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/mapa_detalle_grupo.php",
-      {
-        params: {
-          grupo: grupo.base,
-          fecha,
-          cia,
-          usuario: sessionStorage.getItem("empleado"),
-        },
-      }
-    );
-
-    const hayConteo4 = res.data.data?.some(
-      (row) => Number(row.conteo4 ?? 0) > 0
-    );
-
-    setMostrarConteo4(hayConteo4);
-
-    Swal.close();
-
-    if (!res.data.success) {
-      Swal.fire(
-        "Error",
-        res.data.error || "Error al obtener detalle del grupo",
-        "error"
-      );
-      return;
-    }
-
-
-    setEstatusInventario(Number(res.data.estatus));
-
-
-    try {
-      const almacenesCSV = grupo.almacenes.join(",");
-
-      const resp = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/estado_refresh_sap.php",
+        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/mapa_detalle_grupo.php",
         {
           params: {
-            almacen: almacenesCSV,
+            grupo: grupo.base,
             fecha,
             cia,
+            usuario: sessionStorage.getItem("empleado"),
           },
         }
       );
 
-      if (resp.data && resp.data.success) {
+      const hayConteo4 = res.data.data?.some(
+        (row) => Number(row.conteo4 ?? 0) > 0
+      );
 
-        setSapRefrescado(resp.data.sap_refrescado === 1);
-      } else {
+      setMostrarConteo4(hayConteo4);
+
+      Swal.close();
+
+      if (!res.data.success) {
+        Swal.fire(
+          "Error",
+          res.data.error || "Error al obtener detalle del grupo",
+          "error"
+        );
+        return;
+      }
+
+
+      setEstatusInventario(Number(res.data.estatus));
+
+
+      try {
+        const almacenesCSV = grupo.almacenes.join(",");
+
+        const resp = await axios.get(
+          "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/estado_refresh_sap.php",
+          {
+            params: {
+              almacen: almacenesCSV,
+              fecha,
+              cia,
+            },
+          }
+        );
+
+        if (resp.data && resp.data.success) {
+
+          setSapRefrescado(resp.data.sap_refrescado === 1);
+        } else {
+          setSapRefrescado(null);
+        }
+      } catch (e) {
+        console.error("Error consultando estado SAP grupo:", e);
         setSapRefrescado(null);
       }
-    } catch (e) {
-      console.error("Error consultando estado SAP grupo:", e);
-      setSapRefrescado(null);
+
+
+      const detalleConFinal = (Array.isArray(res.data.data) ? res.data.data : []).map((item) => {
+        const c1 = Number(item.conteo1 ?? 0);
+        const c2 = Number(item.conteo2 ?? 0);
+        const c3 = Number(item.conteo3 ?? 0);
+        const c4 = Number(item.conteo4 ?? 0);
+
+
+        const conteo_final = obtenerUltimoConteo(item);
+
+        const sap_final = Number(item.inventario_sap ?? 0);
+        const diferencia_cierre = Number((sap_final - conteo_final).toFixed(2));
+
+        return {
+          ...item,
+          conteo1: c1,
+          conteo2: c2,
+          conteo3: c3,
+          conteo4: c4,
+          conteo_final,
+          sap_final,
+          diferencia_cierre,
+        };
+      });
+
+
+      setDetalle(filtrarArticulosValidos(detalleConFinal));
+
+      setPaginaActual(1);
+
+      if (detalleConFinal.length === 0) {
+        Swal.fire("Sin datos", "No hay información para este grupo.", "info");
+      }
+
+    } catch (err) {
+      Swal.close();
+      console.error(err);
+      Swal.fire("Error", "No se pudo obtener el detalle del grupo.", "error");
     }
-
-
-    const detalleConFinal = (Array.isArray(res.data.data) ? res.data.data : []).map((item) => {
-      const c1 = Number(item.conteo1 ?? 0);
-      const c2 = Number(item.conteo2 ?? 0);
-      const c3 = Number(item.conteo3 ?? 0);
-      const c4 = Number(item.conteo4 ?? 0);
-
-
-      const conteo_final = obtenerUltimoConteo(item);
-
-      const sap_final = Number(item.inventario_sap ?? 0);
-      const diferencia_cierre = Number((sap_final - conteo_final).toFixed(2));
-
-      return {
-        ...item,
-        conteo1: c1,
-        conteo2: c2,
-        conteo3: c3,
-        conteo4: c4,
-        conteo_final,
-        sap_final,
-        diferencia_cierre,
-      };
-    });
-
-
-    setDetalle(filtrarArticulosValidos(detalleConFinal));
-
-    setPaginaActual(1);
-
-    if (detalleConFinal.length === 0) {
-      Swal.fire("Sin datos", "No hay información para este grupo.", "info");
-    }
-
-  } catch (err) {
-    Swal.close();
-    console.error(err);
-    Swal.fire("Error", "No se pudo obtener el detalle del grupo.", "error");
-  }
-};
+  };
 
 
   useEffect(() => {
@@ -515,7 +543,7 @@ export default function Mapa({ drawerRootId }) {
       ajusteTotalAbs: sobrantes + faltantes,
       importeEntrada,
       importeSalida,
-      importeTotal: importeEntrada + importeSalida,
+      importeTotal: importeEntrada - importeSalida,
 
 
     };
@@ -681,15 +709,12 @@ export default function Mapa({ drawerRootId }) {
       const diffColIndex = headers.indexOf("DIFERENCIA") + 1;
       const diffCell = row.getCell(diffColIndex);
 
-      if (diferencia > 0) {
-        // Salida
-        diffCell.font = { color: { argb: "FF0000" }, bold: true };
+      if (diferencia === 0) {
+        diffCell.font = { color: { argb: "FFD700" }, bold: true };
       } else if (diferencia < 0) {
-        // Entrada
-        diffCell.font = { color: { argb: "B8860B" }, bold: true };
+        diffCell.font = { color: { argb: "008000" }, bold: true };
       } else {
-        // Cero
-        diffCell.font = { color: { argb: "000000" }, bold: true };
+        diffCell.font = { color: { argb: "FF0000" }, bold: true };
       }
 
     });
@@ -1363,14 +1388,15 @@ const convertirImagenBase64 = (url) => {
               <div className="bg-white rounded-xl shadow-md p-5 border-l-4 border-green-500">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Sobrantes</p>
                 <p className="text-3xl font-extrabold text-green-700 mt-2">
-                  {resumenCierre.sobrantes.toFixed(2)}
+
+                  {resumenCierre.faltantes.toFixed(2)}
                 </p>
               </div>
 
               <div className="bg-white rounded-xl shadow-md p-5 border-l-4 border-red-500">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Faltantes</p>
                 <p className="text-3xl font-extrabold text-red-700 mt-2">
-                  {resumenCierre.faltantes.toFixed(2)}
+                  {resumenCierre.sobrantes.toFixed(2)}
                 </p>
               </div>
 
@@ -1441,11 +1467,9 @@ const convertirImagenBase64 = (url) => {
                                   <td className="px-3 py-2 text-center">
                                     <span
                                       className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                        dif < 0
-                                          ? "bg-amber-400 text-amber-950"   // Entrada
-                                          : dif > 0
-                                          ? "bg-red-100 text-red-800"   // Salida
-                                          : "bg-gray-100 text-gray-500"
+                                        dif === 0
+                                          ? "bg-gray-100 text-gray-500"
+                                          : "bg-red-100 text-red-700"
                                       }`}
 
                                     >
@@ -1541,8 +1565,6 @@ const convertirImagenBase64 = (url) => {
                                     className={`px-2 py-1 rounded-full text-xs font-semibold ${
                                       dif === 0
                                         ? "bg-gray-100 text-gray-500"
-                                        : dif < 0
-                                        ? "bg-amber-400 text-amber-950"
                                         : "bg-red-100 text-red-700"
                                     }`}
 
@@ -1773,17 +1795,21 @@ const convertirImagenBase64 = (url) => {
 
 
       <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-6 lg:p-8 mb-8 border border-slate-100">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
           <h2 className="text-2xl font-extrabold text-slate-800 flex items-center gap-3">
             <span className="text-indigo-600 text-3xl">📅</span>
             Fechas con datos
           </h2>
 
-          {fecha && (
-            <div className="w-full sm:w-auto px-4 py-2 bg-indigo-50 border border-indigo-200 rounded-xl text-sm font-semibold text-indigo-700 shadow-sm">
-              Fecha seleccionada: {fecha}
-            </div>
-          )}
+          <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+            {fecha && (
+              <div className="w-full sm:w-auto px-4 py-2 bg-indigo-50 border border-indigo-200 rounded-xl text-sm font-semibold text-indigo-700 shadow-sm">
+                Fecha seleccionada: {fecha}
+              </div>
+            )}
+
+
+          </div>
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8 items-start">
@@ -1858,6 +1884,15 @@ const convertirImagenBase64 = (url) => {
             </div>
 
 
+          </div>
+
+          <div className="flex justify-start mt-6">
+            <button
+              onClick={actualizarDatosVista}
+              className="inline-flex items-center justify-center px-5 py-3 rounded-xl bg-[#611232] hover:bg-[#7a163f] text-white text-sm font-semibold shadow-md transition-all min-w-[220px]"
+            >
+              Actualizar información
+            </button>
           </div>
         </div>
       </div>
@@ -2363,8 +2398,8 @@ const convertirImagenBase64 = (url) => {
                                 diferencia === 0
                                   ? "bg-amber-400 text-amber-950"
                                   : diferencia > 0
-                                  ? "bg-yellow-100 text-yellow-700"
-                                  : "bg-red-100 text-red-700"
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-green-100 text-green-700"
                               }`}
                             >
                               {diferencia.toFixed(2)}

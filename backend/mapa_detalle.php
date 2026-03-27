@@ -61,6 +61,7 @@ while ($row = mssql_fetch_assoc($sp)) {
     'familia'        => $row['Familia'],
     'codsubfam'      => $row['Codsubfam'],
     'subfamilia'     => $row['Subfamilia'],
+    'precio'         => $row['precio'],
     'codigo'         => $codigo,
     'nombre'         => $row['Nombre'],
     'almacen'        => $row['Almacen'],
@@ -73,6 +74,7 @@ while ($row = mssql_fetch_assoc($sp)) {
     'conteo1'        => 0,
     'conteo2'        => 0,
     'conteo3'        => 0,
+    'conteo4'        => 0,
   ];
 }
 
@@ -111,6 +113,7 @@ while ($row = mssql_fetch_assoc($q)) {
       'conteo1'        => 0,
       'conteo2'        => 0,
       'conteo3'        => 0,
+      'conteo4'        => 0,
     ];
   }
 
@@ -118,12 +121,14 @@ while ($row = mssql_fetch_assoc($q)) {
 
 
   if ($row['nro_conteo'] !== null) {
-    $n = (int)$row['nro_conteo'];
-    $val = (float)$row['cantidad'];
-    if ($n <= 1)        $items[$codigo]['conteo1'] = $val;
-    else if ($n == 2)   $items[$codigo]['conteo2'] = $val;
-    else                $items[$codigo]['conteo3'] = $val;
-  }
+  $n = (int)$row['nro_conteo'];
+  $val = (float)$row['cantidad'];
+
+  if ($n <= 1)        $items[$codigo]['conteo1'] = $val;
+  else if ($n == 2)   $items[$codigo]['conteo2'] = $val;
+  else if ($n == 3)   $items[$codigo]['conteo3'] = $val;
+  else if ($n == 7)   $items[$codigo]['conteo4'] = $val;
+}
 }
 
 
@@ -150,8 +155,10 @@ foreach ($items as $it) {
     $base = $it['conteo1'];
   } elseif ($estatus === 2) {
     $base = $it['conteo2'];
-  } elseif ($estatus >= 3) {
+  } elseif ($estatus === 3) {
     $base = $it['conteo3'];
+  } elseif ($estatus === 7) {
+    $base = $it['conteo4'];
   }
 
   $it['diferencia'] = (float)$it['inventario_sap'] - (float)$base;
