@@ -29,11 +29,11 @@ const obtenerUltimoConteo = (item) => {
   const c3 = Number(item.conteo3 ?? 0);
   const c4 = Number(item.conteo4 ?? 0);
 
-  // Si ya cuadró en conteo 3 contra SAP, ahí se queda
-  if (c3 === sap) return c3;
-
-  // Si existe conteo 4 (realmente usado)
+  // Si ya existe cuarto conteo, ese es el último válido
   if (c4 !== 0) return c4;
+
+  // Si no existe cuarto conteo y conteo 3 ya cuadró contra SAP, ahí se queda
+  if (c3 === sap) return c3;
 
   // Si existe conteo 3
   if (c3 !== 0) return c3;

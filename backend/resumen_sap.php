@@ -28,17 +28,31 @@ if (!$conn) {
   echo json_encode(["success" => false, "error" => "No se pudo conectar"]);
   exit;
 }
+
 mssql_select_db($db, $conn);
 
+$almacenesArray = array_filter(array_map('trim', explode(',', $almacen)));
+
+if (count($almacenesArray) === 0) {
+  echo json_encode(["success" => false, "error" => "No hay almacenes válidos"]);
+  exit;
+}
+
+$almacenesEscapados = [];
+foreach ($almacenesArray as $alm) {
+  $almacenesEscapados[] = "'" . str_replace("'", "''", $alm) . "'";
+}
+$almacenesSql = implode(",", $almacenesEscapados);
+
 /* ================================
-   OBTENER ID_CIERRE
+   OBTENER TODOS LOS ID_CIERRE
 ================================ */
 $qCierre = mssql_query("
-    SELECT id_cierre
+    SELECT id_cierre, almacen
     FROM CAP_INVENTARIO_CIERRE
     WHERE cia = '$cia'
-      AND fecha_inventario = '$fecha'
-      AND almacen = '$almacen'
+      AND almacen IN ($almacenesSql)
+      AND CAST(fecha_inventario AS DATE) = '$fecha'
 ", $conn);
 
 if (!$qCierre || mssql_num_rows($qCierre) == 0) {
@@ -46,8 +60,15 @@ if (!$qCierre || mssql_num_rows($qCierre) == 0) {
   exit;
 }
 
-$rowCierre = mssql_fetch_assoc($qCierre);
-$id_cierre = intval($rowCierre["id_cierre"]);
+$idCierres = [];
+$almacenesEncontrados = [];
+
+while ($row = mssql_fetch_assoc($qCierre)) {
+  $idCierres[] = intval($row["id_cierre"]);
+  $almacenesEncontrados[] = $row["almacen"];
+}
+
+$idCierresSql = implode(",", $idCierres);
 
 /* ================================
    FALTANTES (OIGN)
@@ -60,7 +81,7 @@ $qEntrada = mssql_query("
         SELECT DocEntry_sap
         FROM CAP_INVENTARIO_AJUSTES_SAP
         WHERE tipo_documento_sap = 'OIGN'
-          AND id_cierre = $id_cierre
+          AND id_cierre IN ($idCierresSql)
     )
     GROUP BY T0.DocNum
 ", $conn);
@@ -88,7 +109,7 @@ $qSalida = mssql_query("
         SELECT DocEntry_sap
         FROM CAP_INVENTARIO_AJUSTES_SAP
         WHERE tipo_documento_sap = 'OIGE'
-          AND id_cierre = $id_cierre
+          AND id_cierre IN ($idCierresSql)
     )
     GROUP BY T0.DocNum
 ", $conn);
@@ -131,7 +152,8 @@ $data = [
 
 echo json_encode([
   "success" => true,
-  "id_cierre" => $id_cierre,
+  "id_cierres" => $idCierres,
+  "almacenes_encontrados" => $almacenesEncontrados,
   "data" => $data
 ]);
 
