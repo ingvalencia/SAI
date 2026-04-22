@@ -29,19 +29,41 @@ const obtenerUltimoConteo = (item) => {
   const c3 = Number(item.conteo3 ?? 0);
   const c4 = Number(item.conteo4 ?? 0);
 
-  // Si ya existe cuarto conteo, ese es el último válido
-  if (c4 !== 0) return c4;
+  const debeIrAC3 =
+    (c1 !== c2) ||
+    (c1 === sap && c2 !== sap) ||
+    (c2 === sap && c1 !== sap) ||
+    (c1 === c2 && c1 !== sap);
 
-  // Si no existe cuarto conteo y conteo 3 ya cuadró contra SAP, ahí se queda
-  if (c3 === sap) return c3;
+  if (!debeIrAC3) {
+    return c2;
+  }
 
-  // Si existe conteo 3
-  if (c3 !== 0) return c3;
+  const casoEspecialSapCeroConExistencia =
+    sap === 0 && c1 > 0 && c2 > 0 && c3 > 0;
 
-  // Si existe conteo 2
-  if (c2 !== 0) return c2;
+  const c3EsIgualAC1YC2PeroDistintoASap =
+    c3 === c1 && c3 === c2 && c3 !== sap;
 
-  return c1;
+  const c3EsIgualASap = c3 === sap;
+  const c3EsCeroIgualASap = c3 === 0 && sap === 0;
+
+  const debeIrAC4 =
+    casoEspecialSapCeroConExistencia ||
+    c3EsIgualAC1YC2PeroDistintoASap ||
+    (!c3EsIgualASap && !c3EsCeroIgualASap);
+
+  if (!debeIrAC4) {
+    return c3;
+  }
+
+  const c4EsCeroIgualASap = c4 === 0 && sap === 0;
+
+  if (c4EsCeroIgualASap) {
+    return c4;
+  }
+
+  return c4;
 };
 
 export default function Mapa({ drawerRootId }) {
@@ -196,17 +218,18 @@ export default function Mapa({ drawerRootId }) {
         const c1 = Number(item.conteo1 ?? 0);
         const c2 = Number(item.conteo2 ?? 0);
         const c3 = Number(item.conteo3 ?? 0);
+        const c4 = Number(item.conteo4 ?? 0);
 
         const conteo_final = obtenerUltimoConteo(item);
-
         const sap_final = Number(item.inventario_sap ?? 0);
-        const diferencia_cierre = conteo_final - sap_final;
+        const diferencia_cierre = Number((sap_final - conteo_final).toFixed(2));
 
         return {
           ...item,
           conteo1: c1,
           conteo2: c2,
           conteo3: c3,
+          conteo4: c4,
           inventario_sap: sap_final,
           conteo_final,
           sap_final,
@@ -280,8 +303,11 @@ export default function Mapa({ drawerRootId }) {
             setSapRefrescado(null);
           }
 
-          const hayConteo4 = (Array.isArray(res.data.data) ? res.data.data : []).some(
-            (row) => Number(row.conteo4 ?? 0) > 0
+         const hayConteo4 = (Array.isArray(res.data.data) ? res.data.data : []).some(
+            (row) =>
+              row.conteo4 !== null &&
+              row.conteo4 !== undefined &&
+              String(row.conteo4).trim() !== ""
           );
 
           setMostrarConteo4(hayConteo4);
@@ -328,8 +354,11 @@ export default function Mapa({ drawerRootId }) {
         }
       );
 
-      const hayConteo4 = res.data.data?.some(
-        (row) => Number(row.conteo4 ?? 0) > 0
+     const hayConteo4 = (Array.isArray(res.data.data) ? res.data.data : []).some(
+        (row) =>
+          row.conteo4 !== null &&
+          row.conteo4 !== undefined &&
+          String(row.conteo4).trim() !== ""
       );
 
       setMostrarConteo4(hayConteo4);
@@ -509,30 +538,27 @@ export default function Mapa({ drawerRootId }) {
 
 
    detalle.forEach((d) => {
-      const dif = d.diferencia_cierre ?? 0;
-      const precio = Number(d.precio ?? 0);
+    const dif = Number(d.diferencia_cierre ?? 0);
+    const precio = Number(d.precio ?? 0);
 
-      if (dif !== 0) {
-        itemsConDiferencia++;
+    if (dif !== 0) {
+      itemsConDiferencia++;
 
-        if (dif > 0) {
-          sobrantes += dif;
-        } else {
-          faltantes += Math.abs(dif);
-        }
+      if (dif > 0) {
+        faltantes += dif;
+      } else if (dif < 0) {
+        sobrantes += Math.abs(dif);
+      }
 
-        const impacto = dif * precio;
+      const impacto = Math.abs(dif * precio);
 
-        if (dif < 0) {
-          // Entrada (faltante físico vs SAP)
-          importeEntrada += Math.abs(impacto);
-        } else if (dif > 0) {
-          // Salida (sobrante físico vs SAP)
-          importeSalida += Math.abs(impacto);
-        }
-
-              }
-    });
+      if (dif > 0) {
+        importeSalida += impacto;
+      } else if (dif < 0) {
+        importeEntrada += impacto;
+      }
+    }
+  });
 
 
     return {
@@ -1371,37 +1397,35 @@ const convertirImagenBase64 = (url) => {
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
 
-              <div className="bg-white rounded-xl shadow-md p-5">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Total artículos</p>
-                <p className="text-3xl font-extrabold text-gray-800 mt-2">
-                  {resumenCierre.totalItems}
-                </p>
+                <div className="bg-white rounded-xl shadow-md p-5">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Total artículos</p>
+                  <p className="text-3xl font-extrabold text-gray-800 mt-2">
+                    {resumenCierre.totalItems}
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-xl shadow-md p-5">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Con diferencia</p>
+                  <p className="text-3xl font-extrabold text-gray-800 mt-2">
+                    {resumenCierre.itemsConDiferencia}
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-xl shadow-md p-5 border-l-4 border-green-500">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Sobrantes</p>
+                  <p className="text-3xl font-extrabold text-green-700 mt-2">
+                    {resumenCierre.sobrantes.toFixed(2)}
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-xl shadow-md p-5 border-l-4 border-red-500">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Faltantes</p>
+                  <p className="text-3xl font-extrabold text-red-700 mt-2">
+                    {resumenCierre.faltantes.toFixed(2)}
+                  </p>
+                </div>
+
               </div>
-
-              <div className="bg-white rounded-xl shadow-md p-5">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Con diferencia</p>
-                <p className="text-3xl font-extrabold text-gray-800 mt-2">
-                  {resumenCierre.itemsConDiferencia}
-                </p>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-md p-5 border-l-4 border-green-500">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Sobrantes</p>
-                <p className="text-3xl font-extrabold text-green-700 mt-2">
-
-                  {resumenCierre.faltantes.toFixed(2)}
-                </p>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-md p-5 border-l-4 border-red-500">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Faltantes</p>
-                <p className="text-3xl font-extrabold text-red-700 mt-2">
-                  {resumenCierre.sobrantes.toFixed(2)}
-                </p>
-              </div>
-
-            </div>
-
 
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
