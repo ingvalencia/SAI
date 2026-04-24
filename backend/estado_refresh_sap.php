@@ -44,12 +44,12 @@ $cia_safe   = addslashes($cia);
 
 $q = mssql_query("
   SELECT
-    COUNT(*) AS total,
-    SUM(CASE WHEN sap_refrescado = 1 THEN 1 ELSE 0 END) AS refrescados
-  FROM CAP_INVENTARIO
+    COUNT(DISTINCT almacen) AS total_almacenes,
+    COUNT(DISTINCT CASE WHEN tipo_foto = 'REFRESH' AND es_activa = 1 THEN almacen END) AS refrescados
+  FROM CAP_INVENTARIO_SAP_FOTO
   WHERE almacen IN ($listaAlmacenes)
     AND fecha_inv = '$fecha_safe'
-    AND cias = '$cia_safe'
+    AND cia = '$cia_safe'
 ", $conn);
 
 if (!$q) {
@@ -59,18 +59,18 @@ if (!$q) {
 
 $row = mssql_fetch_assoc($q);
 
-if (!$row || intval($row['total']) === 0) {
-  echo json_encode(["success" => false, "error" => "Inventarios no encontrados"]);
+if (!$row || intval($row['total_almacenes']) === 0) {
+  echo json_encode(["success" => false, "error" => "Fotografías no encontradas"]);
   exit;
 }
 
-$sap_refrescado = (intval($row['total']) === intval($row['refrescados'])) ? 1 : 0;
+$sap_refrescado = (intval($row['total_almacenes']) === intval($row['refrescados'])) ? 1 : 0;
 
 
 echo json_encode([
   "success"        => true,
   "sap_refrescado" => $sap_refrescado,
-  "total"          => intval($row['total']),
+  "total"          => intval($row['total_almacenes']),
   "refrescados"    => intval($row['refrescados'])
 ]);
 exit;

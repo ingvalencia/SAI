@@ -89,21 +89,34 @@ foreach ($almacenes as $alm) {
 
   $items = [];
 
-  $sp = mssql_query("EXEC [USP_INVEN_SAP] '$alm', '$fecha', '$usuario', '$cia'", $conn);
-  if (!$sp) continue;
+  $qFoto = mssql_query("
+    SELECT
+      ItemCode,
+      ItemName,
+      familia,
+      subfamilia,
+      precio_foto,
+      inventario_sap_foto
+    FROM CAP_INVENTARIO_SAP_FOTO
+    WHERE almacen = '$alm'
+      AND fecha_inv = '$fecha'
+      AND cia = '$cia'
+      AND es_activa = 1
+  ", $conn);
+  if (!$qFoto) continue;
 
-  while ($row = mssql_fetch_assoc($sp)) {
-    $cod = normalizarCodigo($row['Codigo sap']);
+  while ($row = mssql_fetch_assoc($qFoto)) {
+    $cod = normalizarCodigo($row['ItemCode']);
     $key = $alm . '|' . $cod;
 
     if (!isset($items[$key])) {
       $items[$key] = [
         'almacen'        => $alm,
         'codigo'         => $cod,
-        'nombre'         => $row['Nombre'],
-        'familia'        => $row['Familia'],
-        'subfamilia'     => $row['Subfamilia'],
-        'precio'         => $row['precio'],
+        'nombre'         => $row['ItemName'],
+        'familia'        => $row['familia'],
+        'subfamilia'     => $row['subfamilia'],
+        'precio'         => (float)$row['precio_foto'],
         'inventario_sap' => 0,
         'conteo1'        => 0,
         'conteo2'        => 0,
@@ -111,10 +124,9 @@ foreach ($almacenes as $alm) {
         'conteo4'        => 0,
       ];
     }
-    $items[$key]['inventario_sap'] += (float)$row['Inventario_sap'];
+    $items[$key]['inventario_sap'] += (float)$row['inventario_sap_foto'];
   }
-  while (mssql_next_result($sp)) {;}
-  mssql_free_result($sp);
+  mssql_free_result($qFoto);
 
 
   $q = mssql_query("

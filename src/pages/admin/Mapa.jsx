@@ -1050,94 +1050,204 @@ export default function Mapa({ drawerRootId }) {
   };
 
   const refreshSAP = async () => {
-    const confirm = await Swal.fire({
-      title: "¿Actualizar datos desde SAP?",
-      text: "Este proceso solo se puede ejecutar una vez y no tiene vuelta atrás.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Sí, actualizar",
-      cancelButtonText: "Cancelar",
+  if (!grupoSeleccionado || !grupoSeleccionado.almacenes?.length) {
+    Swal.fire(
+      "Acción no permitida",
+      "La actualización de datos SAP solo aplica para detalle de grupo.",
+      "warning"
+    );
+    return;
+  }
+
+  const confirm = await Swal.fire({
+    title: "¿Actualizar datos desde SAP?",
+    icon: "warning",
+    width: 650,
+    showCancelButton: true,
+    confirmButtonText: "Sí, actualizar",
+    cancelButtonText: "Cancelar",
+    focusConfirm: false,
+    html: `
+      <div style="text-align:left; font-size:14px;">
+        <p style="margin:0 0 16px 0; color:#4b5563; text-align:center;">
+          Este proceso solo se puede ejecutar una vez y no tiene vuelta atrás.
+        </p>
+
+        <div style="display:grid; grid-template-columns:1fr; gap:14px;">
+          <div>
+            <label style="display:block; margin-bottom:6px; font-weight:600; color:#374151;">
+              Nombre del responsable
+            </label>
+            <input
+              id="sw_responsable_nombre"
+              class="swal2-input"
+              type="text"
+              placeholder="Ej. Juan Pérez"
+              style="width:100%; margin:0;"
+            />
+          </div>
+
+          <div>
+            <label style="display:block; margin-bottom:6px; font-weight:600; color:#374151;">
+              Número de empleado
+            </label>
+            <input
+              id="sw_responsable_empleado"
+              class="swal2-input"
+              type="text"
+              inputmode="numeric"
+              placeholder="Ej. 42371"
+              style="width:100%; margin:0;"
+              oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+            />
+          </div>
+        </div>
+      </div>
+    `,
+    didOpen: () => {
+      const confirmButton = Swal.getConfirmButton();
+      const nombreInput = document.getElementById("sw_responsable_nombre");
+      const empleadoInput = document.getElementById("sw_responsable_empleado");
+
+      if (confirmButton) {
+        confirmButton.disabled = true;
+      }
+
+      const validar = () => {
+        const nombre = nombreInput?.value?.trim() || "";
+        const empleado = empleadoInput?.value?.trim() || "";
+
+        if (confirmButton) {
+          confirmButton.disabled = !(nombre.length > 0 && empleado.length > 0);
+        }
+      };
+
+      nombreInput?.addEventListener("input", validar);
+      empleadoInput?.addEventListener("input", validar);
+    },
+    preConfirm: () => {
+      const responsableNombre = document
+        .getElementById("sw_responsable_nombre")
+        ?.value?.trim();
+
+      const responsableEmpleado = document
+        .getElementById("sw_responsable_empleado")
+        ?.value?.trim();
+
+      if (!responsableNombre) {
+        Swal.showValidationMessage("Captura el nombre del responsable.");
+        return false;
+      }
+
+      if (!responsableEmpleado) {
+        Swal.showValidationMessage("Captura el número de empleado.");
+        return false;
+      }
+
+      return {
+        responsableNombre,
+        responsableEmpleado,
+      };
+    },
+  });
+
+  if (!confirm.isConfirmed) return;
+
+  const responsableNombre = confirm.value.responsableNombre;
+  const responsableEmpleado = confirm.value.responsableEmpleado;
+
+  try {
+    setProcesandoRefresh(true);
+
+    Swal.fire({
+      title: "Procesando...",
+      text: "Reconsultando datos desde SAP",
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
     });
 
-    if (!confirm.isConfirmed) return;
+    const almacenesRefresh = grupoSeleccionado.almacenes.join(",");
+    const grupoRefresh = grupoSeleccionado.base;
 
+    const res = await axios.get(
+      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/refresh_sap.php",
+      {
+        params: {
+          almacen: almacenesRefresh,
+          grupo: grupoRefresh,
+          fecha,
+          cia,
+          responsable_nombre: responsableNombre,
+          responsable_empleado: responsableEmpleado,
+          usuario_sesion: sessionStorage.getItem("empleado"),
+        },
+      }
+    );
+
+    Swal.close();
+
+    if (!res.data || !res.data.success) {
+      throw new Error(res.data?.error || "Error al refrescar SAP");
+    }
+
+    await Swal.fire("Listo", res.data.mensaje, "success");
+
+    setSapRefrescado(1);
+
+    await fetchDetalleGrupo(grupoSeleccionado);
+  } catch (e) {
+    Swal.close();
+    Swal.fire("Error", e.message || "Error al refrescar SAP", "error");
+  } finally {
+    setProcesandoRefresh(false);
+  }
+};
+
+  const fetchResumenSAP = async () => {
     try {
-      setProcesandoRefresh(true);
-
       Swal.fire({
-        title: "Procesando...",
-        text: "Reconsultando datos desde SAP",
+        title: "Validando...",
+        text: "Verificando si el cierre ya fue procesado en SAP.",
         allowOutsideClick: false,
         didOpen: () => Swal.showLoading(),
       });
 
-
-      const almacenesRefresh = grupoSeleccionado
-        ? grupoSeleccionado.almacenes.join(",")
-        : almacenSeleccionado;
-
       const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/refresh_sap.php",
+        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/resumen_sap.php",
         {
           params: {
-            almacen: almacenesRefresh,
-            fecha,
             cia,
+            almacen: grupoSeleccionado
+              ? grupoSeleccionado.almacenes.join(",")
+              : almacenSeleccionado,
+            fecha,
           },
         }
       );
 
       Swal.close();
 
-      if (!res.data || !res.data.success) {
-        throw new Error(res.data?.error || "Error al refrescar SAP");
+      if (!res.data.success) {
+        Swal.fire(
+          "Pendiente de procesamiento",
+          res.data.error || "Aún no se ha procesado a SAP, favor de contactar al administrador.",
+          "warning"
+        );
+        return;
       }
 
-      Swal.fire("Listo", res.data.mensaje, "success");
-
-      setSapRefrescado(1);
-
-
-      if (grupoSeleccionado) {
-        fetchDetalleGrupo(grupoSeleccionado);
-      } else {
-        fetchDetalle();
-      }
+      setResumenSAP(res.data.data);
+      setMostrarResumenSAP(true);
 
     } catch (e) {
       Swal.close();
-      Swal.fire("Error", e.message || "Error al refrescar SAP", "error");
-    } finally {
-      setProcesandoRefresh(false);
+      Swal.fire(
+        "Error",
+        e.message || "No se pudo obtener el resumen contable SAP.",
+        "error"
+      );
     }
   };
-
-  const fetchResumenSAP = async () => {
-  try {
-    const res = await axios.get(
-      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/resumen_sap.php",
-      {
-        params: {
-          cia,
-          almacen: grupoSeleccionado
-            ? grupoSeleccionado.almacenes.join(",")
-            : almacenSeleccionado,
-          fecha,
-        },
-      }
-    );
-
-    if (!res.data.success) {
-      throw new Error(res.data.error || "Error al obtener resumen SAP");
-    }
-
-    setResumenSAP(res.data.data);
-    setMostrarResumenSAP(true);
-
-  } catch (e) {
-    Swal.fire("Error", e.message, "error");
-  }
-};
 
 const convertirImagenBase64 = (url) => {
   return new Promise((resolve, reject) => {
@@ -1610,7 +1720,8 @@ const convertirImagenBase64 = (url) => {
             </div>
 
 
-           <div className="sticky bottom-0 bg-white p-5 shadow-lg flex justify-center items-center border-t z-[650]">
+           {estatusInventario !== 5 && (
+            <div className="sticky bottom-0 bg-white p-5 shadow-lg flex justify-center items-center border-t z-[650]">
               <button
                 onClick={confirmarCierre}
                 className="
@@ -1634,8 +1745,8 @@ const convertirImagenBase64 = (url) => {
               >
                 Confirmar y Generar Cierre SAP
               </button>
-
             </div>
+          )}
 
 
           </div>
@@ -2092,7 +2203,7 @@ const convertirImagenBase64 = (url) => {
 
             </div>
 
-            {estatusInventario === 4 && sapRefrescado === false && (
+            {grupoSeleccionado && estatusInventario === 4 && sapRefrescado === false && (
               <button
               onClick={refreshSAP}
               disabled={procesandoRefresh}
@@ -2132,7 +2243,7 @@ const convertirImagenBase64 = (url) => {
             )}
 
 
-           {estatusInventario === 4 && sapRefrescado === true && (
+           {((estatusInventario === 4 && sapRefrescado === true) || estatusInventario === 5) && (
               <button
               onClick={() => setMostrarDrawer(true)}
               className="

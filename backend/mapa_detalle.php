@@ -45,32 +45,54 @@ if (!$usuario) {
 }
 
 
-$sp = mssql_query("EXEC [USP_INVEN_SAP] '$almacen', '$fecha', '$usuario', '$cia'", $conn);
-if (!$sp) {
+$sqlFoto = "
+  SELECT
+    cod_fam,
+    familia,
+    cod_subfam,
+    subfamilia,
+    precio_foto,
+    ItemCode,
+    ItemName,
+    almacen,
+    inventario_sap_foto,
+    fecha_hora_foto,
+    codebars,
+    cia,
+    usuario_genero
+  FROM CAP_INVENTARIO_SAP_FOTO
+  WHERE almacen = '$almacen'
+    AND fecha_inv = '$fecha'
+    AND cia = '$cia'
+    AND es_activa = 1
+";
+
+$resFoto = mssql_query($sqlFoto, $conn);
+if (!$resFoto) {
   $error = mssql_get_last_message();
-  echo json_encode(["success" => false, "error" => "Error en SP: $error"]);
+  echo json_encode(["success" => false, "error" => "Error consultando fotografía: $error"]);
   exit;
 }
 
 $items = [];
-while ($row = mssql_fetch_assoc($sp)) {
-  $codigo = trim($row['Codigo sap']);
+while ($row = mssql_fetch_assoc($resFoto)) {
+  $codigo = trim($row['ItemCode']);
   $items[$codigo] = [
     'id_inventario'  => null,
-    'codfam'         => $row['Codfam'],
-    'familia'        => $row['Familia'],
-    'codsubfam'      => $row['Codsubfam'],
-    'subfamilia'     => $row['Subfamilia'],
-    'precio'         => $row['precio'],
+    'codfam'         => $row['cod_fam'],
+    'familia'        => $row['familia'],
+    'codsubfam'      => $row['cod_subfam'],
+    'subfamilia'     => $row['subfamilia'],
+    'precio'         => $row['precio_foto'],
     'codigo'         => $codigo,
-    'nombre'         => $row['Nombre'],
-    'almacen'        => $row['Almacen'],
-    'inventario_sap' => (float)$row['Inventario_sap'],
-    'fecha_carga'    => $row['fecha_carga'],
-    'fec_intrt'      => $row['FEC_INTRT'],
-    'codebars'       => $row['CodeBars'],
-    'cias'           => $row['CIA'],
-    'usuario'        => $row['Usuario'],
+    'nombre'         => $row['ItemName'],
+    'almacen'        => $row['almacen'],
+    'inventario_sap' => (float)$row['inventario_sap_foto'],
+    'fecha_carga'    => $row['fecha_hora_foto'],
+    'fec_intrt'      => $fecha,
+    'codebars'       => $row['codebars'],
+    'cias'           => $row['cia'],
+    'usuario'        => $row['usuario_genero'],
     'conteo1'        => 0,
     'conteo2'        => 0,
     'conteo3'        => 0,

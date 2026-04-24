@@ -238,27 +238,40 @@ if ($estatus_global !== null && $estatus_global >= 4) {
 }
 
 
-$sp = mssql_query("EXEC USP_INVEN_SAP '$almacen_safe', '$fecha', $usuario, '$cia_safe'", $conn);
+$sqlFoto = "
+    SELECT
+        ItemCode,
+        ItemName,
+        almacen,
+        cia,
+        codebars,
+        inventario_sap_foto
+    FROM CAP_INVENTARIO_SAP_FOTO
+    WHERE almacen   = '$almacen_safe'
+      AND fecha_inv = '$fecha'
+      AND cia       = '$cia_safe'
+      AND es_activa = 1
+";
+
+$resFoto = mssql_query($sqlFoto, $conn);
 
 $base = [];
-if ($sp) {
-    while ($r = mssql_fetch_assoc($sp)) {
-        $codigo = trim($r['Codigo sap']);
+if ($resFoto) {
+    while ($r = mssql_fetch_assoc($resFoto)) {
+        $codigo = trim($r['ItemCode']);
 
         $base[$codigo] = [
             'ItemCode'   => $codigo,
-            'Itemname' => json_decode(json_encode($r['Nombre'], JSON_UNESCAPED_UNICODE)),
-
-            'almacen'    => $r['Almacen'],
-            'cias'       => $r['CIA'],
-            'codebars'   => $r['CodeBars'],
-            'cant_sap'   => floatval($r['Inventario_sap']),
+            'Itemname'   => json_decode(json_encode($r['ItemName'], JSON_UNESCAPED_UNICODE)),
+            'almacen'    => $r['almacen'],
+            'cias'       => $r['cia'],
+            'codebars'   => $r['codebars'],
+            'cant_sap'   => floatval($r['inventario_sap_foto']),
             'conteo_mio' => 0,
-
-            'conteo1'     => 0,
-            'conteo2'     => 0,
-            'conteo3'     => 0,
-            'conteo4'     => 0,
+            'conteo1'    => 0,
+            'conteo2'    => 0,
+            'conteo3'    => 0,
+            'conteo4'    => 0,
         ];
     }
 }

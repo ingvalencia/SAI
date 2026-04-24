@@ -66,13 +66,23 @@ function run($sql, $conn, $errPrefix = 'Error SQL: ')
 
 function loadSapMap($conn, $almacen, $fecha, $empleado, $cia, $soloNoCero = true)
 {
-  $spSap = mssql_query("EXEC USP_INVEN_SAP '$almacen', '$fecha', $empleado, '$cia'", $conn);
-  if (!$spSap) json_fail('Error ejecutando USP_INVEN_SAP: ' . mssql_get_last_message());
+  $sqlFoto = "
+    SELECT ItemCode, inventario_sap_foto
+    FROM CAP_INVENTARIO_SAP_FOTO
+    WHERE almacen   = '$almacen'
+      AND fecha_inv = '$fecha'
+      AND cia       = '$cia'
+      AND es_activa = 1
+  ";
+
+  $resFoto = mssql_query($sqlFoto, $conn);
+  if (!$resFoto) json_fail('Error consultando CAP_INVENTARIO_SAP_FOTO: ' . mssql_get_last_message());
 
   $map = [];
-  while ($r = mssql_fetch_assoc($spSap)) {
-    $code = trim($r['Codigo sap']);
-    $sap  = floatval($r['Inventario_sap']);
+  while ($r = mssql_fetch_assoc($resFoto)) {
+    $code = trim($r['ItemCode']);
+    $sap  = floatval($r['inventario_sap_foto']);
+
     if ($soloNoCero) {
       if ($sap != 0) $map[$code] = $sap;
     } else {

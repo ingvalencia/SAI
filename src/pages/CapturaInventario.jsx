@@ -397,7 +397,14 @@ export default function CapturaInventario() {
     if (!estatusRes.data.success)
       throw new Error(estatusRes.data.error);
 
-    if (estatusRes.data.estatus >= 4) {
+    const esConteoIndividual = (tipoConteo || "").toLowerCase() === "individual";
+    const estatusBackend = Number(estatusRes.data.estatus || 0);
+    const conteoAsignadoActual = Number(nroConteo || 0);
+
+    if (
+      (esConteoIndividual && estatusBackend >= 2 && conteoAsignadoActual === 1) ||
+      (!esConteoIndividual && estatusBackend >= 4)
+    ) {
       const conteoExistente = Number(estatusRes.data.nro_conteo || 0);
 
       Swal.close();
@@ -407,7 +414,7 @@ export default function CapturaInventario() {
           fecha: fecISO,
           empleado: emp,
           cia,
-          estatus: conteoExistente || (asignacionCargada ? Number(nroConteo) : Number(estatus)),
+          estatus: Number(estatusRes.data.estatus || conteoExistente || nroAsignado || 1),
         },
       });
     }
@@ -616,22 +623,6 @@ export default function CapturaInventario() {
 
   const confirmarInventario = async () => {
 
-  /*
-  const hayCaptura = datos.some(
-    (item) =>
-      item.cant_invfis !== "" &&
-      item.cant_invfis !== null &&
-      !isNaN(parseFloat(item.cant_invfis)) &&
-      parseFloat(item.cant_invfis) > 0
-  );
-  if (!hayCaptura) {
-    await MySwal.fire(
-      "Sin captura",
-      "Debes ingresar al menos un inventario físico antes de confirmar.",
-      "warning"
-    );
-    return;
-  }*/
 
 
   const confirmacion = await MySwal.fire({
