@@ -85,13 +85,18 @@ export default function Mapa({ drawerRootId }) {
   const [grupoSeleccionado, setGrupoSeleccionado] = useState(null);
   const [almacenFiltro, setAlmacenFiltro] = useState("TODOS");
 
-  const [sapRefrescado, setSapRefrescado] = useState(null); // null | 0 | 1
+  const [sapRefrescado, setSapRefrescado] = useState(null);
   const [procesandoRefresh, setProcesandoRefresh] = useState(false);
 
   const [mostrarConteo4, setMostrarConteo4] = useState(false);
 
   const [mostrarResumenSAP, setMostrarResumenSAP] = useState(false);
   const [resumenSAP, setResumenSAP] = useState([]);
+
+  const [ordenTabla, setOrdenTabla] = useState({
+    campo: null,
+    direccion: "asc",
+  });
 
 
 
@@ -478,6 +483,41 @@ export default function Mapa({ drawerRootId }) {
   }, [detalle]);
 
 
+  const cambiarOrdenTabla = (campo) => {
+    setOrdenTabla((prev) => {
+      if (prev.campo === campo) {
+        return {
+          campo,
+          direccion: prev.direccion === "asc" ? "desc" : "asc",
+        };
+      }
+
+      return {
+        campo,
+        direccion: "asc",
+      };
+    });
+  };
+
+  const iconoOrden = (campo) => {
+    if (ordenTabla.campo !== campo) return "↕";
+    return ordenTabla.direccion === "asc" ? "↑" : "↓";
+  };
+
+  const ordenarDatosNumericos = (lista = []) => {
+    if (!ordenTabla.campo) return lista;
+
+    return [...lista].sort((a, b) => {
+      const valorA = Number(a[ordenTabla.campo] ?? 0);
+      const valorB = Number(b[ordenTabla.campo] ?? 0);
+
+      return ordenTabla.direccion === "asc"
+        ? valorA - valorB
+        : valorB - valorA;
+    });
+  };
+
+
   const detalleFiltrado = useMemo(() => {
     const texto = busqueda.toLowerCase();
 
@@ -497,12 +537,16 @@ export default function Mapa({ drawerRootId }) {
   }, [detalle, busqueda, almacenFiltro]);
 
 
-  const detallePaginado = useMemo(() => {
-  const inicio = (paginaActual - 1) * registrosPorPagina;
-  const fin = inicio + registrosPorPagina;
+  const detalleOrdenado = useMemo(() => {
+    return ordenarDatosNumericos(detalleFiltrado);
+  }, [detalleFiltrado, ordenTabla]);
 
-  return detalleFiltrado.slice(inicio, fin);
-  }, [detalleFiltrado, paginaActual]);
+  const detallePaginado = useMemo(() => {
+    const inicio = (paginaActual - 1) * registrosPorPagina;
+    const fin = inicio + registrosPorPagina;
+
+    return detalleOrdenado.slice(inicio, fin);
+  }, [detalleOrdenado, paginaActual]);
 
 
   const detallePorAlmacen = useMemo(() => {
@@ -1839,11 +1883,11 @@ const convertirImagenBase64 = (url) => {
                   >
                     <td className="px-4 py-3">{row.almacen}</td>
 
-                    <td className="px-4 py-3 text-right text-green-700 font-semibold">
+                    <td className="px-4 py-3 text-right text-red-700 font-semibold">
                       ${Number(row.FALTANTE).toFixed(2)}
                     </td>
 
-                    <td className="px-4 py-3 text-right text-red-700 font-semibold">
+                    <td className="px-4 py-3 text-right text-green-700 font-semibold">
                       ${Number(row.SOBRANTE).toFixed(2)}
                     </td>
 
@@ -2451,8 +2495,19 @@ const convertirImagenBase64 = (url) => {
                   <th className="px-2 py-1">Nombre</th>
                   <th className="px-2 py-1">Familia</th>
                   <th className="px-2 py-1">Subfamilia</th>
-                  <th className="px-2 py-1">Precio</th>
-                  <th className="px-2 py-1">Existencia SAP</th>
+                  <th
+                    onClick={() => cambiarOrdenTabla("precio")}
+                    className="px-2 py-1 cursor-pointer select-none"
+                  >
+                    Precio {iconoOrden("precio")}
+                  </th>
+
+                  <th
+                    onClick={() => cambiarOrdenTabla("inventario_sap")}
+                    className="px-2 py-1 cursor-pointer select-none"
+                  >
+                    Existencia SAP {iconoOrden("inventario_sap")}
+                  </th>
                   <th className="px-2 py-1">Conteo 1</th>
                   <th className="px-2 py-1">Conteo 2</th>
                   <th className="px-2 py-1">Conteo 3</th>
@@ -2461,7 +2516,12 @@ const convertirImagenBase64 = (url) => {
                     <th className="px-2 py-1">Conteo 4</th>
                   )}
 
-                  <th className="px-2 py-1">Diferencia</th>
+                  <th
+                    onClick={() => cambiarOrdenTabla("diferencia_cierre")}
+                    className="px-2 py-1 cursor-pointer select-none"
+                  >
+                    Diferencia {iconoOrden("diferencia_cierre")}
+                  </th>
                 </tr>
               </thead>
 
@@ -2481,11 +2541,7 @@ const convertirImagenBase64 = (url) => {
 
                     {items.map((d, i) => {
 
-                      const ultimoConteo = obtenerUltimoConteo(d);
-
-                      const diferencia = Number(
-                          (Number(d.inventario_sap ?? 0) - ultimoConteo).toFixed(2)
-                        );
+                     const diferencia = Number(d.diferencia_cierre ?? 0);
 
                       return (
                         <tr key={`${alm}-${i}`} className="hover:bg-gray-50">

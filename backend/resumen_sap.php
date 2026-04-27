@@ -52,11 +52,11 @@ foreach ($almacenesArray as $alm) {
 $almacenesSql = implode(",", $almacenesEscapados);
 
 $qCierre = mssql_query("
-  SELECT id_cierre, almacen
-  FROM CAP_INVENTARIO_CIERRE
-  WHERE cia = '$cia'
-    AND almacen IN ($almacenesSql)
-    AND CAST(fecha_inventario AS DATE) = '$fecha'
+    SELECT id_cierre, almacen, ISNULL(procesado_sap, 0) AS procesado_sap
+    FROM CAP_INVENTARIO_CIERRE
+    WHERE cia = '$cia'
+      AND almacen IN ($almacenesSql)
+      AND CAST(fecha_inventario AS DATE) = '$fecha'
 ", $conn);
 
 if (!$qCierre) {
@@ -74,10 +74,24 @@ if (mssql_num_rows($qCierre) == 0) {
 
 $idCierres = [];
 $almacenesEncontrados = [];
+$almacenesConFalloSap = [];
+$cierresPorAlmacen = [];
 
 while ($row = mssql_fetch_assoc($qCierre)) {
-  $idCierres[] = intval($row["id_cierre"]);
-  $almacenesEncontrados[] = $row["almacen"];
+  $idCierre = intval($row["id_cierre"]);
+  $almacenCierre = $row["almacen"];
+
+  $idCierres[] = $idCierre;
+  $almacenesEncontrados[] = $almacenCierre;
+
+  $cierresPorAlmacen[] = [
+    "id_cierre" => $idCierre,
+    "almacen" => $almacenCierre
+  ];
+
+  if (intval($row["procesado_sap"]) !== 1) {
+    $almacenesConFalloSap[] = $almacenCierre;
+  }
 }
 
 if (count($idCierres) === 0) {
@@ -126,77 +140,97 @@ if ($totalPendientes > 0 || $totalProcesados < count($idCierres)) {
   exit;
 }
 
-$qEntrada = mssql_query("
-  SELECT T0.DocNum, SUM(T1.LineTotal) AS total_importe
-  FROM {$cia}_X.dbo.OIGN T0
-  INNER JOIN {$cia}_X.dbo.IGN1 T1 ON T0.DocEntry = T1.DocEntry
-  WHERE T0.DocEntry IN (
-    SELECT DocEntry_sap
-    FROM CAP_INVENTARIO_AJUSTES_SAP
-    WHERE tipo_documento_sap = 'OIGN'
-      AND id_cierre IN ($idCierresSql)
-  )
-  GROUP BY T0.DocNum
-", $conn);
-
-$faltante_total = 0;
-$faltante_docs = [];
-
-if ($qEntrada) {
-  while ($r = mssql_fetch_assoc($qEntrada)) {
-    $faltante_total += floatval($r["total_importe"]);
-    $faltante_docs[] = $r["DocNum"];
-  }
+if (count($almacenesConFalloSap) > 0) {
+  echo json_encode([
+    "success" => false,
+    "error" => "El servicio ya procesó el cierre, pero SAP arrojó un fallo en uno o más almacenes. Favor de consultar con el administrador.",
+    "almacenes_con_fallo_sap" => $almacenesConFalloSap
+  ]);
+  exit;
 }
 
-$doc_faltante = count($faltante_docs) > 0 ? implode(", ", $faltante_docs) : "-";
+$data = [];
 
-$qSalida = mssql_query("
-  SELECT T0.DocNum, SUM(T1.LineTotal) AS total_importe
-  FROM {$cia}_X.dbo.OIGE T0
-  INNER JOIN {$cia}_X.dbo.IGE1 T1 ON T0.DocEntry = T1.DocEntry
-  WHERE T0.DocEntry IN (
-    SELECT DocEntry_sap
-    FROM CAP_INVENTARIO_AJUSTES_SAP
-    WHERE tipo_documento_sap = 'OIGE'
-      AND id_cierre IN ($idCierresSql)
-  )
-  GROUP BY T0.DocNum
-", $conn);
+$total_faltante_general = 0;
+$total_sobrante_general = 0;
 
-$sobrante_total = 0;
-$sobrante_docs = [];
+foreach ($cierresPorAlmacen as $cierre) {
+  $idCierreActual = intval($cierre["id_cierre"]);
+  $almacenActual = str_replace("'", "''", $cierre["almacen"]);
 
-if ($qSalida) {
-  while ($r = mssql_fetch_assoc($qSalida)) {
-    $sobrante_total += floatval($r["total_importe"]);
-    $sobrante_docs[] = $r["DocNum"];
+  $faltante_total = 0;
+  $faltante_docs = [];
+
+  $qEntrada = mssql_query("
+    SELECT T0.DocNum, SUM(T1.LineTotal) AS total_importe
+    FROM {$cia}_X.dbo.OIGN T0
+    INNER JOIN {$cia}_X.dbo.IGN1 T1 ON T0.DocEntry = T1.DocEntry
+    WHERE T0.DocEntry IN (
+      SELECT DocEntry_sap
+      FROM CAP_INVENTARIO_AJUSTES_SAP
+      WHERE tipo_documento_sap = 'OIGN'
+        AND id_cierre = $idCierreActual
+    )
+    GROUP BY T0.DocNum
+  ", $conn);
+
+  if ($qEntrada) {
+    while ($r = mssql_fetch_assoc($qEntrada)) {
+      $faltante_total += floatval($r["total_importe"]);
+      $faltante_docs[] = $r["DocNum"];
+    }
   }
-}
 
-$doc_sobrante = count($sobrante_docs) > 0 ? implode(", ", $sobrante_docs) : "-";
+  $doc_faltante = count($faltante_docs) > 0 ? implode(", ", $faltante_docs) : "-";
 
-$total = $faltante_total + $sobrante_total;
+  $sobrante_total = 0;
+  $sobrante_docs = [];
 
-$data = [
-  [
-    "almacen"       => $almacen,
+  $qSalida = mssql_query("
+    SELECT T0.DocNum, SUM(T1.LineTotal) AS total_importe
+    FROM {$cia}_X.dbo.OIGE T0
+    INNER JOIN {$cia}_X.dbo.IGE1 T1 ON T0.DocEntry = T1.DocEntry
+    WHERE T0.DocEntry IN (
+      SELECT DocEntry_sap
+      FROM CAP_INVENTARIO_AJUSTES_SAP
+      WHERE tipo_documento_sap = 'OIGE'
+        AND id_cierre = $idCierreActual
+    )
+    GROUP BY T0.DocNum
+  ", $conn);
+
+  if ($qSalida) {
+    while ($r = mssql_fetch_assoc($qSalida)) {
+      $sobrante_total += floatval($r["total_importe"]);
+      $sobrante_docs[] = $r["DocNum"];
+    }
+  }
+
+  $doc_sobrante = count($sobrante_docs) > 0 ? implode(", ", $sobrante_docs) : "-";
+
+  $total = $faltante_total + $sobrante_total;
+
+  $total_faltante_general += $faltante_total;
+  $total_sobrante_general += $sobrante_total;
+
+  $data[] = [
+    "almacen"       => $almacenActual,
     "FALTANTE"      => round($faltante_total, 2),
     "DOC_FALTANTE"  => $doc_faltante,
     "SOBRANTE"      => round($sobrante_total, 2),
     "DOC_SOBRANTE"  => $doc_sobrante,
     "TOTAL"         => round($total, 2)
-  ],
-  [
-    "almacen"       => "TOTAL GENERAL",
-    "FALTANTE"      => round($faltante_total, 2),
-    "DOC_FALTANTE"  => "-",
-    "SOBRANTE"      => round($sobrante_total, 2),
-    "DOC_SOBRANTE"  => "-",
-    "TOTAL"         => round($total, 2)
-  ]
-];
+  ];
+}
 
+$data[] = [
+  "almacen"       => "TOTAL GENERAL",
+  "FALTANTE"      => round($total_faltante_general, 2),
+  "DOC_FALTANTE"  => "-",
+  "SOBRANTE"      => round($total_sobrante_general, 2),
+  "DOC_SOBRANTE"  => "-",
+  "TOTAL"         => round($total_faltante_general + $total_sobrante_general, 2)
+];
 echo json_encode([
   "success" => true,
   "id_cierres" => $idCierres,
