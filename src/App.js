@@ -6,6 +6,7 @@ import {
   useLocation,
   HashRouter
 } from "react-router-dom";
+import Swal from "sweetalert2";
 
 import RutaProtegida from "./pages/RutaProtegida";
 import CapturaInventario from "./pages/CapturaInventario";
@@ -18,7 +19,6 @@ function FullscreenLoader({ text = "Verificando acceso al sistema..." }) {
   return (
     <div className="flex items-center justify-center h-screen bg-[#611232] text-white text-xl font-semibold">
       <div className="flex flex-col items-center gap-6">
-
         <div className="relative w-16 h-16">
           <div className="absolute inset-0 border-4 border-white/20 rounded-full"></div>
           <div className="absolute inset-0 border-4 border-t-white border-white/40 rounded-full animate-spin"></div>
@@ -29,7 +29,6 @@ function FullscreenLoader({ text = "Verificando acceso al sistema..." }) {
         <div className="w-48 h-1 bg-white/20 rounded overflow-hidden">
           <div className="h-full bg-white animate-pulse"></div>
         </div>
-
       </div>
     </div>
   );
@@ -44,9 +43,11 @@ function AppRoutes() {
   const empleado = sessionStorage.getItem("empleado");
   const nombre = sessionStorage.getItem("nombre");
   const roles = JSON.parse(sessionStorage.getItem("roles") || "[]");
-  const location = useLocation();
+  const tokenSesion = sessionStorage.getItem("token_sesion");
 
+  const location = useLocation();
   const yaVerificado = useRef(false);
+  const sesionCerradaRef = useRef(false);
 
   useEffect(() => {
     if (yaVerificado.current) return;
@@ -64,8 +65,11 @@ function AppRoutes() {
         const res = await fetch(
           `https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/verifica_estado_sistema.php?empleado=${empleado}`
         );
+
         const data = await res.json();
+
         if (!data?.success) throw new Error();
+
         if (!cancelado) setEstadoSistema(data);
       } catch {
         if (!cancelado) {
@@ -81,6 +85,59 @@ function AppRoutes() {
     };
   }, [empleado]);
 
+  useEffect(() => {
+    if (!empleado || !tokenSesion || location.pathname === "/login") return;
+
+    const validarSesion = async () => {
+      if (sesionCerradaRef.current) return;
+
+      try {
+        const res = await fetch(
+          "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/auth/validar_sesion.php",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify({
+              empleado: empleado,
+              token_sesion: tokenSesion,
+            }),
+          }
+        );
+
+        const data = await res.json();
+
+        if (!data.success || !data.sesion_valida) {
+          sesionCerradaRef.current = true;
+
+          sessionStorage.clear();
+
+          await Swal.fire({
+            title: "Sesión cerrada",
+            text: "Tu cuenta fue abierta en otro dispositivo.",
+            icon: "warning",
+            confirmButtonText: "Aceptar",
+            allowOutsideClick: false,
+          });
+
+          window.location.href = "/diniz/inventarios/#/login";
+        }
+      } catch (error) {
+        console.error("Error al validar sesión:", error.message);
+      }
+    };
+
+    validarSesion();
+
+    const intervalo = setInterval(() => {
+      validarSesion();
+    }, 15000);
+
+    return () => clearInterval(intervalo);
+  }, [empleado, tokenSesion, location.pathname]);
+
   const handleLogout = () => {
     sessionStorage.clear();
     window.location.href = "/diniz/inventarios/#/login";
@@ -91,6 +148,7 @@ function AppRoutes() {
     if (!estadoSistema && empleado) return <FullscreenLoader />;
 
     const { habilitado, modo_forzado } = estadoSistema;
+
     if (habilitado === 0 && !modo_forzado) return <EnMantenimiento />;
 
     return children;
@@ -102,7 +160,6 @@ function AppRoutes() {
     <>
       {location.pathname !== "/login" && (
         <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2 bg-[#611232] text-white px-4 py-3 shadow">
-
           <div className="text-sm md:text-base">
             Usuario: <strong>{nombre || "Sin nombre"}</strong> ({empleado || "—"})
           </div>
@@ -113,7 +170,6 @@ function AppRoutes() {
           >
             Cerrar sesión
           </button>
-
         </div>
       )}
 

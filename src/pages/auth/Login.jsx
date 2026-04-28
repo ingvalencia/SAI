@@ -21,20 +21,21 @@ const Login = () => {
       );
 
       if (res.data.success) {
-        sessionStorage.setItem("empleado", res.data.empleado);
-        sessionStorage.setItem("nombre", res.data.nombre);
-        sessionStorage.setItem("roles", JSON.stringify(res.data.roles));
+      sessionStorage.setItem("empleado", res.data.empleado);
+      sessionStorage.setItem("nombre", res.data.nombre);
+      sessionStorage.setItem("roles", JSON.stringify(res.data.roles));
+      sessionStorage.setItem("token_sesion", res.data.token_sesion);
 
-        const roles = res.data.roles.map((r) => r.id);
+      const roles = res.data.roles.map((r) => r.id);
 
-        if (roles.includes(1) || roles.includes(2) || roles.includes(3)) {
-          navigate("/admin", { replace: true });
-        } else if (roles.includes(4)) {
-          navigate("/captura", { replace: true });
-        } else {
-          setError("No tienes permisos asignados");
-        }
+      if (roles.includes(1) || roles.includes(2) || roles.includes(3)) {
+        navigate("/admin", { replace: true });
+      } else if (roles.includes(4)) {
+        navigate("/captura", { replace: true });
       } else {
+        setError("No tienes permisos asignados");
+      }
+    } else {
         setError(res.data.error || "Credenciales incorrectas");
       }
     } catch (err) {
