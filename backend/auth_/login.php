@@ -1,13 +1,32 @@
 <?php
-$origenPermitido = 'http://localhost:3000';
-header("Access-Control-Allow-Origin: $origenPermitido");
-header("Access-Control-Allow-Credentials: true");
-header("Access-Control-Allow-Headers: Content-Type");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 header("Content-Type: application/json; charset=UTF-8");
+
+$origen = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
+
+$origenesPermitidos = array(
+  'http://localhost:3000',
+  'https://diniz.com.mx',
+  'https://www.diniz.com.mx'
+);
+
+if (in_array($origen, $origenesPermitidos, true)) {
+  header("Access-Control-Allow-Origin: " . $origen);
+}
+
+header("Vary: Origin");
+header("Access-Control-Allow-Credentials: true");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   http_response_code(200);
+  echo json_encode(array(
+    'success' => true,
+    'preflight' => true
+  ));
   exit;
 }
 
@@ -17,13 +36,19 @@ session_start();
 $MASTER_PASS_HASH = hash('sha256', '0788');
 
 $raw = file_get_contents("php://input");
-$input = $raw ? json_decode($raw, true) : $_POST;
+$decoded = json_decode($raw, true);
+
+if (is_array($decoded)) {
+  $input = $decoded;
+} else {
+  $input = $_POST;
+}
 
 $empleado = isset($input['empleado']) ? trim($input['empleado']) : null;
 $password = isset($input['password']) ? (string)$input['password'] : null;
 
 if (!$empleado || $password === null) {
-  echo json_encode(['success' => false, 'error' => 'Faltan credenciales']);
+  echo json_encode(array('success' => false, 'error' => 'Faltan credenciales'));
   exit;
 }
 
@@ -35,12 +60,12 @@ $db     = "SAP_PROCESOS";
 $conn = mssql_connect($server, $user, $pass);
 
 if (!$conn) {
-  echo json_encode(['success' => false, 'error' => 'No se pudo conectar a la BD']);
+  echo json_encode(array('success' => false, 'error' => 'No se pudo conectar a la BD'));
   exit;
 }
 
 if (!mssql_select_db($db, $conn)) {
-  echo json_encode(['success' => false, 'error' => 'No se pudo seleccionar la BD']);
+  echo json_encode(array('success' => false, 'error' => 'No se pudo seleccionar la BD'));
   exit;
 }
 
@@ -62,14 +87,14 @@ $sqlUsuario = "
 $res = mssql_query($sqlUsuario, $conn);
 
 if (!$res || mssql_num_rows($res) === 0) {
-  echo json_encode(['success' => false, 'error' => 'Usuario o contraseña inválidos']);
+  echo json_encode(array('success' => false, 'error' => 'Usuario o contraseña inválidos'));
   exit;
 }
 
 $u = mssql_fetch_assoc($res);
 
 if (!$u['activo']) {
-  echo json_encode(['success' => false, 'error' => 'Usuario inactivo']);
+  echo json_encode(array('success' => false, 'error' => 'Usuario inactivo'));
   exit;
 }
 
@@ -81,22 +106,26 @@ if (hash('sha256', $password) === $MASTER_PASS_HASH) {
 } else {
   if ($salt !== '' && !empty($u['password_hash'])) {
     $calc = md5($salt . $password);
-    $ok = strtolower($calc) === strtolower($u['password_hash']);
+    $ok = (strtolower($calc) === strtolower($u['password_hash']));
   } elseif (!empty($u['password_hash']) && strlen($u['password_hash']) === 32) {
     $calc = md5($password);
-    $ok = strtolower($calc) === strtolower($u['password_hash']);
+    $ok = (strtolower($calc) === strtolower($u['password_hash']));
   } elseif (!empty($u['pass_sha256']) && strlen($u['pass_sha256']) === 64) {
-    $calcSha = $salt !== '' ? hash('sha256', $salt . $password) : hash('sha256', $password);
-    $ok = strtolower($calcSha) === strtolower($u['pass_sha256']);
+    if ($salt !== '') {
+      $calcSha = hash('sha256', $salt . $password);
+    } else {
+      $calcSha = hash('sha256', $password);
+    }
+    $ok = (strtolower($calcSha) === strtolower($u['pass_sha256']));
   }
 }
 
 if (!$ok) {
-  echo json_encode(['success' => false, 'error' => 'Usuario o contraseña inválidos']);
+  echo json_encode(array('success' => false, 'error' => 'Usuario o contraseña inválidos'));
   exit;
 }
 
-$roles = [];
+$roles = array();
 
 $sqlRoles = "
   SELECT r.id, r.nombre
@@ -109,19 +138,19 @@ $sqlRoles = "
 $qr = mssql_query($sqlRoles, $conn);
 
 if (!$qr) {
-  echo json_encode(['success' => false, 'error' => 'Error al consultar roles']);
+  echo json_encode(array('success' => false, 'error' => 'Error al consultar roles'));
   exit;
 }
 
 while ($r = mssql_fetch_assoc($qr)) {
-  $roles[] = [
+  $roles[] = array(
     'id' => intval($r['id']),
     'nombre' => $r['nombre']
-  ];
+  );
 }
 
 if (empty($roles)) {
-  echo json_encode(['success' => false, 'error' => 'No tienes permisos asignados']);
+  echo json_encode(array('success' => false, 'error' => 'No tienes permisos asignados'));
   exit;
 }
 
@@ -145,7 +174,7 @@ $sqlCerrarSesiones = "
 $resCerrarSesiones = mssql_query($sqlCerrarSesiones, $conn);
 
 if (!$resCerrarSesiones) {
-  echo json_encode(['success' => false, 'error' => 'Error al cerrar sesiones anteriores']);
+  echo json_encode(array('success' => false, 'error' => 'Error al cerrar sesiones anteriores'));
   exit;
 }
 
@@ -175,7 +204,7 @@ $sqlNuevaSesion = "
 $resNuevaSesion = mssql_query($sqlNuevaSesion, $conn);
 
 if (!$resNuevaSesion) {
-  echo json_encode(['success' => false, 'error' => 'Error al crear nueva sesión']);
+  echo json_encode(array('success' => false, 'error' => 'Error al crear nueva sesión'));
   exit;
 }
 
@@ -184,13 +213,13 @@ $_SESSION['nombre'] = $u['nombre'];
 $_SESSION['roles'] = $roles;
 $_SESSION['token_sesion'] = $tokenSesion;
 
-echo json_encode([
+echo json_encode(array(
   'success' => true,
   'empleado' => $u['empleado'],
   'nombre' => $u['nombre'],
   'roles' => $roles,
   'token_sesion' => $tokenSesion
-]);
+));
 
 mssql_close($conn);
 exit;
