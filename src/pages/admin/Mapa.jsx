@@ -18,7 +18,9 @@ const coloresEstatus = {
   1: { color: "bg-red-600", label: "Conteo 1", icono: "🔴" },
   2: { color: "bg-amber-500", label: "Conteo 2", icono: "🟡" },
   3: { color: "bg-green-600", label: "Conteo 3", icono: "🟢" },
-  4: { color: "bg-[#611232]", label: "Finalizado", icono: "✔️" },
+  4: { color: "bg-indigo-700", label: "Cierre pendiente", icono: "🔒" },
+  5: { color: "bg-[#611232]", label: "Finalizado", icono: "✔️" },
+  7: { color: "bg-indigo-700", label: "Cierre pendiente", icono: "🔒" },
 };
 
 
@@ -177,6 +179,8 @@ export default function Mapa({ drawerRootId }) {
 
         if (res.data.success) {
           const bloques = Array.isArray(res.data.data) ? res.data.data : [];
+
+
           setAlmacenes(bloques);
 
           if (bloques.length === 0) {
@@ -629,25 +633,46 @@ export default function Mapa({ drawerRootId }) {
   const gruposUI = useMemo(() => {
     const bloques = Array.isArray(almacenes) ? almacenes : [];
 
-    const out = {};
+    const gruposPorBase = {};
 
     bloques.forEach((b) => {
-      const est = Number(b.estatus);
       const regs = Array.isArray(b.registros) ? b.registros : [];
 
-      const porBase = {};
       regs.forEach((r) => {
         const alm = (r.almacen || "").trim();
         const base = alm.includes("-") ? alm.split("-")[0] : alm;
+        const estatusAlmacen = Number(r.estatus ?? b.estatus);
 
-        if (!porBase[base]) porBase[base] = [];
-        porBase[base].push(r);
+        if (!gruposPorBase[base]) {
+          gruposPorBase[base] = [];
+        }
+
+        gruposPorBase[base].push({
+          ...r,
+          estatus: estatusAlmacen,
+        });
       });
+    });
 
-      out[est] = Object.entries(porBase).map(([base, items]) => ({
+    const out = {};
+
+    Object.entries(gruposPorBase).forEach(([base, items]) => {
+      const estatusLista = items.map((x) => Number(x.estatus));
+
+      const todosFinalizados = estatusLista.every((e) => e === 5);
+
+      const estatusGrupo = todosFinalizados
+        ? 5
+        : Math.min(...estatusLista.filter((e) => e < 5));
+
+      if (!out[estatusGrupo]) {
+        out[estatusGrupo] = [];
+      }
+
+      out[estatusGrupo].push({
         base,
         items,
-      }));
+      });
     });
 
     return out;
@@ -1030,8 +1055,10 @@ export default function Mapa({ drawerRootId }) {
 
 
       const almacenesACerrar = grupoSeleccionado
-        ? grupoSeleccionado.almacenes
+        ? Array.from(new Set(detalle.map((x) => x.almacen).filter(Boolean)))
         : [almacenSeleccionado];
+
+      console.log("ALMACENES A CERRAR:", almacenesACerrar);
 
       if (!almacenesACerrar || almacenesACerrar.length === 0) {
         Swal.close();
@@ -1040,28 +1067,38 @@ export default function Mapa({ drawerRootId }) {
       }
 
 
-      for (const alm of almacenesACerrar) {
-        const res = await axios.get(
-          "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/cerrar_inventario_admin.php",
-          {
-            params: {
-              cia,
-              almacen: alm,
-              fecha,
-              usuario: sessionStorage.getItem("empleado"),
-              proyecto: value.proyecto,
-              cuenta_em: value.cuentaEM,
-              cuenta_sm: value.cuentaSM,
-              comentario: value.comentario,
-            },
-          }
-        );
+      const erroresCierre = [];
 
-        if (!res.data || !res.data.success) {
-          throw new Error(
-            res.data?.error || `Error al cerrar el almacén ${alm}`
+      for (const alm of almacenesACerrar) {
+        try {
+          const res = await axios.get(
+            "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/cerrar_inventario_admin.php",
+            {
+              params: {
+                cia,
+                almacen: alm,
+                fecha,
+                usuario: sessionStorage.getItem("empleado"),
+                proyecto: value.proyecto,
+                cuenta_em: value.cuentaEM,
+                cuenta_sm: value.cuentaSM,
+                comentario: value.comentario,
+              },
+            }
           );
+
+          console.log("RESPUESTA CIERRE:", alm, res.data);
+
+          if (!res.data || !res.data.success) {
+            erroresCierre.push(`${alm}: ${res.data?.error || "Error desconocido"}`);
+          }
+        } catch (error) {
+          erroresCierre.push(`${alm}: ${error.message}`);
         }
+      }
+
+      if (erroresCierre.length > 0) {
+        throw new Error(erroresCierre.join("\n"));
       }
 
 
@@ -1077,10 +1114,12 @@ export default function Mapa({ drawerRootId }) {
 
       setMostrarDrawer(false);
 
+      await fetchAlmacenes();
+
       if (grupoSeleccionado) {
-        fetchDetalleGrupo(grupoSeleccionado);
+        await fetchDetalleGrupo(grupoSeleccionado);
       } else {
-        fetchDetalle();
+        await fetchDetalle();
       }
 
     } catch (e) {
@@ -2247,7 +2286,7 @@ const convertirImagenBase64 = (url) => {
 
             </div>
 
-            {grupoSeleccionado && estatusInventario === 4 && sapRefrescado === false && (
+            {grupoSeleccionado && [4, 7].includes(Number(estatusInventario)) && sapRefrescado === false && (
               <button
               onClick={refreshSAP}
               disabled={procesandoRefresh}
@@ -2287,7 +2326,7 @@ const convertirImagenBase64 = (url) => {
             )}
 
 
-           {((estatusInventario === 4 && sapRefrescado === true) || estatusInventario === 5) && (
+           {(([4, 7].includes(Number(estatusInventario)) && sapRefrescado === true) || Number(estatusInventario) === 5) && (
               <button
               onClick={() => setMostrarDrawer(true)}
               className="
