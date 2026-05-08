@@ -17,9 +17,26 @@ export default function AdminDashboard() {
     <div className="flex h-screen bg-gray-100 overflow-hidden">
 
       <aside
-        className={`bg-[#611232] text-white transition-all duration-300 ease-in-out shadow-2xl flex flex-col
+        className={`relative overflow-hidden bg-gradient-to-br from-[#0b0508] via-[#3d0b20] to-[#611232] text-white transition-all duration-300 ease-in-out shadow-2xl flex flex-col
         ${collapsed ? "w-20" : "w-72"}`}
       >
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_35%)]"></div>
+
+        <div className="absolute inset-0 opacity-[0.08] pointer-events-none">
+          <div className="absolute left-[-120px] top-24 w-[320px] h-[320px] border border-white/40 rotate-45"></div>
+          <div className="absolute right-[-130px] bottom-20 w-[360px] h-[360px] border border-white/30 rotate-45"></div>
+          <div className="absolute left-16 top-44 w-[220px] h-[220px] rounded-full border border-white/25"></div>
+        </div>
+
+        <div className="absolute inset-0 opacity-[0.10] pointer-events-none">
+          <div className="absolute top-20 left-10 grid grid-cols-6 gap-2">
+            {Array.from({ length: 36 }).map((_, i) => (
+              <span key={i} className="w-1 h-1 rounded-full bg-white"></span>
+            ))}
+          </div>
+        </div>
+
+  <div className="relative z-10 flex flex-col h-full">
 
         <div className="flex items-center justify-between px-4 h-16 border-b border-white/20">
 
@@ -93,6 +110,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        </div>
       </aside>
 
       <main
@@ -102,42 +120,72 @@ export default function AdminDashboard() {
 
         {vista === "inicio" && (
           <div className="flex items-center justify-center h-full">
-            <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full p-12 text-center">
+            <div className="relative overflow-hidden bg-white rounded-[2rem] shadow-[0_35px_100px_rgba(15,23,42,0.18)] max-w-5xl w-full p-12 text-center border border-gray-100">
 
-              <h1 className="text-4xl font-extrabold text-gray-900 mb-4">
-                Administrador SICAF
-              </h1>
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#3d0b20] via-[#611232] to-[#8a1b48]"></div>
 
-              <div className="w-20 h-1 bg-[#611232] mx-auto mb-6 rounded-full"></div>
+              <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-[#611232]/5 blur-3xl"></div>
+              <div className="absolute -bottom-32 -left-32 w-80 h-80 rounded-full bg-gray-900/5 blur-3xl"></div>
 
-              <h2 className="text-lg font-semibold text-gray-700 mb-6">
-                Sistema de Captura de Inventarios Físicos
-              </h2>
-
-              <p className="text-gray-600 leading-relaxed max-w-2xl mx-auto">
-                Plataforma centralizada para supervisar operaciones de inventario,
-                gestionar capturistas y monitorear el estado de los procesos
-                operativos dentro del sistema SICAF.
-              </p>
-
-              <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8 text-center">
-
-                <div className="bg-gray-50 rounded-xl p-6">
-                  <p className="text-3xl font-bold text-[#611232]">v1.0</p>
-                  <p className="text-xs text-gray-500 mt-1 tracking-wider">
-                    VERSIÓN DEL SISTEMA
-                  </p>
+              <div className="relative">
+                <div className="mx-auto mb-8 w-24 h-24 rounded-3xl bg-gradient-to-br from-[#3d0b20] via-[#611232] to-[#8a1b48] flex items-center justify-center shadow-[0_20px_45px_rgba(97,18,50,0.35)]">
+                  <span className="text-white text-4xl font-black">SICAF</span>
                 </div>
 
-                <div className="bg-gray-50 rounded-xl p-6">
-                  <p className="text-sm font-semibold text-gray-800">
-                    ÁREA DE TI
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1 tracking-wider">
-                    DESARROLLO SAP
-                  </p>
+                <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-[#611232]/8 text-[#611232] text-xs font-extrabold tracking-[0.22em] uppercase mb-5">
+                  Panel administrativo
                 </div>
 
+                <h1 className="text-5xl font-black text-gray-950 mb-4 tracking-tight">
+                  Administrador SICAF
+                </h1>
+
+                <div className="w-24 h-1 bg-gradient-to-r from-[#3d0b20] via-[#611232] to-[#8a1b48] mx-auto mb-7 rounded-full"></div>
+
+                <h2 className="text-xl font-bold text-gray-800 mb-6">
+                  Sistema de Captura de Inventarios Físicos
+                </h2>
+
+                <p className="text-gray-600 leading-relaxed max-w-3xl mx-auto text-base">
+                  Plataforma centralizada para supervisar operaciones de inventario,
+                  gestionar capturistas y monitorear el estado de los procesos
+                  operativos dentro del sistema SICAF.
+                </p>
+
+                <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+
+                  <div className="group bg-gradient-to-br from-gray-50 to-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300">
+                    <p className="text-3xl font-black text-[#611232]">v1.0</p>
+                    <p className="text-xs text-gray-500 mt-2 tracking-[0.18em] font-bold">
+                      VERSIÓN DEL SISTEMA
+                    </p>
+                  </div>
+
+                  <div className="group bg-gradient-to-br from-gray-50 to-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300">
+                    <p className="text-sm font-black text-gray-900 tracking-wide">
+                      ÁREA DE TI
+                    </p>
+                    <p className="text-xs text-gray-500 mt-2 tracking-[0.18em] font-bold">
+                      DESARROLLO SAP
+                    </p>
+                  </div>
+
+                  <div className="group bg-gradient-to-br from-gray-50 to-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300">
+                    <p className="text-sm font-black text-gray-900 tracking-wide">
+                      GRUPO DINIZ
+                    </p>
+                    <p className="text-xs text-gray-500 mt-2 tracking-[0.18em] font-bold">
+                      INVENTARIOS FÍSICOS
+                    </p>
+                  </div>
+
+                </div>
+
+                <div className="mt-10 pt-6 border-t border-gray-100">
+                  <p className="text-xs text-gray-400 tracking-[0.25em] uppercase">
+                    Control · Operación · Conciliación SAP
+                  </p>
+                </div>
               </div>
 
             </div>

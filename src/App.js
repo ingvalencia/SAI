@@ -158,21 +158,32 @@ function AppRoutes() {
 
   return (
     <>
+
       {location.pathname !== "/login" && (
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2 bg-[#611232] text-white px-4 py-3 shadow">
-          <div className="text-sm md:text-base">
-            Usuario: <strong>{nombre || "Sin nombre"}</strong> ({empleado || "—"})
+        <div className="relative overflow-hidden flex flex-col md:flex-row md:justify-between md:items-center gap-2 bg-gradient-to-r from-[#0b0508] via-[#3d0b20] to-[#611232] text-white px-5 py-3 shadow-[0_8px_30px_rgba(0,0,0,0.35)] border-b border-white/10">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_left,rgba(255,255,255,0.08),transparent_35%)]"></div>
+
+          <div className="absolute inset-0 opacity-[0.08] pointer-events-none">
+            <div className="absolute left-10 top-[-60px] w-40 h-40 border border-white/40 rotate-45"></div>
+            <div className="absolute right-40 top-[-80px] w-52 h-52 border border-white/20 rotate-45"></div>
+          </div>
+
+          <div className="relative z-10 text-sm md:text-base tracking-wide">
+            Usuario:{" "}
+            <strong className="font-extrabold">
+              {nombre || "Sin nombre"}
+            </strong>{" "}
+            <span className="text-white/80">({empleado || "—"})</span>
           </div>
 
           <button
             onClick={handleLogout}
-            className="bg-white text-[#611232] hover:bg-gray-200 px-3 py-1 rounded text-sm font-semibold transition"
+            className="relative z-10 bg-white/95 text-[#611232] hover:bg-white px-4 py-1.5 rounded-lg text-sm font-bold transition shadow-md hover:shadow-lg"
           >
             Cerrar sesión
           </button>
         </div>
       )}
-
       {modo_forzado && location.pathname !== "/login" && (
         <div className="bg-yellow-900 text-yellow-300 px-4 py-2 text-xs text-center border-b border-yellow-700">
           ⚠ Acceso de desarrollador. Sistema en mantenimiento para otros usuarios.
