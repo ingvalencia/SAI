@@ -59,7 +59,30 @@ export default function Usuarios() {
     cia: "",
   });
 
-  //Usuarios disponibles
+  const formInicialBase = {
+    empleado: "",
+    nombre: "",
+    email: "",
+    password: "",
+    rol_id: 4,
+    locales: [],
+    cia: "",
+  };
+
+  const formInicialAdmin = {
+    empleado: "",
+    nombre: "",
+    email: "",
+    password: "",
+    rol_id: 1,
+    locales: [],
+    cia: "",
+  };
+
+  const [formBase, setFormBase] = useState(formInicialBase);
+  const [formAdmin, setFormAdmin] = useState(formInicialAdmin);
+
+
   const fetchUsuariosDisponibles = async () => {
     try {
       const res = await axios.get(
@@ -314,6 +337,94 @@ export default function Usuarios() {
     }
   };
 
+  const buscarUsuarioMysqlBase = async (empleado) => {
+    if (!empleado) return;
+
+    try {
+      const res = await axios.get(
+        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/mysql_buscar_usuario.php",
+        { params: { empleado } }
+      );
+
+      if (!res.data.success) {
+        throw new Error(res.data.error);
+      }
+
+      const u = res.data.data;
+
+      setFormBase((prev) => ({
+        ...prev,
+        empleado: u.empleado,
+        nombre: u.nombre,
+        email: u.email || "",
+        password: u.password || "",
+      }));
+    } catch (err) {
+      MySwal.fire("No encontrado", err.message, "warning");
+
+      setFormBase({
+        ...formInicialBase,
+        empleado,
+      });
+    }
+  };
+
+const buscarUsuarioMysqlAdmin = async (empleado) => {
+    if (!empleado) return;
+
+    try {
+      const res = await axios.get(
+        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/mysql_buscar_usuario.php",
+        { params: { empleado } }
+      );
+
+      if (!res.data.success) {
+        throw new Error(res.data.error);
+      }
+
+      const u = res.data.data;
+
+      setFormAdmin((prev) => ({
+        ...prev,
+        empleado: u.empleado,
+        nombre: u.nombre,
+        email: u.email || "",
+        password: u.password || "",
+      }));
+    } catch (err) {
+      MySwal.fire("No encontrado", err.message, "warning");
+
+      setFormAdmin({
+        ...formInicialAdmin,
+        empleado,
+      });
+    }
+  };
+
+  const limpiarFormularioActivo = () => {
+      if (tabRegistro === "base") {
+        setFormBase(formInicialBase);
+      }
+
+      if (tabRegistro === "admin") {
+        setFormAdmin(formInicialAdmin);
+      }
+
+      if (tabRegistro === "operador") {
+        setUsuariosSeleccionados([]);
+        setForm((prev) => ({
+          ...prev,
+          locales: [],
+          cia: "",
+        }));
+        setCiaSeleccionada("");
+        setOrdenAlmacenes({});
+        setFechaAsignacion("");
+        setTipoConteo("Individual");
+        setBusquedaLocal("");
+        setBusquedaOperador("");
+      }
+    };
 
   return (
     <div className="p-3 md:p-6 w-full max-w-none mx-auto">
@@ -323,7 +434,10 @@ export default function Usuarios() {
 
         <button
           type="button"
-          onClick={() => setTabRegistro("admin")}
+          onClick={() => {
+            limpiarFormularioActivo();
+            setTabRegistro("admin");
+          }}
           className={`px-6 py-3 text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm
           ${
             tabRegistro === "admin"
@@ -336,7 +450,10 @@ export default function Usuarios() {
 
         <button
           type="button"
-          onClick={() => setTabRegistro("base")}
+          onClick={() => {
+            limpiarFormularioActivo();
+            setTabRegistro("base");
+          }}
           className={`px-6 py-3 text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm
           ${
             tabRegistro === "base"
@@ -349,7 +466,10 @@ export default function Usuarios() {
 
         <button
           type="button"
-          onClick={() => setTabRegistro("operador")}
+          onClick={() => {
+            limpiarFormularioActivo();
+            setTabRegistro("operador");
+          }}
           className={`px-6 py-3 text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm
           ${
             tabRegistro === "operador"
@@ -372,10 +492,10 @@ export default function Usuarios() {
               const res = await axios.post(
                 "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/registrar_usuario_base.php",
                 {
-                  empleado: form.empleado,
-                  nombre: form.nombre,
-                  email: form.email,
-                  password: form.password,
+                  empleado: formBase.empleado,
+                  nombre: formBase.nombre,
+                  email: formBase.email,
+                  password: formBase.password,
                   creado_por: empleadoSesion,
                 }
               );
@@ -384,15 +504,7 @@ export default function Usuarios() {
 
               await MySwal.fire("Éxito", "Usuario base registrado correctamente", "success");
 
-              setForm({
-                empleado: "",
-                nombre: "",
-                email: "",
-                password: "",
-                rol_id: 4,
-                locales: [],
-                cia: "",
-              });
+              setFormBase(formInicialBase);
             } catch (err) {
               MySwal.fire("Error", err.message, "error");
             } finally {
@@ -405,59 +517,67 @@ export default function Usuarios() {
             Registro base de usuarios
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <input
-              type="text"
-              required
-              placeholder="Empleado"
-              className="border rounded-lg px-3 py-2"
-              value={form.empleado}
-              onChange={(e) => {
-                const value = e.target.value;
+          <div className="rounded-2xl border border-gray-200 bg-white/90 shadow-sm p-5">
+            <div className="mb-5">
+              <h3 className="text-sm font-semibold text-gray-800">
+                Datos del operador de inventario
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Ingresa el empleado para cargar su información automáticamente.
+              </p>
+            </div>
 
-                // si se limpia, se limpia todo el formulario
-                if (!value) {
-                  setForm({
-                    empleado: "",
-                    nombre: "",
-                    email: "",
-                    password: "",
-                    rol_id: form.rol_id,
-                    locales: [],
-                    cia: "",
-                  });
-                  return;
-                }
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                  Empleado
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Número de empleado"
+                  className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#611232]/20 focus:border-[#611232] transition"
+                  value={formBase.empleado}
+                  onChange={(e) => {
+                    const value = e.target.value;
 
-                setForm({ ...form, empleado: value });
-              }}
-              onBlur={(e) => buscarUsuarioMysql(e.target.value)}
-            />
+                    if (!value) {
+                      setFormBase(formInicialBase);
+                      return;
+                    }
 
+                    setFormBase({ ...formBase, empleado: value });
+                  }}
+                  onBlur={(e) => buscarUsuarioMysqlBase(e.target.value)}
+                />
+              </div>
 
-            <input
-              type="text"
-              placeholder="Nombre"
-              readOnly
-              className="border rounded-lg px-3 py-2 bg-gray-100"
-              value={form.nombre}
-            />
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                  Nombre
+                </label>
+                <input
+                  type="text"
+                  placeholder="Nombre del empleado"
+                  readOnly
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-gray-50 text-gray-700 cursor-not-allowed focus:outline-none"
+                  value={formBase.nombre}
+                />
+              </div>
 
-            <input
-              type="email"
-              placeholder="Correo"
-              readOnly
-              className="border rounded-lg px-3 py-2 bg-gray-100"
-              value={form.email}
-            />
-
-            <input
-              type="password"
-              placeholder="Contraseña"
-              readOnly
-              className="border rounded-lg px-3 py-2 bg-gray-100"
-              value={form.password}
-            />
+              <div className="space-y-1.5 md:col-span-2">
+                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                  Contraseña
+                </label>
+                <input
+                  type="password"
+                  placeholder="Contraseña generada"
+                  readOnly
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-gray-50 text-gray-700 cursor-not-allowed focus:outline-none"
+                  value={formBase.password}
+                />
+              </div>
+            </div>
           </div>
 
           <div className="mt-6 flex justify-center">
@@ -784,17 +904,18 @@ export default function Usuarios() {
         onSubmit={async (e) => {
           e.preventDefault();
           setLoading(true);
+
           try {
             const rolesSesion = JSON.parse(sessionStorage.getItem("roles") || "[]");
             const rol_creador = rolesSesion.length > 0 ? rolesSesion[0].id : 1;
             const creado_por = sessionStorage.getItem("empleado") || "";
 
             const payload = {
-              empleado: form.empleado,
-              nombre: form.nombre,
-              email: form.email,
-              password: form.password,
-              rol_id: form.rol_id, // 1,2,3
+              empleado: formAdmin.empleado,
+              nombre: formAdmin.nombre,
+              email: formAdmin.email,
+              password: formAdmin.password,
+              rol_id: formAdmin.rol_id,
               cia: null,
               locales: [],
               rol_creador,
@@ -812,15 +933,7 @@ export default function Usuarios() {
             await MySwal.fire("Éxito", "Administrador registrado correctamente", "success");
             fetchUsuarios();
 
-            setForm({
-              empleado: "",
-              nombre: "",
-              email: "",
-              password: "",
-              rol_id: 1,
-              locales: [],
-              cia: "",
-            });
+            setFormAdmin(formInicialAdmin);
           } catch (err) {
             MySwal.fire("Error", err.message, "error");
           } finally {
@@ -833,77 +946,90 @@ export default function Usuarios() {
           Registrar Administrador
         </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <input
-            type="text"
-            required
-            placeholder="Empleado"
-            className="border rounded-lg px-3 py-2"
-            value={form.empleado}
-            onChange={(e) => {
-              const value = e.target.value;
+        <div className="rounded-2xl border border-gray-200 bg-white/90 shadow-sm p-5">
+          <div className="mb-5">
+            <h3 className="text-sm font-semibold text-gray-800">
+              Información del usuario
+            </h3>
+            <p className="text-xs text-gray-500 mt-1">
+              Captura el número de empleado para cargar los datos registrados.
+            </p>
+          </div>
 
-              // si se limpia, se limpia todo el formulario
-              if (!value) {
-                setForm({
-                  empleado: "",
-                  nombre: "",
-                  email: "",
-                  password: "",
-                  rol_id: form.rol_id,
-                  locales: [],
-                  cia: "",
-                });
-                return;
-              }
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                Empleado
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="Número de empleado"
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#611232]/20 focus:border-[#611232] transition"
+                value={formAdmin.empleado}
+                onChange={(e) => {
+                  const value = e.target.value;
 
-              setForm({ ...form, empleado: value });
-            }}
-            onBlur={(e) => buscarUsuarioMysql(e.target.value)}
-          />
+                  if (!value) {
+                    setFormAdmin(formInicialAdmin);
+                    return;
+                  }
 
-          <input
-            type="text"
-            required
-            placeholder="Nombre"
-            className="border rounded-lg px-3 py-2 bg-gray-100 cursor-not-allowed"
-            value={form.nombre}
-            readOnly
-          />
+                  setFormAdmin({ ...formAdmin, empleado: value });
+                }}
+                onBlur={(e) => buscarUsuarioMysqlAdmin(e.target.value)}
+              />
+            </div>
 
-          <input
-            type="email"
-            required
-            placeholder="Correo electrónico"
-            className="border rounded-lg px-3 py-2 bg-gray-100 cursor-not-allowed"
-            value={form.email}
-            readOnly
-          />
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                Nombre
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="Nombre del empleado"
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-gray-50 text-gray-700 cursor-not-allowed focus:outline-none"
+                value={formAdmin.nombre}
+                readOnly
+              />
+            </div>
 
-          <input
-            type="password"
-            required
-            placeholder="Contraseña"
-            className="border rounded-lg px-3 py-2 bg-gray-100 cursor-not-allowed"
-            value={form.password}
-            readOnly
-          />
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                Contraseña
+              </label>
+              <input
+                type="password"
+                required
+                placeholder="Contraseña"
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-gray-50 text-gray-700 cursor-not-allowed focus:outline-none"
+                value={formAdmin.password}
+                readOnly
+              />
+            </div>
 
-
-          <select
-            value={form.rol_id}
-            onChange={(e) => setForm({ ...form, rol_id: parseInt(e.target.value) })}
-            className="border rounded-lg px-3 py-2 md:col-span-2"
-          >
-            {roles
-              .filter((r) => r.id !== 4)
-              .map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.nombre}
-                </option>
-              ))}
-          </select>
-
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                Rol del usuario
+              </label>
+              <select
+                value={formAdmin.rol_id}
+                onChange={(e) =>
+                  setFormAdmin({ ...formAdmin, rol_id: parseInt(e.target.value) })
+                }
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#611232]/20 focus:border-[#611232] transition"
+              >
+                {roles
+                  .filter((r) => r.id !== 4)
+                  .map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.nombre}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          </div>
         </div>
 
         <div className="mt-6 flex justify-center">
@@ -911,8 +1037,8 @@ export default function Usuarios() {
             type="submit"
             disabled={loading}
             className={`px-6 py-3 rounded-lg text-white font-semibold ${
-                loading ? "bg-gray-400" : "bg-[#611232] hover:bg-[#7a163f]"
-              }`}
+              loading ? "bg-gray-400" : "bg-[#611232] hover:bg-[#7a163f]"
+            }`}
           >
             {loading ? "Registrando..." : "Registrar Administrador"}
           </button>

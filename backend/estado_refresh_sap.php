@@ -4,7 +4,6 @@ header('Access-Control-Allow-Methods: GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 header('Content-Type: application/json');
 
-
 $almacen = isset($_GET['almacen']) ? trim($_GET['almacen']) : null;
 $fecha   = isset($_GET['fecha'])   ? trim($_GET['fecha'])   : null;
 $cia     = isset($_GET['cia'])     ? trim($_GET['cia'])     : null;
@@ -13,7 +12,6 @@ if (!$almacen || !$fecha || !$cia) {
   echo json_encode(["success" => false, "error" => "Faltan parámetros"]);
   exit;
 }
-
 
 $server = "192.168.0.174";
 $user   = "sa";
@@ -25,8 +23,8 @@ if (!$conn) {
   echo json_encode(["success" => false, "error" => "No se pudo conectar a SQL Server"]);
   exit;
 }
-mssql_select_db($db, $conn);
 
+mssql_select_db($db, $conn);
 
 $almacenes = array_filter(array_map('trim', explode(',', $almacen)));
 
@@ -41,15 +39,28 @@ $listaAlmacenes = "'" . implode("','", $almacenesSQL) . "'";
 $fecha_safe = addslashes($fecha);
 $cia_safe   = addslashes($cia);
 
+$primerAlmacen = $almacenes[0];
+$grupoBase = explode('-', $primerAlmacen)[0];
+$grupoBaseSafe = addslashes($grupoBase);
 
 $q = mssql_query("
   SELECT
-    COUNT(DISTINCT almacen) AS total_almacenes,
-    COUNT(DISTINCT CASE WHEN tipo_foto = 'REFRESH' AND es_activa = 1 THEN almacen END) AS refrescados
-  FROM CAP_INVENTARIO_SAP_FOTO
-  WHERE almacen IN ($listaAlmacenes)
-    AND fecha_inv = '$fecha_safe'
-    AND cia = '$cia_safe'
+    COUNT(DISTINCT CFG.almacen) AS total_almacenes,
+    COUNT(DISTINCT CASE
+      WHEN F.tipo_foto = 'REFRESH'
+       AND ISNULL(F.es_activa, 0) = 1
+      THEN CFG.almacen
+    END) AS refrescados
+  FROM CAP_CONTEO_CONFIG CFG
+  LEFT JOIN CAP_INVENTARIO_SAP_FOTO F
+    ON F.almacen = CFG.almacen
+   AND F.cia = CFG.cia
+   AND CAST(F.fecha_inv AS DATE) = CAST(CFG.fecha_asignacion AS DATE)
+   AND F.tipo_foto = 'REFRESH'
+   AND ISNULL(F.es_activa, 0) = 1
+  WHERE CFG.almacen LIKE '$grupoBaseSafe-%'
+    AND CAST(CFG.fecha_asignacion AS DATE) = '$fecha_safe'
+    AND CFG.cia = '$cia_safe'
 ", $conn);
 
 if (!$q) {
@@ -60,12 +71,11 @@ if (!$q) {
 $row = mssql_fetch_assoc($q);
 
 if (!$row || intval($row['total_almacenes']) === 0) {
-  echo json_encode(["success" => false, "error" => "Fotografías no encontradas"]);
+  echo json_encode(["success" => false, "error" => "Programaciones no encontradas"]);
   exit;
 }
 
 $sap_refrescado = (intval($row['total_almacenes']) === intval($row['refrescados'])) ? 1 : 0;
-
 
 echo json_encode([
   "success"        => true,
@@ -73,4 +83,5 @@ echo json_encode([
   "total"          => intval($row['total_almacenes']),
   "refrescados"    => intval($row['refrescados'])
 ]);
+
 exit;

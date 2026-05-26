@@ -88,6 +88,7 @@ export default function Mapa({ drawerRootId }) {
   const [almacenFiltro, setAlmacenFiltro] = useState("TODOS");
 
   const [sapRefrescado, setSapRefrescado] = useState(null);
+  const [grupoCompleto, setGrupoCompleto] = useState(false);
   const [procesandoRefresh, setProcesandoRefresh] = useState(false);
 
   const [mostrarConteo4, setMostrarConteo4] = useState(false);
@@ -402,14 +403,16 @@ export default function Mapa({ drawerRootId }) {
         );
 
         if (resp.data && resp.data.success) {
-
           setSapRefrescado(resp.data.sap_refrescado === 1);
+          setGrupoCompleto(Number(resp.data.total) === grupo.almacenes.length);
         } else {
           setSapRefrescado(null);
+          setGrupoCompleto(false);
         }
-      } catch (e) {
-        console.error("Error consultando estado SAP grupo:", e);
+      }catch (e) {
+
         setSapRefrescado(null);
+        setGrupoCompleto(false);
       }
 
 
@@ -2286,7 +2289,7 @@ const convertirImagenBase64 = (url) => {
 
             </div>
 
-            {grupoSeleccionado && [4, 7].includes(Number(estatusInventario)) && sapRefrescado === false && (
+            {grupoSeleccionado && [4, 7].includes(Number(estatusInventario)) && sapRefrescado === false && grupoCompleto === true && (
               <button
               onClick={refreshSAP}
               disabled={procesandoRefresh}
@@ -2452,6 +2455,7 @@ const convertirImagenBase64 = (url) => {
                   setDetalle([]);
                   setBusqueda("");
                   setPaginaActual(1);
+                  setGrupoCompleto(false);
                 }}
                 className="
                   px-5 py-3

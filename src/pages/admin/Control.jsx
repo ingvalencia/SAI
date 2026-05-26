@@ -10,6 +10,8 @@ const MySwal = withReactContent(Swal);
 export default function Control() {
   const [usuarios, setUsuarios] = useState([]);
   const [filtroRol, setFiltroRol] = useState("");
+  const [filtroCiaUsuario, setFiltroCiaUsuario] = useState("");
+  const [filtroLocalUsuario, setFiltroLocalUsuario] = useState("");
   const [vista, setVista] = useState("usuarios");
 
   const rolesSesion = JSON.parse(sessionStorage.getItem("roles") || "[]");
@@ -42,6 +44,7 @@ export default function Control() {
 
   useEffect(() => {
     fetchUsuarios();
+    fetchConfiguraciones();
   }, []);
 
   useEffect(() => {
@@ -230,21 +233,72 @@ export default function Control() {
 
   const usuariosFiltrados = useMemo(() => {
     let base = [];
-    if (rolLogueado === 1 || rolLogueado === 2) base = usuarios;
+
+    if (rolLogueado === 1 || rolLogueado === 2) {
+      base = usuarios;
+    }
+
     if (rolLogueado === 3) {
       base = usuarios.filter(
         (u) => u.rol === 4 && u.creado_por === empleadoSesion
       );
     }
+
     if (filtroRol) {
       base = base.filter((u) => String(u.rol) === filtroRol);
     }
+
+    if (filtroCiaUsuario) {
+      base = base.filter(
+        (u) => String(u.cia_asignada || "").toLowerCase() === filtroCiaUsuario.toLowerCase()
+      );
+    }
+
+    if (filtroLocalUsuario) {
+      base = base.filter((u) =>
+        Array.isArray(u.locales) &&
+        u.locales.some((l) =>
+          String(l)
+            .toLowerCase()
+            .startsWith(filtroLocalUsuario.toLowerCase())
+        )
+      );
+    }
+
     return base;
-  }, [usuarios, rolLogueado, filtroRol, empleadoSesion]);
+  }, [
+    usuarios,
+    rolLogueado,
+    filtroRol,
+    filtroCiaUsuario,
+    filtroLocalUsuario,
+    empleadoSesion,
+  ]);
+
+  const ciasUsuarios = useMemo(() => {
+    return Array.from(
+      new Set(
+        usuarios
+          .map((u) => u.cia_asignada)
+          .filter((cia) => cia && cia !== "Sin asignación")
+      )
+    ).sort();
+  }, [usuarios]);
+
+  const localesUsuarios = useMemo(() => {
+    return Array.from(
+      new Set(
+        configuraciones
+          .map((c) => c.almacen)
+          .filter((l) => l && l !== "Sin asignación")
+          .map((l) => String(l).split("-")[0])
+      )
+    ).sort();
+  }, [configuraciones]);
 
   useEffect(() => {
     setPaginaActual(1);
-  }, [filtroRol, usuarios]);
+  }, [filtroRol, filtroCiaUsuario, filtroLocalUsuario, usuarios]);
 
   const porPagina = 10;
   const [paginaActual, setPaginaActual] = useState(1);
@@ -505,29 +559,81 @@ export default function Control() {
       {vista === "usuarios" && (
         <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 sm:p-6 lg:p-8">
 
-          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-6">
-            <h2 className="text-xl lg:text-2xl font-bold text-slate-800">
-              Gestión de Usuarios
-            </h2>
+          <div className="flex flex-col gap-4 mb-6">
+            <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+              <h2 className="text-xl lg:text-2xl font-bold text-slate-800">
+                Gestión de Usuarios
+              </h2>
 
-            {(rolLogueado === 1 || rolLogueado === 2) && (
-              <div className="w-full lg:w-72">
+              <button
+                type="button"
+                onClick={() => {
+                  setFiltroRol("");
+                  setFiltroCiaUsuario("");
+                  setFiltroLocalUsuario("");
+                }}
+                className="px-5 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg transition"
+              >
+                Limpiar filtros
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {(rolLogueado === 1 || rolLogueado === 2) && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                    Filtrar por rol
+                  </label>
+                  <select
+                    value={filtroRol}
+                    onChange={(e) => setFiltroRol(e.target.value)}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-700"
+                  >
+                    <option value="">Todos</option>
+                    <option value="1">Administrador TI</option>
+                    <option value="2">Administrador Sistema</option>
+                    <option value="3">Jefe Mesa Control</option>
+                    <option value="4">Operador Inventario</option>
+                  </select>
+                </div>
+              )}
+
+              <div>
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                  Filtrar por rol
+                  Filtrar por CIA
                 </label>
                 <select
-                  value={filtroRol}
-                  onChange={(e) => setFiltroRol(e.target.value)}
+                  value={filtroCiaUsuario}
+                  onChange={(e) => setFiltroCiaUsuario(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-700"
+                >
+                  <option value="">Todas</option>
+                  {ciasUsuarios.map((cia) => (
+                    <option key={cia} value={cia}>
+                      {cia.toUpperCase()}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                  Filtrar por local
+                </label>
+                <select
+                  value={filtroLocalUsuario}
+                  onChange={(e) => setFiltroLocalUsuario(e.target.value)}
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-700"
                 >
                   <option value="">Todos</option>
-                  <option value="1">Administrador TI</option>
-                  <option value="2">Administrador Sistema</option>
-                  <option value="3">Jefe Mesa Control</option>
-                  <option value="4">Operador Inventario</option>
+                  {localesUsuarios.map((local) => (
+                    <option key={local} value={local}>
+                      {local}
+                    </option>
+                  ))}
                 </select>
               </div>
-            )}
+            </div>
           </div>
 
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -539,6 +645,8 @@ export default function Control() {
                     <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Empleado</th>
                     <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Nombre</th>
                     <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Responsable</th>
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">CIA</th>
+                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Local</th>
                     <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Estado</th>
                     <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Acciones</th>
                   </tr>
@@ -555,7 +663,22 @@ export default function Control() {
                         </td>
                         <td className="px-3 sm:px-4 md:px-6 py-3 font-mono text-red-800">{u.empleado}</td>
                         <td className="px-3 sm:px-4 md:px-6 py-3 text-slate-800">{u.nombre}</td>
-                        <td className="px-3 sm:px-4 md:px-6 py-3 text-slate-700">{u.responsable_nombre || "—"}</td>
+                        <td className="px-3 sm:px-4 md:px-6 py-3 text-slate-700">
+                          {u.responsable_nombre || "—"}
+                        </td>
+
+                        <td className="px-3 sm:px-4 md:px-6 py-3 text-slate-700 font-semibold">
+                          {u.cia_asignada && u.cia_asignada !== "Sin asignación"
+                            ? u.cia_asignada.toUpperCase()
+                            : "—"}
+                        </td>
+
+                        <td className="px-3 sm:px-4 md:px-6 py-3 text-slate-700">
+                          {Array.isArray(u.locales) && u.locales.length > 0
+                            ? u.locales.join(", ")
+                            : "—"}
+                        </td>
+
                         <td className="px-3 sm:px-4 md:px-6 py-3">
                           {u.activo ? (
                             <span className="px-3 py-1 text-xs rounded-full bg-emerald-100 text-emerald-700 font-semibold">
