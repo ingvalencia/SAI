@@ -5,8 +5,8 @@ header('Access-Control-Allow-Headers: Content-Type');
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
+  http_response_code(200);
+  exit;
 }
 
 $cia     = isset($_GET['cia'])     ? trim($_GET['cia'])     : null;
@@ -20,8 +20,8 @@ $cuenta_sm = isset($_GET['cuenta_sm']) ? trim($_GET['cuenta_sm']) : null;
 $comentario_front = isset($_GET['comentario']) ? trim($_GET['comentario']) : '';
 
 if (!$cia || !$almacen || !$fecha || !$usuario || !$proyecto || !$cuenta_em || !$cuenta_sm) {
-    echo json_encode(array("success" => false, "error" => "Faltan parámetros"));
-    exit;
+  echo json_encode(array("success" => false, "error" => "Faltan parámetros"));
+  exit;
 }
 
 $server = "192.168.0.174";
@@ -32,13 +32,13 @@ $db     = "SAP_PROCESOS";
 $conn = mssql_connect($server, $user, $pass);
 
 if (!$conn) {
-    echo json_encode(array("success" => false, "error" => "No se pudo conectar a SQL Server"));
-    exit;
+  echo json_encode(array("success" => false, "error" => "No se pudo conectar a SQL Server"));
+  exit;
 }
 
 if (!mssql_select_db($db, $conn)) {
-    echo json_encode(array("success" => false, "error" => "No se pudo seleccionar la base de datos"));
-    exit;
+  echo json_encode(array("success" => false, "error" => "No se pudo seleccionar la base de datos"));
+  exit;
 }
 
 $cia = str_replace("'", "''", $cia);
@@ -50,57 +50,64 @@ $cuenta_em = str_replace("'", "''", $cuenta_em);
 $cuenta_sm = str_replace("'", "''", $cuenta_sm);
 $comentario_front = str_replace("'", "''", substr($comentario_front, 0, 50));
 
-function responder_error($conn, $mensaje) {
-    if ($conn) {
-        @mssql_query("ROLLBACK TRANSACTION", $conn);
-        @mssql_close($conn);
-    }
+function responder_error($conn, $mensaje)
+{
+  if ($conn) {
+    @mssql_query("ROLLBACK TRANSACTION", $conn);
+    @mssql_close($conn);
+  }
 
-    echo json_encode(array(
-        "success" => false,
-        "error" => $mensaje
-    ));
-    exit;
+  echo json_encode(array(
+    "success" => false,
+    "error" => $mensaje
+  ));
+  exit;
 }
 
-function obtener_ultimo_conteo($sap, $c1, $c2, $c3, $c4) {
-    $sap = floatval($sap);
-    $c1 = floatval($c1);
-    $c2 = floatval($c2);
-    $c3 = floatval($c3);
-    $c4 = floatval($c4);
+function obtener_ultimo_conteo($sap, $c1, $c2, $c3, $c4)
+{
+  $sap = floatval($sap);
+  $c1 = floatval($c1);
+  $c2 = floatval($c2);
+  $c3 = floatval($c3);
+  $c4 = floatval($c4);
 
-    $debeIrAC3 =
-        ($c1 != $c2) ||
-        ($c1 == $sap && $c2 != $sap) ||
-        ($c2 == $sap && $c1 != $sap) ||
-        ($c1 == $c2 && $c1 != $sap);
+  $debeIrAC3 =
+    ($c1 != $c2) ||
+    ($c1 == $sap && $c2 != $sap) ||
+    ($c2 == $sap && $c1 != $sap) ||
+    ($c1 == $c2 && $c1 != $sap);
 
-    if (!$debeIrAC3) {
-        return $c2;
-    }
+  if (!$debeIrAC3) {
+    return $c2;
+  }
 
-    $casoEspecialSapCeroConExistencia = ($sap == 0 && $c1 > 0 && $c2 > 0 && $c3 > 0);
-    $c3EsIgualAC1YC2PeroDistintoASap = ($c3 == $c1 && $c3 == $c2 && $c3 != $sap);
-    $c3EsIgualASap = ($c3 == $sap);
-    $c3EsCeroIgualASap = ($c3 == 0 && $sap == 0);
+  $casoEspecialSapCeroConExistencia = ($sap == 0 && $c1 > 0 && $c2 > 0 && $c3 > 0);
+  $c3EsIgualAC1YC2PeroDistintoASap = ($c3 == $c1 && $c3 == $c2 && $c3 != $sap);
+  $c3EsIgualASap = ($c3 == $sap);
+  $c3EsCeroIgualASap = ($c3 == 0 && $sap == 0);
 
-    $debeIrAC4 =
-        $casoEspecialSapCeroConExistencia ||
-        $c3EsIgualAC1YC2PeroDistintoASap ||
-        (!$c3EsIgualASap && !$c3EsCeroIgualASap);
+  $debeIrAC4 =
+    $casoEspecialSapCeroConExistencia ||
+    $c3EsIgualAC1YC2PeroDistintoASap ||
+    (!$c3EsIgualASap && !$c3EsCeroIgualASap);
 
-    if (!$debeIrAC4) {
-        return $c3;
-    }
+  if (!$debeIrAC4) {
+    return $c3;
+  }
 
-    $c4EsCeroIgualASap = ($c4 == 0 && $sap == 0);
+  $c4EsCeroIgualASap = ($c4 == 0 && $sap == 0);
 
-    if ($c4EsCeroIgualASap) {
-        return $c4;
-    }
-
+  if ($c4EsCeroIgualASap) {
     return $c4;
+  }
+
+  return $c4;
+}
+
+function normalizarCodigo($c)
+{
+  return str_pad(ltrim(trim($c), '0'), 8, '0', STR_PAD_LEFT);
 }
 
 $qr = mssql_query("
@@ -112,19 +119,19 @@ $qr = mssql_query("
 ", $conn);
 
 if (!$qr) {
-    responder_error($conn, mssql_get_last_message());
+  responder_error($conn, mssql_get_last_message());
 }
 
 $row = mssql_fetch_assoc($qr);
 
 if (!$row) {
-    responder_error($conn, "No se encontró inventario para cerrar");
+  responder_error($conn, "No se encontró inventario para cerrar");
 }
 
 $estatusActual = intval($row['estatus']);
 
 if ($estatusActual < 4) {
-    responder_error($conn, "El inventario no está listo para cierre SAP");
+  responder_error($conn, "El inventario no está listo para cierre SAP");
 }
 
 $qExiste = mssql_query("
@@ -136,13 +143,13 @@ $qExiste = mssql_query("
 ", $conn);
 
 if (!$qExiste) {
-    responder_error($conn, mssql_get_last_message());
+  responder_error($conn, mssql_get_last_message());
 }
 
 if ($rowExiste = mssql_fetch_assoc($qExiste)) {
-    $id_cierre_existente = intval($rowExiste["id_cierre"]);
+  $id_cierre_existente = intval($rowExiste["id_cierre"]);
 
-    $qSync = mssql_query("
+  $qSync = mssql_query("
         UPDATE CAP_INVENTARIO
         SET estatus = 5
         WHERE almacen = '$almacen'
@@ -151,51 +158,41 @@ if ($rowExiste = mssql_fetch_assoc($qExiste)) {
           AND estatus < 5
     ", $conn);
 
-    if (!$qSync) {
-        responder_error($conn, mssql_get_last_message());
-    }
-
-    echo json_encode(array(
-        "success" => true,
-        "id_cierre" => $id_cierre_existente,
-        "mensaje" => "Este inventario ya tenía cierre generado. Estatus sincronizado a 5."
-    ));
-
-    mssql_close($conn);
-    exit;
-}
-
-$qUser = mssql_query("
-    SELECT TOP 1 usuario
-    FROM CAP_INVENTARIO
-    WHERE almacen = '$almacen'
-      AND fecha_inv = '$fecha'
-      AND cias = '$cia'
-    ORDER BY id DESC
-", $conn);
-
-if (!$qUser) {
+  if (!$qSync) {
     responder_error($conn, mssql_get_last_message());
-}
+  }
 
-$rowUser = mssql_fetch_assoc($qUser);
-$usuarioInventario = $rowUser ? str_replace("'", "''", $rowUser['usuario']) : null;
+  echo json_encode(array(
+    "success" => true,
+    "id_cierre" => $id_cierre_existente,
+    "mensaje" => "Este inventario ya tenía cierre generado. Estatus sincronizado a 5."
+  ));
 
-if (!$usuarioInventario) {
-    responder_error($conn, "No se encontró usuario propietario del inventario");
-}
-
-$sp = mssql_query("EXEC USP_INVEN_SAP '$almacen', '$fecha', '$usuarioInventario', '$cia'", $conn);
-
-if (!$sp) {
-    responder_error($conn, "Error al consultar SAP (USP_INVEN_SAP): " . mssql_get_last_message());
+  mssql_close($conn);
+  exit;
 }
 
 $sap = array();
 
-while ($r = mssql_fetch_assoc($sp)) {
-    $codigo = trim($r['Codigo sap']);
-    $sap[$codigo] = floatval($r['Inventario_sap']);
+$qFoto = mssql_query("
+    SELECT
+        ItemCode,
+        SUM(inventario_sap_foto) AS inventario_sap
+    FROM CAP_INVENTARIO_SAP_FOTO
+    WHERE almacen = '$almacen'
+      AND fecha_inv = '$fecha'
+      AND cia = '$cia'
+      AND es_activa = 1
+    GROUP BY ItemCode
+", $conn);
+
+if (!$qFoto) {
+  responder_error($conn, "Error consultando fotografía SAP: " . mssql_get_last_message());
+}
+
+while ($r = mssql_fetch_assoc($qFoto)) {
+  $codigo = normalizarCodigo($r['ItemCode']);
+  $sap[$codigo] = floatval($r['inventario_sap']);
 }
 
 $q = mssql_query("
@@ -217,37 +214,37 @@ $q = mssql_query("
 ", $conn);
 
 if (!$q) {
-    responder_error($conn, mssql_get_last_message());
+  responder_error($conn, mssql_get_last_message());
 }
 
 $items = array();
 
 while ($r = mssql_fetch_assoc($q)) {
-    $codigo = trim($r['ItemCode']);
+  $codigo = normalizarCodigo($r['ItemCode']);
 
-    $sap_final = isset($sap[$codigo]) ? floatval($sap[$codigo]) : 0;
-    $conteo1 = isset($r['conteo1']) ? floatval($r['conteo1']) : 0;
-    $conteo2 = isset($r['conteo2']) ? floatval($r['conteo2']) : 0;
-    $conteo3 = isset($r['conteo3']) ? floatval($r['conteo3']) : 0;
-    $conteo4 = isset($r['conteo4']) ? floatval($r['conteo4']) : 0;
-    $conteo_final = obtener_ultimo_conteo($sap_final, $conteo1, $conteo2, $conteo3, $conteo4);
-    $dif = $conteo_final - $sap_final;
+  $sap_final = isset($sap[$codigo]) ? floatval($sap[$codigo]) : 0;
+  $conteo1 = isset($r['conteo1']) ? floatval($r['conteo1']) : 0;
+  $conteo2 = isset($r['conteo2']) ? floatval($r['conteo2']) : 0;
+  $conteo3 = isset($r['conteo3']) ? floatval($r['conteo3']) : 0;
+  $conteo4 = isset($r['conteo4']) ? floatval($r['conteo4']) : 0;
+  $conteo_final = obtener_ultimo_conteo($sap_final, $conteo1, $conteo2, $conteo3, $conteo4);
+  $dif = $conteo_final - $sap_final;
 
-    $items[$codigo] = array(
-        "Itemname" => $r["Itemname"],
-        "codebars" => $r["codebars"],
-        "conteo1" => $conteo1,
-        "conteo2" => $conteo2,
-        "conteo3" => $conteo3,
-        "conteo4" => $conteo4,
-        "final" => $conteo_final,
-        "sap" => $sap_final,
-        "dif" => $dif
-    );
+  $items[$codigo] = array(
+    "Itemname" => $r["Itemname"],
+    "codebars" => $r["codebars"],
+    "conteo1" => $conteo1,
+    "conteo2" => $conteo2,
+    "conteo3" => $conteo3,
+    "conteo4" => $conteo4,
+    "final" => $conteo_final,
+    "sap" => $sap_final,
+    "dif" => $dif
+  );
 }
 
 if (count($items) === 0) {
-    responder_error($conn, "No se encontraron artículos para generar cierre");
+  responder_error($conn, "No se encontraron artículos para generar cierre");
 }
 
 $tot_items = count($items);
@@ -255,17 +252,17 @@ $tot_dif = 0;
 $tot_ajuste = 0;
 
 foreach ($items as $tmp) {
-    if (floatval($tmp["dif"]) != 0) {
-        $tot_dif++;
-    }
+  if (floatval($tmp["dif"]) != 0) {
+    $tot_dif++;
+  }
 
-    $tot_ajuste += abs(floatval($tmp["dif"]));
+  $tot_ajuste += abs(floatval($tmp["dif"]));
 }
 
 $qTran = mssql_query("BEGIN TRANSACTION", $conn);
 
 if (!$qTran) {
-    responder_error($conn, mssql_get_last_message());
+  responder_error($conn, mssql_get_last_message());
 }
 
 $qInsertCierre = mssql_query("
@@ -296,20 +293,20 @@ $qInsertCierre = mssql_query("
 ", $conn);
 
 if (!$qInsertCierre) {
-    responder_error($conn, mssql_get_last_message());
+  responder_error($conn, mssql_get_last_message());
 }
 
 $qrId = mssql_query("SELECT @@IDENTITY AS id_cierre", $conn);
 
 if (!$qrId) {
-    responder_error($conn, mssql_get_last_message());
+  responder_error($conn, mssql_get_last_message());
 }
 
 $rowId = mssql_fetch_assoc($qrId);
 $id_cierre = intval($rowId["id_cierre"]);
 
 if ($id_cierre <= 0) {
-    responder_error($conn, "No se pudo obtener el ID del cierre");
+  responder_error($conn, "No se pudo obtener el ID del cierre");
 }
 
 $qConfig = mssql_query("
@@ -362,23 +359,23 @@ $qConfig = mssql_query("
 ", $conn);
 
 if (!$qConfig) {
-    responder_error($conn, mssql_get_last_message());
+  responder_error($conn, mssql_get_last_message());
 }
 
 foreach ($items as $codigo => &$it) {
-    $codigoSafe = str_replace("'", "''", $codigo);
-    $itemNameSafe = str_replace("'", "''", $it["Itemname"]);
-    $codebarsSafe = str_replace("'", "''", $it["codebars"]);
+  $codigoSafe = str_replace("'", "''", $codigo);
+  $itemNameSafe = str_replace("'", "''", $it["Itemname"]);
+  $codebarsSafe = str_replace("'", "''", $it["codebars"]);
 
-    $dif = floatval($it["dif"]);
-    $tipo = ($dif > 0) ? "E" : (($dif < 0) ? "S" : null);
-    $req = ($dif != 0) ? 1 : 0;
-    $conteoFinal = floatval($it["final"]);
-    $sapFinal = floatval($it["sap"]);
+  $dif = floatval($it["dif"]);
+  $tipo = ($dif > 0) ? "S" : (($dif < 0) ? "F" : null);
+  $req = ($dif != 0) ? 1 : 0;
+  $conteoFinal = floatval($it["final"]);
+  $sapFinal = floatval($it["sap"]);
 
-    $tipoSql = $tipo ? "'$tipo'" : "NULL";
+  $tipoSql = $tipo ? "'$tipo'" : "NULL";
 
-    $qDetInsert = mssql_query("
+  $qDetInsert = mssql_query("
         INSERT INTO CAP_INVENTARIO_CIERRE_DET
         (
             id_cierre,
@@ -415,35 +412,35 @@ foreach ($items as $codigo => &$it) {
         )
     ", $conn);
 
-    if (!$qDetInsert) {
-        responder_error($conn, mssql_get_last_message());
-    }
+  if (!$qDetInsert) {
+    responder_error($conn, mssql_get_last_message());
+  }
 
-    $qDetId = mssql_query("SELECT @@IDENTITY AS id_cierre_det", $conn);
+  $qDetId = mssql_query("SELECT @@IDENTITY AS id_cierre_det", $conn);
 
-    if (!$qDetId) {
-        responder_error($conn, mssql_get_last_message());
-    }
+  if (!$qDetId) {
+    responder_error($conn, mssql_get_last_message());
+  }
 
-    $rowDet = mssql_fetch_assoc($qDetId);
-    $it["id_cierre_det"] = intval($rowDet["id_cierre_det"]);
+  $rowDet = mssql_fetch_assoc($qDetId);
+  $it["id_cierre_det"] = intval($rowDet["id_cierre_det"]);
 }
 
 unset($it);
 
 $meses = array(
-    1 => 'ENERO',
-    2 => 'FEBRERO',
-    3 => 'MARZO',
-    4 => 'ABRIL',
-    5 => 'MAYO',
-    6 => 'JUNIO',
-    7 => 'JULIO',
-    8 => 'AGOSTO',
-    9 => 'SEPTIEMBRE',
-    10 => 'OCTUBRE',
-    11 => 'NOVIEMBRE',
-    12 => 'DICIEMBRE'
+  1 => 'ENERO',
+  2 => 'FEBRERO',
+  3 => 'MARZO',
+  4 => 'ABRIL',
+  5 => 'MAYO',
+  6 => 'JUNIO',
+  7 => 'JULIO',
+  8 => 'AGOSTO',
+  9 => 'SEPTIEMBRE',
+  10 => 'OCTUBRE',
+  11 => 'NOVIEMBRE',
+  12 => 'DICIEMBRE'
 );
 
 $timeFecha = strtotime($fecha);
@@ -451,18 +448,18 @@ $mes = $timeFecha ? $meses[intval(date('n', $timeFecha))] : '';
 $anio = $timeFecha ? date('Y', $timeFecha) : '';
 
 foreach ($items as $codigo => $it) {
-    if (floatval($it["dif"]) == 0) {
-        continue;
-    }
+  if (floatval($it["dif"]) == 0) {
+    continue;
+  }
 
-    $codigoSafe = str_replace("'", "''", $codigo);
-    $codebarsSafe = str_replace("'", "''", $it["codebars"]);
-    $dif = floatval($it["dif"]);
-    $tipo = ($dif > 0) ? "E" : "S";
-    $id_cierre_det = intval($it["id_cierre_det"]);
-    $comentario = str_replace("'", "''", $comentario_front . " - " . $mes . " " . $anio . "  EMP: " . $usuario);
+  $codigoSafe = str_replace("'", "''", $codigo);
+  $codebarsSafe = str_replace("'", "''", $it["codebars"]);
+  $dif = floatval($it["dif"]);
+  $tipo = ($dif > 0) ? "S" : (($dif < 0) ? "F" : null);
+  $id_cierre_det = intval($it["id_cierre_det"]);
+  $comentario = str_replace("'", "''", $comentario_front . " - " . $mes . " " . $anio . "  EMP: " . $usuario);
 
-    $qAjuste = mssql_query("
+  $qAjuste = mssql_query("
         INSERT INTO CAP_INVENTARIO_AJUSTES_SAP
         (
             id_cierre,
@@ -497,9 +494,9 @@ foreach ($items as $codigo => $it) {
         )
     ", $conn);
 
-    if (!$qAjuste) {
-        responder_error($conn, mssql_get_last_message());
-    }
+  if (!$qAjuste) {
+    responder_error($conn, mssql_get_last_message());
+  }
 }
 
 $qUpdateInventario = mssql_query("
@@ -511,7 +508,7 @@ $qUpdateInventario = mssql_query("
 ", $conn);
 
 if (!$qUpdateInventario) {
-    responder_error($conn, mssql_get_last_message());
+  responder_error($conn, mssql_get_last_message());
 }
 
 $qSignal = mssql_query("
@@ -520,21 +517,20 @@ $qSignal = mssql_query("
 ", $conn);
 
 if (!$qSignal) {
-    responder_error($conn, mssql_get_last_message());
+  responder_error($conn, mssql_get_last_message());
 }
 
 $qCommit = mssql_query("COMMIT TRANSACTION", $conn);
 
 if (!$qCommit) {
-    responder_error($conn, mssql_get_last_message());
+  responder_error($conn, mssql_get_last_message());
 }
 
 echo json_encode(array(
-    "success" => true,
-    "id_cierre" => $id_cierre,
-    "mensaje" => "Cierre generado correctamente"
+  "success" => true,
+  "id_cierre" => $id_cierre,
+  "mensaje" => "Cierre generado correctamente"
 ));
 
 mssql_close($conn);
 exit;
-?>

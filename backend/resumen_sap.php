@@ -9,7 +9,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit;
 }
 
-function limpiar($valor) {
+function limpiar($valor)
+{
   return str_replace("'", "''", trim((string)$valor));
 }
 
@@ -160,11 +161,13 @@ foreach ($cierresPorAlmacen as $cierre) {
 
   $faltante_total = 0;
   $faltante_docs = [];
+  $sobrante_total = 0;
+  $sobrante_docs = [];
 
   $qEntrada = mssql_query("
     SELECT T0.DocNum, SUM(T1.LineTotal) AS total_importe
-    FROM {$cia}_X.dbo.OIGN T0
-    INNER JOIN {$cia}_X.dbo.IGN1 T1 ON T0.DocEntry = T1.DocEntry
+    FROM {$cia}.dbo.OIGN T0
+    INNER JOIN {$cia}.dbo.IGN1 T1 ON T0.DocEntry = T1.DocEntry
     WHERE T0.DocEntry IN (
       SELECT DocEntry_sap
       FROM CAP_INVENTARIO_AJUSTES_SAP
@@ -176,20 +179,17 @@ foreach ($cierresPorAlmacen as $cierre) {
 
   if ($qEntrada) {
     while ($r = mssql_fetch_assoc($qEntrada)) {
-      $faltante_total += floatval($r["total_importe"]);
-      $faltante_docs[] = $r["DocNum"];
+      $sobrante_total += floatval($r["total_importe"]);
+      $sobrante_docs[] = $r["DocNum"];
     }
   }
 
-  $doc_faltante = count($faltante_docs) > 0 ? implode(", ", $faltante_docs) : "-";
-
-  $sobrante_total = 0;
-  $sobrante_docs = [];
+  $doc_sobrante = $sobrante_total > 0 && count($sobrante_docs) > 0 ? implode(", ", $sobrante_docs) : "-";
 
   $qSalida = mssql_query("
     SELECT T0.DocNum, SUM(T1.LineTotal) AS total_importe
-    FROM {$cia}_X.dbo.OIGE T0
-    INNER JOIN {$cia}_X.dbo.IGE1 T1 ON T0.DocEntry = T1.DocEntry
+    FROM {$cia}.dbo.OIGE T0
+    INNER JOIN {$cia}.dbo.IGE1 T1 ON T0.DocEntry = T1.DocEntry
     WHERE T0.DocEntry IN (
       SELECT DocEntry_sap
       FROM CAP_INVENTARIO_AJUSTES_SAP
@@ -201,12 +201,12 @@ foreach ($cierresPorAlmacen as $cierre) {
 
   if ($qSalida) {
     while ($r = mssql_fetch_assoc($qSalida)) {
-      $sobrante_total += floatval($r["total_importe"]);
-      $sobrante_docs[] = $r["DocNum"];
+      $faltante_total += floatval($r["total_importe"]);
+      $faltante_docs[] = $r["DocNum"];
     }
   }
 
-  $doc_sobrante = count($sobrante_docs) > 0 ? implode(", ", $sobrante_docs) : "-";
+  $doc_faltante = $faltante_total > 0 && count($faltante_docs) > 0 ? implode(", ", $faltante_docs) : "-";
 
   $total = $faltante_total + $sobrante_total;
 
@@ -231,6 +231,7 @@ $data[] = [
   "DOC_SOBRANTE"  => "-",
   "TOTAL"         => round($total_faltante_general + $total_sobrante_general, 2)
 ];
+
 echo json_encode([
   "success" => true,
   "id_cierres" => $idCierres,
@@ -244,4 +245,3 @@ echo json_encode([
 ]);
 
 exit;
-?>

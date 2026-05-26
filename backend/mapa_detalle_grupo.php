@@ -7,9 +7,14 @@ header('Content-Type: application/json');
 
 
 function normalizarCodigo($c) {
-  return str_pad(ltrim(trim($c), '0'), 8, '0', STR_PAD_LEFT);
-}
+  $c = trim($c);
 
+  if (ctype_digit($c)) {
+    return str_pad(ltrim($c, '0'), 8, '0', STR_PAD_LEFT);
+  }
+
+  return $c;
+}
 
 $grupo   = isset($_GET['grupo']) ? trim($_GET['grupo']) : null;
 $fecha   = isset($_GET['fecha']) ? trim($_GET['fecha']) : null;

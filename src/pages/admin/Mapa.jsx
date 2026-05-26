@@ -231,7 +231,7 @@ export default function Mapa({ drawerRootId }) {
 
         const conteo_final = obtenerUltimoConteo(item);
         const sap_final = Number(item.inventario_sap ?? 0);
-        const diferencia_cierre = Number((sap_final - conteo_final).toFixed(2));
+        const diferencia_cierre = Number((conteo_final - sap_final).toFixed(2));
 
         return {
           ...item,
@@ -423,7 +423,7 @@ export default function Mapa({ drawerRootId }) {
         const conteo_final = obtenerUltimoConteo(item);
 
         const sap_final = Number(item.inventario_sap ?? 0);
-        const diferencia_cierre = Number((sap_final - conteo_final).toFixed(2));
+        const diferencia_cierre = Number((conteo_final - sap_final).toFixed(2));
 
         return {
           ...item,
@@ -1365,8 +1365,8 @@ const convertirImagenBase64 = (url) => {
     { text: `$${Number(row.FALTANTE).toFixed(2)}`, alignment: "right", color: "green", fontSize: 10 },
     { text: `$${Number(row.SOBRANTE).toFixed(2)}`, alignment: "right", color: "red", fontSize: 10 },
     { text: `$${Number(row.TOTAL).toFixed(2)}`, alignment: "right", bold: true, fontSize: 10 },
-    { text: row.DOC_FALTANTE !== "-" ? row.DOC_FALTANTE : "-", alignment: "center", fontSize: 10 },
-    { text: row.DOC_SOBRANTE !== "-" ? row.DOC_SOBRANTE : "-", alignment: "center", fontSize: 10 }
+    { text: row.DOC_FALTANTE || "-", alignment: "center", fontSize: 10 },
+    { text: row.DOC_SOBRANTE || "-", alignment: "center", fontSize: 10 }
   ]));
 
   const docDefinition = {
@@ -1935,11 +1935,11 @@ const convertirImagenBase64 = (url) => {
                     </td>
 
                     <td className="px-4 py-3 text-center">
-                      {row.DOC_FALTANTE !== "-" ? row.DOC_FALTANTE : row.DOC_SOBRANTE}
+                      {row.DOC_FALTANTE}
                     </td>
 
                     <td className="px-4 py-3 text-center">
-                      {row.DOC_SOBRANTE !== "-" ? row.DOC_SOBRANTE : row.DOC_FALTANTE}
+                      {row.DOC_SOBRANTE}
                     </td>
                   </tr>
                 );
