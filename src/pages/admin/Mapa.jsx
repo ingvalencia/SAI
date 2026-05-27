@@ -2632,8 +2632,8 @@ const convertirImagenBase64 = (url) => {
                                 diferencia === 0
                                   ? "bg-amber-400 text-amber-950"
                                   : diferencia > 0
-                                  ? "bg-red-100 text-red-700"
-                                  : "bg-green-100 text-green-700"
+                                  ? "bg-green-100 text-green-700"
+                                  : "bg-red-100 text-red-700"
                               }`}
                             >
                               {diferencia.toFixed(2)}
