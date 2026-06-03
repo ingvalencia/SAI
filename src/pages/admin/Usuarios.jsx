@@ -74,7 +74,7 @@ export default function Usuarios() {
     nombre: "",
     email: "",
     password: "",
-    rol_id: 1,
+    rol_id: "",
     locales: [],
     cia: "",
   };
@@ -124,6 +124,8 @@ export default function Usuarios() {
         "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/catalogo_almacenes.php",
         { params: { cia }, withCredentials: true }
       );
+
+
       if (res.data.success) setLocales(res.data.data);
       else setLocales([]);
     } catch {
@@ -571,7 +573,7 @@ const buscarUsuarioMysqlAdmin = async (empleado) => {
                 </label>
                 <input
                   type="password"
-                  placeholder="Contraseña generada"
+                  placeholder="Contraseña"
                   readOnly
                   className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-gray-50 text-gray-700 cursor-not-allowed focus:outline-none"
                   value={formBase.password}
@@ -612,8 +614,9 @@ const buscarUsuarioMysqlAdmin = async (empleado) => {
                   if (v === "Individual") setNroConteo(1);
                 }}
                 className="w-full px-3 py-2 border rounded-lg text-sm"
-              >
-                <option value="Individual">Individual</option>
+                >
+                <option value="">Seleccione...</option>
+                {/* <option value="Individual">Individual</option> */}
                 <option value="Brigada">Brigada</option>
               </select>
             </div>
@@ -1010,16 +1013,24 @@ const buscarUsuarioMysqlAdmin = async (empleado) => {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
                 Rol del usuario
               </label>
               <select
                 value={formAdmin.rol_id}
                 onChange={(e) =>
-                  setFormAdmin({ ...formAdmin, rol_id: parseInt(e.target.value) })
+                  setFormAdmin({
+                    ...formAdmin,
+                    rol_id: e.target.value,
+                  })
                 }
+                required
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#611232]/20 focus:border-[#611232] transition"
               >
+                <option value="" disabled>
+                  Seleccione...
+                </option>
+
                 {roles
                   .filter((r) => r.id !== 4)
                   .map((r) => (

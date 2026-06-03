@@ -557,388 +557,497 @@ export default function Control() {
       </div>
 
       {vista === "usuarios" && (
-        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 sm:p-6 lg:p-8">
+        <div className="relative overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-2xl shadow-slate-900/10">
+  <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-[#611232] via-[#8a1b4a] to-slate-900" />
 
-          <div className="flex flex-col gap-4 mb-6">
-            <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
-              <h2 className="text-xl lg:text-2xl font-bold text-slate-800">
-                Gestión de Usuarios
-              </h2>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setFiltroRol("");
-                  setFiltroCiaUsuario("");
-                  setFiltroLocalUsuario("");
-                }}
-                className="px-5 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg transition"
-              >
-                Limpiar filtros
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {(rolLogueado === 1 || rolLogueado === 2) && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                    Filtrar por rol
-                  </label>
-                  <select
-                    value={filtroRol}
-                    onChange={(e) => setFiltroRol(e.target.value)}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-700"
-                  >
-                    <option value="">Todos</option>
-                    <option value="1">Administrador TI</option>
-                    <option value="2">Administrador Sistema</option>
-                    <option value="3">Jefe Mesa Control</option>
-                    <option value="4">Operador Inventario</option>
-                  </select>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                  Filtrar por CIA
-                </label>
-                <select
-                  value={filtroCiaUsuario}
-                  onChange={(e) => setFiltroCiaUsuario(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-700"
-                >
-                  <option value="">Todas</option>
-                  {ciasUsuarios.map((cia) => (
-                    <option key={cia} value={cia}>
-                      {cia.toUpperCase()}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                  Filtrar por local
-                </label>
-                <select
-                  value={filtroLocalUsuario}
-                  onChange={(e) => setFiltroLocalUsuario(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-700"
-                >
-                  <option value="">Todos</option>
-                  {localesUsuarios.map((local) => (
-                    <option key={local} value={local}>
-                      {local}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+  <div className="bg-gradient-to-br from-white via-slate-50 to-slate-100/80 p-4 sm:p-6 lg:p-8">
+    <div className="flex flex-col gap-5 mb-7">
+      <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-5">
+        <div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#611232]/15 bg-[#611232]/5 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-[#611232] mb-3">
+            Panel administrativo
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <div className="w-full overflow-x-auto">
-              <table className="w-full min-w-[950px] text-sm">
-                <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
-                  <tr>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">#</th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Empleado</th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Nombre</th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Responsable</th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">CIA</th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Local</th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Estado</th>
-                    <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Acciones</th>
-                  </tr>
-                </thead>
+          <h2 className="text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">
+            Gestión de Usuarios
+          </h2>
 
-                <tbody className="divide-y divide-slate-200 bg-white">
-                  {usuariosPaginados.map((u, i) => {
-                    const numero = (paginaActual - 1) * porPagina + i + 1;
-
-                    return (
-                      <tr key={i} className="hover:bg-slate-50 transition">
-                        <td className="px-3 sm:px-4 md:px-6 py-3 font-semibold text-slate-500">
-                          {numero}
-                        </td>
-                        <td className="px-3 sm:px-4 md:px-6 py-3 font-mono text-red-800">{u.empleado}</td>
-                        <td className="px-3 sm:px-4 md:px-6 py-3 text-slate-800">{u.nombre}</td>
-                        <td className="px-3 sm:px-4 md:px-6 py-3 text-slate-700">
-                          {u.responsable_nombre || "—"}
-                        </td>
-
-                        <td className="px-3 sm:px-4 md:px-6 py-3 text-slate-700 font-semibold">
-                          {u.cia_asignada && u.cia_asignada !== "Sin asignación"
-                            ? u.cia_asignada.toUpperCase()
-                            : "—"}
-                        </td>
-
-                        <td className="px-3 sm:px-4 md:px-6 py-3 text-slate-700">
-                          {Array.isArray(u.locales) && u.locales.length > 0
-                            ? u.locales.join(", ")
-                            : "—"}
-                        </td>
-
-                        <td className="px-3 sm:px-4 md:px-6 py-3">
-                          {u.activo ? (
-                            <span className="px-3 py-1 text-xs rounded-full bg-emerald-100 text-emerald-700 font-semibold">
-                              Activo
-                            </span>
-                          ) : (
-                            <span className="px-3 py-1 text-xs rounded-full bg-slate-200 text-slate-600">
-                              Inactivo
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="px-3 sm:px-4 md:px-6 py-3">
-                          <div className="flex flex-col xl:flex-row gap-2">
-                            <button
-                              onClick={() => toggleActivo(u.id, u.activo)}
-                              className={`w-full xl:w-auto px-4 py-1.5 rounded-md text-xs font-semibold text-white transition
-                                ${u.activo ? "bg-emerald-600 hover:bg-emerald-700" : "bg-slate-500 hover:bg-slate-600"}`}
-                            >
-                              {u.activo ? "Desactivar" : "Activar"}
-                            </button>
-
-                            {(rolLogueado === 1 || rolLogueado === 2) && (
-                              <button
-                                onClick={() => eliminarUsuario(u.id)}
-                                className="w-full xl:w-auto px-4 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition"
-                              >
-                                Eliminar
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Paginación */}
-          <div className="flex justify-center mt-6">
-            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6 bg-slate-50 border border-slate-200 rounded-xl px-4 md:px-6 py-3 shadow-sm w-full sm:w-auto">
-              <button
-                disabled={paginaActual === 1}
-                onClick={() => setPaginaActual(p => p - 1)}
-                className="px-4 py-1.5 rounded-md text-sm font-semibold bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-40"
-              >
-                ← Anterior
-              </button>
-
-              <span className="text-sm font-medium text-slate-700">
-                Página <span className="font-semibold">{paginaActual}</span> de{" "}
-                <span className="font-semibold">{totalPaginas || 1}</span>
-              </span>
-
-              <button
-                disabled={paginaActual === totalPaginas || totalPaginas === 0}
-                onClick={() => setPaginaActual(p => p + 1)}
-                className="px-4 py-1.5 rounded-md text-sm font-semibold bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-40"
-              >
-                Siguiente →
-              </button>
-            </div>
-          </div>
+          <p className="mt-1 text-sm text-slate-500">
+            Consulta, filtra y administra usuarios registrados en el sistema.
+          </p>
         </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            setFiltroRol("");
+            setFiltroCiaUsuario("");
+            setFiltroLocalUsuario("");
+          }}
+          className="inline-flex items-center justify-center px-5 py-2.5 bg-slate-900 hover:bg-[#611232] text-white text-sm font-bold rounded-xl transition-all duration-200 shadow-lg shadow-slate-900/20 hover:shadow-[#611232]/25"
+        >
+          Limpiar filtros
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {(rolLogueado === 1 || rolLogueado === 2) && (
+          <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+            <label className="block text-[11px] font-black text-slate-500 uppercase tracking-[0.18em] mb-2">
+              Filtrar por perfil
+            </label>
+            <select
+              value={filtroRol}
+              onChange={(e) => setFiltroRol(e.target.value)}
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm bg-white text-slate-700 font-semibold focus:outline-none focus:ring-4 focus:ring-[#611232]/10 focus:border-[#611232] transition"
+            >
+              <option value="">Todos</option>
+              <option value="1">Administrador TI</option>
+              <option value="2">Administrador Sistema</option>
+              <option value="3">Jefe Mesa Control</option>
+              <option value="4">Operador Inventario</option>
+            </select>
+          </div>
+        )}
+
+        <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+          <label className="block text-[11px] font-black text-slate-500 uppercase tracking-[0.18em] mb-2">
+            Filtrar por CIA
+          </label>
+          <select
+            value={filtroCiaUsuario}
+            onChange={(e) => setFiltroCiaUsuario(e.target.value)}
+            className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm bg-white text-slate-700 font-semibold focus:outline-none focus:ring-4 focus:ring-[#611232]/10 focus:border-[#611232] transition"
+          >
+            <option value="">Todas</option>
+            {ciasUsuarios.map((cia) => (
+              <option key={cia} value={cia}>
+                {cia.toUpperCase()}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+          <label className="block text-[11px] font-black text-slate-500 uppercase tracking-[0.18em] mb-2">
+            Filtrar por local
+          </label>
+          <select
+            value={filtroLocalUsuario}
+            onChange={(e) => setFiltroLocalUsuario(e.target.value)}
+            className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm bg-white text-slate-700 font-semibold focus:outline-none focus:ring-4 focus:ring-[#611232]/10 focus:border-[#611232] transition"
+          >
+            <option value="">Todos</option>
+            {localesUsuarios.map((local) => (
+              <option key={local} value={local}>
+                {local}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/5">
+      <div className="w-full overflow-x-auto">
+        <table className="w-full min-w-[950px] text-sm">
+          <thead className="sticky top-0 z-10 bg-gradient-to-r from-[#611232] via-[#7a163f] to-slate-950 text-white text-[11px] uppercase tracking-[0.16em]">
+            <tr>
+              <th className="px-4 md:px-6 py-4 text-left whitespace-nowrap font-black">#</th>
+              <th className="px-4 md:px-6 py-4 text-left whitespace-nowrap font-black">Empleado</th>
+              <th className="px-4 md:px-6 py-4 text-left whitespace-nowrap font-black">Nombre</th>
+              <th className="px-4 md:px-6 py-4 text-left whitespace-nowrap font-black">Responsable</th>
+              <th className="px-4 md:px-6 py-4 text-left whitespace-nowrap font-black">CIA</th>
+              <th className="px-4 md:px-6 py-4 text-left whitespace-nowrap font-black">Local</th>
+              <th className="px-4 md:px-6 py-4 text-left whitespace-nowrap font-black">Estado</th>
+              <th className="px-4 md:px-6 py-4 text-left whitespace-nowrap font-black">Acciones</th>
+            </tr>
+          </thead>
+
+          <tbody className="divide-y divide-slate-100 bg-white">
+            {usuariosPaginados.map((u, i) => {
+              const numero = (paginaActual - 1) * porPagina + i + 1;
+
+              return (
+                <tr
+                  key={i}
+                  className="group hover:bg-gradient-to-r hover:from-[#611232]/5 hover:via-white hover:to-slate-50 transition-all duration-200"
+                >
+                  <td className="px-4 md:px-6 py-4">
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-xs font-black text-slate-600 group-hover:bg-[#611232] group-hover:text-white transition">
+                      {numero}
+                    </span>
+                  </td>
+
+                  <td className="px-4 md:px-6 py-4">
+                    <span className="inline-flex items-center rounded-lg bg-[#611232]/8 px-3 py-1.5 font-mono text-xs font-black text-[#611232] border border-[#611232]/10">
+                      {u.empleado}
+                    </span>
+                  </td>
+
+                  <td className="px-4 md:px-6 py-4">
+                    <div className="font-bold text-slate-900">
+                      {u.nombre}
+                    </div>
+                  </td>
+
+                  <td className="px-4 md:px-6 py-4 text-slate-700">
+                    <span className="font-medium">
+                      {u.responsable_nombre || "—"}
+                    </span>
+                  </td>
+
+                  <td className="px-4 md:px-6 py-4">
+                    {u.cia_asignada && u.cia_asignada !== "Sin asignación" ? (
+                      <span className="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white shadow-sm">
+                        {u.cia_asignada.toUpperCase()}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 font-semibold">—</span>
+                    )}
+                  </td>
+
+                  <td className="px-4 md:px-6 py-4 text-slate-700">
+                    {Array.isArray(u.locales) && u.locales.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5 max-w-[280px]">
+                        {u.locales.map((local, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-700"
+                          >
+                            {local}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-slate-400 font-semibold">—</span>
+                    )}
+                  </td>
+
+                  <td className="px-4 md:px-6 py-4">
+                    {u.activo ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full bg-emerald-50 text-emerald-700 font-black border border-emerald-200">
+                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                        Activo
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full bg-slate-100 text-slate-600 font-black border border-slate-200">
+                        <span className="h-2 w-2 rounded-full bg-slate-400" />
+                        Inactivo
+                      </span>
+                    )}
+                  </td>
+
+                  <td className="px-4 md:px-6 py-4">
+                    <div className="flex flex-col xl:flex-row gap-2">
+                      <button
+                        onClick={() => toggleActivo(u.id, u.activo)}
+                        className={`w-full xl:w-auto px-4 py-2 rounded-xl text-xs font-black text-white transition-all duration-200 shadow-sm
+                          ${
+                            u.activo
+                              ? "bg-emerald-600 hover:bg-emerald-700 hover:shadow-emerald-600/25"
+                              : "bg-slate-600 hover:bg-slate-700 hover:shadow-slate-600/25"
+                          }`}
+                      >
+                        {u.activo ? "Desactivar" : "Activar"}
+                      </button>
+
+                      {(rolLogueado === 1 || rolLogueado === 2) && (
+                        <button
+                          onClick={() => eliminarUsuario(u.id)}
+                          className="w-full xl:w-auto px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-black transition-all duration-200 shadow-sm hover:shadow-red-600/25"
+                        >
+                          Eliminar
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {/* Paginación */}
+    <div className="flex justify-center mt-7">
+      <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6 bg-white border border-slate-200 rounded-2xl px-4 md:px-6 py-4 shadow-lg shadow-slate-900/5 w-full sm:w-auto">
+        <button
+          disabled={paginaActual === 1}
+          onClick={() => setPaginaActual((p) => p - 1)}
+          className="w-full sm:w-auto px-5 py-2 rounded-xl text-sm font-black bg-slate-900 text-white hover:bg-[#611232] disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition"
+        >
+          ← Anterior
+        </button>
+
+        <span className="text-sm font-bold text-slate-700">
+          Página{" "}
+          <span className="inline-flex items-center justify-center min-w-8 rounded-lg bg-[#611232]/10 px-2 py-1 font-black text-[#611232]">
+            {paginaActual}
+          </span>{" "}
+          de{" "}
+          <span className="font-black text-slate-900">
+            {totalPaginas || 1}
+          </span>
+        </span>
+
+        <button
+          disabled={paginaActual === totalPaginas || totalPaginas === 0}
+          onClick={() => setPaginaActual((p) => p + 1)}
+          className="w-full sm:w-auto px-5 py-2 rounded-xl text-sm font-black bg-slate-900 text-white hover:bg-[#611232] disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition"
+        >
+          Siguiente →
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
       )}
 
       {vista === "fecha" && (
         <div className="max-w-7xl mx-auto space-y-8">
+  <div className="relative overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-2xl shadow-slate-900/10">
+    <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-[#611232] via-[#8a1b4a] to-slate-950" />
 
-          <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 sm:p-6 lg:p-8">
-
-            <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-6">
-              <h2 className="text-xl lg:text-2xl font-bold text-slate-800">
-                Fechas de Gestión
-              </h2>
-
-              <button
-                onClick={() => {
-                  setFiltroAlmacen("");
-                  setFiltroConteo("");
-                  setFiltroFecha("");
-                }}
-                className="px-5 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg transition"
-              >
-                Limpiar filtros
-              </button>
+    <div className="bg-gradient-to-br from-white via-slate-50 to-slate-100/80 p-4 sm:p-6 lg:p-8">
+      <div className="flex flex-col gap-5 mb-7">
+        <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-5">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#611232]/15 bg-[#611232]/5 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-[#611232] mb-3">
+              Control operativo
             </div>
 
-            {/* FILTROS */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6 mb-8">
+            <h2 className="text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">
+              Fechas de Gestión
+            </h2>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                  Almacén
-                </label>
-                <Select
-                  options={familiasAlmacen}
-                  value={
-                    filtroAlmacen
-                      ? { value: filtroAlmacen, label: filtroAlmacen }
-                      : null
-                  }
-                  onChange={(opcion) =>
-                    setFiltroAlmacen(opcion ? opcion.value : "")
-                  }
-                  isClearable
-                  placeholder="Seleccionar"
-                  styles={{
-                    control: (base) => ({
-                      ...base,
-                      minHeight: 42,
-                    }),
-                    menu: (base) => ({
-                      ...base,
-                      zIndex: 9999,
-                    }),
-                  }}
-                />
-              </div>
+            <p className="mt-1 text-sm text-slate-500">
+              Consulta las configuraciones activas por CIA, almacén, fecha, tipo de captura y nivel de conteo.
+            </p>
+          </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                  Nivel Conteo
-                </label>
-                <select
-                  value={filtroConteo}
-                  onChange={(e) => setFiltroConteo(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-700"
-                >
-                  <option value="">Todos</option>
-                  <option value="1">Conteo 1</option>
-                  <option value="2">Conteo 2</option>
-                  <option value="3">Conteo 3</option>
-                  <option value="7">Conteo 4</option>
-                  <option value="4">Finalizado</option>
-                </select>
-              </div>
+          <button
+            onClick={() => {
+              setFiltroAlmacen("");
+              setFiltroConteo("");
+              setFiltroFecha("");
+            }}
+            className="inline-flex items-center justify-center px-5 py-2.5 bg-slate-900 hover:bg-[#611232] text-white text-sm font-bold rounded-xl transition-all duration-200 shadow-lg shadow-slate-900/20 hover:shadow-[#611232]/25"
+          >
+            Limpiar filtros
+          </button>
+        </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                  Fecha
-                </label>
-                <input
-                  type="date"
-                  value={filtroFecha}
-                  onChange={(e) => setFiltroFecha(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-700"
-                />
-              </div>
+        {/* FILTROS */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
+          <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+            <label className="block text-[11px] font-black text-slate-500 uppercase tracking-[0.18em] mb-2">
+              Almacén
+            </label>
 
-            </div>
+            <Select
+              options={familiasAlmacen}
+              value={
+                filtroAlmacen
+                  ? { value: filtroAlmacen, label: filtroAlmacen }
+                  : null
+              }
+              onChange={(opcion) =>
+                setFiltroAlmacen(opcion ? opcion.value : "")
+              }
+              isClearable
+              placeholder="Seleccionar"
+              styles={{
+                control: (base, state) => ({
+                  ...base,
+                  minHeight: 44,
+                  borderRadius: 12,
+                  borderColor: state.isFocused ? "#611232" : "#cbd5e1",
+                  boxShadow: state.isFocused ? "0 0 0 4px rgba(97,18,50,0.10)" : "none",
+                  fontSize: 14,
+                  fontWeight: 600,
+                }),
+                menu: (base) => ({
+                  ...base,
+                  zIndex: 9999,
+                  borderRadius: 12,
+                  overflow: "hidden",
+                }),
+                option: (base, state) => ({
+                  ...base,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  backgroundColor: state.isFocused ? "rgba(97,18,50,0.08)" : "white",
+                  color: "#334155",
+                }),
+              }}
+            />
+          </div>
 
-            {/* TABLA */}
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-              <div className="w-full overflow-x-auto">
-                <table className="w-full min-w-[950px] text-sm">
-                  <thead className="sticky top-0 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-xs uppercase tracking-wider shadow-lg z-10">
-                    <tr>
-                      <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">#</th>
-                      <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">CIA</th>
-                      <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Almacén</th>
-                      <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Fecha</th>
-                      <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Tipo</th>
-                      <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Conteo</th>
-                      <th className="px-3 sm:px-4 md:px-6 py-3 text-left whitespace-nowrap">Equipo</th>
-                    </tr>
-                  </thead>
+          <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+            <label className="block text-[11px] font-black text-slate-500 uppercase tracking-[0.18em] mb-2">
+              Nivel Conteo
+            </label>
+            <select
+              value={filtroConteo}
+              onChange={(e) => setFiltroConteo(e.target.value)}
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm bg-white text-slate-700 font-semibold focus:outline-none focus:ring-4 focus:ring-[#611232]/10 focus:border-[#611232] transition"
+            >
+              <option value="">Todos</option>
+              <option value="1">Conteo 1</option>
+              <option value="2">Conteo 2</option>
+              <option value="3">Conteo 3</option>
+              <option value="7">Conteo 4</option>
+              <option value="4">Finalizado</option>
+            </select>
+          </div>
 
-                  <tbody className="divide-y divide-slate-200 bg-white">
-                    {configuracionesPaginadas.map((c, i) => {
-                      const numero = (paginaFechas - 1) * porPaginaFechas + i + 1;
-
-                      const ultimoConteo = Number(
-                        String(c.conteos || "")
-                          .split(",")
-                          .map(v => Number(v))
-                          .pop()
-                      );
-
-                      const etiquetaConteo =
-                        {
-                          1: "Conteo 1",
-                          2: "Conteo 2",
-                          3: "Conteo 3",
-                          4: "Finalizado",
-                          7: "Conteo 4",
-                        }[ultimoConteo] || "—";
-
-                      return (
-                        <tr key={i} className="hover:bg-slate-50 transition">
-                          <td className="px-3 sm:px-4 md:px-6 py-3 font-semibold text-slate-500">
-                            {numero}
-                          </td>
-
-                          <td className="px-3 sm:px-4 md:px-6 py-3 font-semibold text-slate-800">
-                            {c.cia}
-                          </td>
-
-                          <td className="px-3 sm:px-4 md:px-6 py-3 text-slate-700">
-                            {c.almacen}
-                          </td>
-
-                          <td className="px-3 sm:px-4 md:px-6 py-3 text-slate-700">
-                            {formatSoloFecha(c.fecha_asignacion)}
-                          </td>
-
-                          <td className="px-3 sm:px-4 md:px-6 py-3 text-slate-700">
-                            {c.tipo_conteo}
-                          </td>
-
-                          <td className="px-3 sm:px-4 md:px-6 py-3">
-                            <span
-                              className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold
-                              ${estilosConteo[ultimoConteo] || "bg-slate-100 text-slate-700 border-slate-300"}`}
-                            >
-                              {etiquetaConteo}
-                            </span>
-                          </td>
-
-                          <td className="px-3 sm:px-4 md:px-6 py-3 text-slate-700 whitespace-pre-wrap">
-                            {c.equipo || "—"}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* PAGINACIÓN */}
-            <div className="flex justify-center mt-6">
-              <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6 bg-slate-50 border border-slate-200 rounded-xl px-4 md:px-6 py-3 shadow-sm w-full sm:w-auto">
-                <button
-                  disabled={paginaFechas === 1}
-                  onClick={() => setPaginaFechas(p => p - 1)}
-                  className="px-4 py-1.5 rounded-md text-sm font-semibold bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-40"
-                >
-                  ← Anterior
-                </button>
-
-                <span className="text-sm font-medium text-slate-700">
-                  Página <span className="font-semibold">{paginaFechas}</span> de{" "}
-                  <span className="font-semibold">{totalPaginasFechas || 1}</span>
-                </span>
-
-                <button
-                  disabled={paginaFechas === totalPaginasFechas || totalPaginasFechas === 0}
-                  onClick={() => setPaginaFechas(p => p + 1)}
-                  className="px-4 py-1.5 rounded-md text-sm font-semibold bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-40"
-                >
-                  Siguiente →
-                </button>
-              </div>
-            </div>
-
+          <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+            <label className="block text-[11px] font-black text-slate-500 uppercase tracking-[0.18em] mb-2">
+              Fecha
+            </label>
+            <input
+              type="date"
+              value={filtroFecha}
+              onChange={(e) => setFiltroFecha(e.target.value)}
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm bg-white text-slate-700 font-semibold focus:outline-none focus:ring-4 focus:ring-[#611232]/10 focus:border-[#611232] transition"
+            />
           </div>
         </div>
+      </div>
+
+      {/* TABLA */}
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/5">
+        <div className="w-full overflow-x-auto">
+          <table className="w-full min-w-[950px] text-sm">
+            <thead className="sticky top-0 z-10 bg-gradient-to-r from-[#611232] via-[#7a163f] to-slate-950 text-white text-[11px] uppercase tracking-[0.16em]">
+              <tr>
+                <th className="px-4 md:px-6 py-4 text-left whitespace-nowrap font-black">#</th>
+                <th className="px-4 md:px-6 py-4 text-left whitespace-nowrap font-black">CIA</th>
+                <th className="px-4 md:px-6 py-4 text-left whitespace-nowrap font-black">Almacén</th>
+                <th className="px-4 md:px-6 py-4 text-left whitespace-nowrap font-black">Fecha</th>
+                <th className="px-4 md:px-6 py-4 text-left whitespace-nowrap font-black">Tipo</th>
+                <th className="px-4 md:px-6 py-4 text-left whitespace-nowrap font-black">Conteo</th>
+                <th className="px-4 md:px-6 py-4 text-left whitespace-nowrap font-black">Equipo</th>
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {configuracionesPaginadas.map((c, i) => {
+                const numero = (paginaFechas - 1) * porPaginaFechas + i + 1;
+
+                const ultimoConteo = Number(
+                  String(c.conteos || "")
+                    .split(",")
+                    .map(v => Number(v))
+                    .pop()
+                );
+
+                const etiquetaConteo =
+                  {
+                    1: "Conteo 1",
+                    2: "Conteo 2",
+                    3: "Conteo 3",
+                    4: "Finalizado",
+                    7: "Conteo 4",
+                  }[ultimoConteo] || "—";
+
+                return (
+                  <tr
+                    key={i}
+                    className="group hover:bg-gradient-to-r hover:from-[#611232]/5 hover:via-white hover:to-slate-50 transition-all duration-200"
+                  >
+                    <td className="px-4 md:px-6 py-4">
+                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-xs font-black text-slate-600 group-hover:bg-[#611232] group-hover:text-white transition">
+                        {numero}
+                      </span>
+                    </td>
+
+                    <td className="px-4 md:px-6 py-4">
+                      <span className="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white shadow-sm">
+                        {c.cia}
+                      </span>
+                    </td>
+
+                    <td className="px-4 md:px-6 py-4">
+                      <div className="font-bold text-slate-900">
+                        {c.almacen}
+                      </div>
+                    </td>
+
+                    <td className="px-4 md:px-6 py-4">
+                      <span className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700">
+                        {formatSoloFecha(c.fecha_asignacion)}
+                      </span>
+                    </td>
+
+                    <td className="px-4 md:px-6 py-4">
+                      <span className="inline-flex items-center rounded-lg bg-[#611232]/8 px-3 py-1.5 text-xs font-black text-[#611232] border border-[#611232]/10">
+                        {c.tipo_conteo}
+                      </span>
+                    </td>
+
+                    <td className="px-4 md:px-6 py-4">
+                      <span
+                        className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-black shadow-sm
+                        ${estilosConteo[ultimoConteo] || "bg-slate-100 text-slate-700 border-slate-300"}`}
+                      >
+                        {etiquetaConteo}
+                      </span>
+                    </td>
+
+                    <td className="px-4 md:px-6 py-4 text-slate-700 whitespace-pre-wrap">
+                      {c.equipo ? (
+                        <div className="max-w-[360px] rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold leading-relaxed text-slate-700">
+                          {c.equipo}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 font-semibold">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* PAGINACIÓN */}
+      <div className="flex justify-center mt-7">
+        <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6 bg-white border border-slate-200 rounded-2xl px-4 md:px-6 py-4 shadow-lg shadow-slate-900/5 w-full sm:w-auto">
+          <button
+            disabled={paginaFechas === 1}
+            onClick={() => setPaginaFechas((p) => p - 1)}
+            className="w-full sm:w-auto px-5 py-2 rounded-xl text-sm font-black bg-slate-900 text-white hover:bg-[#611232] disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition"
+          >
+            ← Anterior
+          </button>
+
+          <span className="text-sm font-bold text-slate-700">
+            Página{" "}
+            <span className="inline-flex items-center justify-center min-w-8 rounded-lg bg-[#611232]/10 px-2 py-1 font-black text-[#611232]">
+              {paginaFechas}
+            </span>{" "}
+            de{" "}
+            <span className="font-black text-slate-900">
+              {totalPaginasFechas || 1}
+            </span>
+          </span>
+
+          <button
+            disabled={paginaFechas === totalPaginasFechas || totalPaginasFechas === 0}
+            onClick={() => setPaginaFechas((p) => p + 1)}
+            className="w-full sm:w-auto px-5 py-2 rounded-xl text-sm font-black bg-slate-900 text-white hover:bg-[#611232] disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition"
+          >
+            Siguiente →
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
       )}
 
 

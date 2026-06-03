@@ -64,45 +64,30 @@ function responder_error($conn, $mensaje)
   exit;
 }
 
-function obtener_ultimo_conteo($sap, $c1, $c2, $c3, $c4)
+function obtener_ultimo_conteo($c1, $c2, $c3, $c4, $tiene_c1, $tiene_c2, $tiene_c3, $tiene_c4)
 {
-  $sap = floatval($sap);
   $c1 = floatval($c1);
   $c2 = floatval($c2);
   $c3 = floatval($c3);
   $c4 = floatval($c4);
 
-  $debeIrAC3 =
-    ($c1 != $c2) ||
-    ($c1 == $sap && $c2 != $sap) ||
-    ($c2 == $sap && $c1 != $sap) ||
-    ($c1 == $c2 && $c1 != $sap);
-
-  if (!$debeIrAC3) {
-    return $c2;
-  }
-
-  $casoEspecialSapCeroConExistencia = ($sap == 0 && $c1 > 0 && $c2 > 0 && $c3 > 0);
-  $c3EsIgualAC1YC2PeroDistintoASap = ($c3 == $c1 && $c3 == $c2 && $c3 != $sap);
-  $c3EsIgualASap = ($c3 == $sap);
-  $c3EsCeroIgualASap = ($c3 == 0 && $sap == 0);
-
-  $debeIrAC4 =
-    $casoEspecialSapCeroConExistencia ||
-    $c3EsIgualAC1YC2PeroDistintoASap ||
-    (!$c3EsIgualASap && !$c3EsCeroIgualASap);
-
-  if (!$debeIrAC4) {
-    return $c3;
-  }
-
-  $c4EsCeroIgualASap = ($c4 == 0 && $sap == 0);
-
-  if ($c4EsCeroIgualASap) {
+  if (intval($tiene_c4) === 1) {
     return $c4;
   }
 
-  return $c4;
+  if (intval($tiene_c3) === 1) {
+    return $c3;
+  }
+
+  if (intval($tiene_c2) === 1) {
+    return $c2;
+  }
+
+  if (intval($tiene_c1) === 1) {
+    return $c1;
+  }
+
+  return 0;
 }
 
 function normalizarCodigo($c)
@@ -200,10 +185,16 @@ $q = mssql_query("
         c.ItemCode,
         MAX(c.Itemname) AS Itemname,
         MAX(c.codebars) AS codebars,
+
         MAX(CASE WHEN ct.nro_conteo = 1 THEN ct.cantidad ELSE NULL END) AS conteo1,
         MAX(CASE WHEN ct.nro_conteo = 2 THEN ct.cantidad ELSE NULL END) AS conteo2,
         MAX(CASE WHEN ct.nro_conteo = 3 THEN ct.cantidad ELSE NULL END) AS conteo3,
-        MAX(CASE WHEN ct.nro_conteo = 4 THEN ct.cantidad ELSE NULL END) AS conteo4
+        MAX(CASE WHEN ct.nro_conteo = 4 THEN ct.cantidad ELSE NULL END) AS conteo4,
+
+        MAX(CASE WHEN ct.nro_conteo = 1 THEN 1 ELSE 0 END) AS tiene_c1,
+        MAX(CASE WHEN ct.nro_conteo = 2 THEN 1 ELSE 0 END) AS tiene_c2,
+        MAX(CASE WHEN ct.nro_conteo = 3 THEN 1 ELSE 0 END) AS tiene_c3,
+        MAX(CASE WHEN ct.nro_conteo = 4 THEN 1 ELSE 0 END) AS tiene_c4
     FROM CAP_INVENTARIO c
     LEFT JOIN CAP_INVENTARIO_CONTEOS ct
         ON c.id = ct.id_inventario
@@ -223,11 +214,28 @@ while ($r = mssql_fetch_assoc($q)) {
   $codigo = normalizarCodigo($r['ItemCode']);
 
   $sap_final = isset($sap[$codigo]) ? floatval($sap[$codigo]) : 0;
+
   $conteo1 = isset($r['conteo1']) ? floatval($r['conteo1']) : 0;
   $conteo2 = isset($r['conteo2']) ? floatval($r['conteo2']) : 0;
   $conteo3 = isset($r['conteo3']) ? floatval($r['conteo3']) : 0;
   $conteo4 = isset($r['conteo4']) ? floatval($r['conteo4']) : 0;
-  $conteo_final = obtener_ultimo_conteo($sap_final, $conteo1, $conteo2, $conteo3, $conteo4);
+
+  $tiene_c1 = isset($r['tiene_c1']) ? intval($r['tiene_c1']) : 0;
+  $tiene_c2 = isset($r['tiene_c2']) ? intval($r['tiene_c2']) : 0;
+  $tiene_c3 = isset($r['tiene_c3']) ? intval($r['tiene_c3']) : 0;
+  $tiene_c4 = isset($r['tiene_c4']) ? intval($r['tiene_c4']) : 0;
+
+  $conteo_final = obtener_ultimo_conteo(
+    $conteo1,
+    $conteo2,
+    $conteo3,
+    $conteo4,
+    $tiene_c1,
+    $tiene_c2,
+    $tiene_c3,
+    $tiene_c4
+  );
+
   $dif = $conteo_final - $sap_final;
 
   $items[$codigo] = array(
@@ -455,6 +463,7 @@ foreach ($items as $codigo => $it) {
   $codigoSafe = str_replace("'", "''", $codigo);
   $codebarsSafe = str_replace("'", "''", $it["codebars"]);
   $dif = floatval($it["dif"]);
+  $cantidadAjuste = abs($dif);
   $tipo = ($dif > 0) ? "S" : (($dif < 0) ? "F" : null);
   $id_cierre_det = intval($it["id_cierre_det"]);
   $comentario = str_replace("'", "''", $comentario_front . " - " . $mes . " " . $anio . "  EMP: " . $usuario);
@@ -484,7 +493,7 @@ foreach ($items as $codigo => $it) {
             '$almacen',
             '$codigoSafe',
             '$codebarsSafe',
-            $dif,
+            $cantidadAjuste,
             '$tipo',
             'Diferencia inventario físico vs SAP',
             '$comentario',
