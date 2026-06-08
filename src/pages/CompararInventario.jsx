@@ -618,7 +618,7 @@ export default function CompararInventario() {
     }
 
     const confirm = await Swal.fire({
-      title: "¿Iniciar cuarto conteo?",
+      title: "¿Iniciar Validación Físico vs SAP?",
       text: "Se capturará nuevamente SOLO lo que sigue diferente vs SAP.",
       icon: "question",
       showCancelButton: true,
@@ -897,7 +897,7 @@ export default function CompararInventario() {
             onClick={iniciarCuartoConteo}
             className="px-4 py-2 rounded-lg text-sm font-semibold bg-fuchsia-200 text-fuchsia-900 hover:bg-fuchsia-300 transition shadow-sm"
           >
-            Iniciar Cuarto Conteo
+            Validación Físico vs SAP
           </button>
         )}
 

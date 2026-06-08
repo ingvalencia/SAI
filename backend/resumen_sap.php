@@ -160,53 +160,69 @@ foreach ($cierresPorAlmacen as $cierre) {
   $almacenActual = str_replace("'", "''", $cierre["almacen"]);
 
   $faltante_total = 0;
-  $faltante_docs = [];
   $sobrante_total = 0;
+  $faltante_docs = [];
   $sobrante_docs = [];
 
-  $qEntrada = mssql_query("
-    SELECT T0.DocNum, SUM(T1.LineTotal) AS total_importe
+  $qAjustes = mssql_query("
+    SELECT
+      SUM(CASE WHEN tipo_ajuste = 'F' THEN cantidad_ajuste ELSE 0 END) AS total_faltante,
+      SUM(CASE WHEN tipo_ajuste = 'S' THEN cantidad_ajuste ELSE 0 END) AS total_sobrante
+    FROM CAP_INVENTARIO_AJUSTES_SAP
+    WHERE id_cierre = $idCierreActual
+  ", $conn);
+
+  if (!$qAjustes) {
+    echo json_encode([
+      "success" => false,
+      "error" => "Error consultando ajustes del cierre $idCierreActual: " . mssql_get_last_message()
+    ]);
+    exit;
+  }
+
+  if ($rAjustes = mssql_fetch_assoc($qAjustes)) {
+    $faltante_total = isset($rAjustes["total_faltante"]) ? floatval($rAjustes["total_faltante"]) : 0;
+    $sobrante_total = isset($rAjustes["total_sobrante"]) ? floatval($rAjustes["total_sobrante"]) : 0;
+  }
+
+  $qDocEntrada = mssql_query("
+    SELECT DISTINCT T0.DocNum
     FROM {$cia}.dbo.OIGN T0
-    INNER JOIN {$cia}.dbo.IGN1 T1 ON T0.DocEntry = T1.DocEntry
-    WHERE T0.DocEntry IN (
-      SELECT DocEntry_sap
-      FROM CAP_INVENTARIO_AJUSTES_SAP
-      WHERE tipo_documento_sap = 'OIGN'
-        AND id_cierre = $idCierreActual
-    )
-    GROUP BY T0.DocNum
+    INNER JOIN CAP_INVENTARIO_AJUSTES_SAP A
+      ON A.DocEntry_sap = T0.DocEntry
+    WHERE A.id_cierre = $idCierreActual
+      AND A.tipo_documento_sap = 'OIGN'
+      AND A.tipo_ajuste = 'S'
   ", $conn);
 
-  if ($qEntrada) {
-    while ($r = mssql_fetch_assoc($qEntrada)) {
-      $sobrante_total += floatval($r["total_importe"]);
-      $sobrante_docs[] = $r["DocNum"];
+  if ($qDocEntrada) {
+    while ($r = mssql_fetch_assoc($qDocEntrada)) {
+      if (isset($r["DocNum"]) && trim((string)$r["DocNum"]) !== "") {
+        $sobrante_docs[] = $r["DocNum"];
+      }
     }
   }
 
-  $doc_sobrante = $sobrante_total > 0 && count($sobrante_docs) > 0 ? implode(", ", $sobrante_docs) : "-";
-
-  $qSalida = mssql_query("
-    SELECT T0.DocNum, SUM(T1.LineTotal) AS total_importe
+  $qDocSalida = mssql_query("
+    SELECT DISTINCT T0.DocNum
     FROM {$cia}.dbo.OIGE T0
-    INNER JOIN {$cia}.dbo.IGE1 T1 ON T0.DocEntry = T1.DocEntry
-    WHERE T0.DocEntry IN (
-      SELECT DocEntry_sap
-      FROM CAP_INVENTARIO_AJUSTES_SAP
-      WHERE tipo_documento_sap = 'OIGE'
-        AND id_cierre = $idCierreActual
-    )
-    GROUP BY T0.DocNum
+    INNER JOIN CAP_INVENTARIO_AJUSTES_SAP A
+      ON A.DocEntry_sap = T0.DocEntry
+    WHERE A.id_cierre = $idCierreActual
+      AND A.tipo_documento_sap = 'OIGE'
+      AND A.tipo_ajuste = 'F'
   ", $conn);
 
-  if ($qSalida) {
-    while ($r = mssql_fetch_assoc($qSalida)) {
-      $faltante_total += floatval($r["total_importe"]);
-      $faltante_docs[] = $r["DocNum"];
+  if ($qDocSalida) {
+    while ($r = mssql_fetch_assoc($qDocSalida)) {
+      if (isset($r["DocNum"]) && trim((string)$r["DocNum"]) !== "") {
+        $faltante_docs[] = $r["DocNum"];
+      }
     }
   }
 
-  $doc_faltante = $faltante_total > 0 && count($faltante_docs) > 0 ? implode(", ", $faltante_docs) : "-";
+  $doc_sobrante = $sobrante_total > 0 && count($sobrante_docs) > 0 ? implode(", ", array_unique($sobrante_docs)) : "-";
+  $doc_faltante = $faltante_total > 0 && count($faltante_docs) > 0 ? implode(", ", array_unique($faltante_docs)) : "-";
 
   $total = $faltante_total + $sobrante_total;
 

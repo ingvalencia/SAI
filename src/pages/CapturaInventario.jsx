@@ -1190,7 +1190,7 @@ const esCodigoValidoEnTabla = (codigoLeido) => {
               <strong>Tipo de captura:</strong> {tipoConteo}
             </p>
             <p className="text-sm text-gray-700">
-              <strong>Conteo asignado:</strong> {Number(nroConteo) === 7 ? "Cuarto conteo" : nroConteo}
+              <strong>Conteo asignado:</strong> {Number(nroConteo) === 7 ? "Validación Físico vs SAP" : nroConteo}
             </p>
 
             <p className="text-sm text-gray-700">

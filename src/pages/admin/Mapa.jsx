@@ -703,9 +703,9 @@ export default function Mapa({ drawerRootId }) {
 
     const headers = [
       "#",
+      "CODIGO DE BARRAS.",
+      "DESCRIPCION",
       "ALMACÉN",
-      "CÓDIGO",
-      "NOMBRE",
       "FAMILIA",
       "SUBFAMILIA",
       "PRECIO",
@@ -714,11 +714,11 @@ export default function Mapa({ drawerRootId }) {
       "CONTEO 2",
       "CONTEO 3",
       ...(mostrarConteo4 ? ["CONTEO 4"] : []),
-      "DIFERENCIA",
       "COBRO A PRECIO VENTA",
       "TRANSFERENCIAS",
       "CAMBIOS DE CÓDIGO",
       "SALIDAS PENDIENTES",
+      "DIF. STOCK VS FISICO",
     ];
 
     const workbook = new ExcelJS.Workbook();
@@ -726,7 +726,6 @@ export default function Mapa({ drawerRootId }) {
       views: [{ state: "frozen", ySplit: 1 }],
     });
 
-    // ===== HEADER =====
     const headerRow = worksheet.addRow(headers);
 
     headers.forEach((header, idx) => {
@@ -759,7 +758,6 @@ export default function Mapa({ drawerRootId }) {
 
     headerRow.height = 28;
 
-    // ===== DATA =====
     datosExportar.forEach((item, i) => {
       const c1 = Number(item.conteo1 ?? 0);
       const c2 = Number(item.conteo2 ?? 0);
@@ -768,14 +766,13 @@ export default function Mapa({ drawerRootId }) {
       const sap = Number(item.inventario_sap ?? 0);
 
       const ultimoConteo = obtenerUltimoConteo(item);
-
       const diferencia = Number((sap - ultimoConteo).toFixed(2));
 
       const row = worksheet.addRow([
         i + 1,
-        item.almacen ?? "-",
         item.codigo ?? "-",
         item.nombre ?? "-",
+        item.almacen ?? "-",
         item.familia ?? "-",
         item.subfamilia ?? "-",
         Number(item.precio ?? 0),
@@ -784,11 +781,11 @@ export default function Mapa({ drawerRootId }) {
         c2,
         c3,
         ...(mostrarConteo4 ? [c4] : []),
+        "",
+        "",
+        "",
+        "",
         diferencia,
-        "",
-        "",
-        "",
-        "", //
       ]);
 
       row.eachCell((cell, colNumber) => {
@@ -799,19 +796,17 @@ export default function Mapa({ drawerRootId }) {
           right: { style: "thin" },
         };
 
-        // Formato numérico
         if (colNumber >= 7 && colNumber <= headers.length) {
           cell.numFmt = "#,##0.00";
         }
 
         cell.alignment = {
           vertical: "middle",
-          horizontal: colNumber === 4 ? "left" : "center",
+          horizontal: colNumber === 3 ? "left" : "center",
         };
       });
 
-      // Color diferencia
-      const diffColIndex = headers.indexOf("DIFERENCIA") + 1;
+      const diffColIndex = headers.indexOf("DIF. STOCK VS FISICO") + 1;
       const diffCell = row.getCell(diffColIndex);
 
       if (diferencia === 0) {
@@ -823,14 +818,12 @@ export default function Mapa({ drawerRootId }) {
       }
     });
 
-    // ===== AUTO FILTER =====
     worksheet.autoFilter = {
       from: { row: 1, column: 1 },
       to: { row: 1, column: headers.length },
     };
 
-    // ===== AJUSTE DE ANCHOS =====
-    worksheet.columns.forEach((column, index) => {
+    worksheet.columns.forEach((column) => {
       let maxLength = 12;
 
       column.eachCell({ includeEmpty: true }, (cell) => {
@@ -843,7 +836,6 @@ export default function Mapa({ drawerRootId }) {
       column.width = Math.min(maxLength + 3, 40);
     });
 
-    // ===== DESCARGA =====
     const buffer = await workbook.xlsx.writeBuffer();
 
     const blob = new Blob([buffer], {
@@ -1665,6 +1657,14 @@ export default function Mapa({ drawerRootId }) {
     pdfMake.createPdf(docDefinition).download(`Resumen_SAP_${fecha}.pdf`);
   };
 
+  const grupoListoParaActualizarSAP = useMemo(() => {
+    if (!grupoSeleccionado?.items?.length) return false;
+
+    return grupoSeleccionado.items.every((alm) =>
+      [4, 7].includes(Number(alm.estatus))
+    );
+  }, [grupoSeleccionado]);
+
   return (
     <div className="w-full max-w-[1400px] mx-auto px-3 py-4 sm:px-4 md:px-6 lg:px-8">
       <h1 className="text-2xl lg:text-3xl font-extrabold text-slate-900 mb-6">
@@ -2151,7 +2151,7 @@ export default function Mapa({ drawerRootId }) {
                 </div>
 
                 <h2 className="mb-7 text-center text-xl font-black tracking-wide text-slate-900 sm:text-2xl">
-                  RESUMEN CONTABLE DE AJUSTES SAP
+                  RESUMEN DE CANTIDADES AJUSTADAS SAP
                 </h2>
 
                 <div className="w-full overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
@@ -2496,10 +2496,10 @@ export default function Mapa({ drawerRootId }) {
                             <div className="p-4 space-y-3">
                               <button
                                 onClick={() => {
-                                  setAlmacenSeleccionado(null);
                                   setGrupoSeleccionado({
                                     base: g.base,
                                     almacenes: g.items.map((x) => x.almacen),
+                                    items: g.items,
                                     estatus: Number(estatus),
                                   });
                                 }}
@@ -2596,6 +2596,7 @@ export default function Mapa({ drawerRootId }) {
                   </button>
 
                   {grupoSeleccionado &&
+                    grupoListoParaActualizarSAP &&
                     [4, 7].includes(Number(estatusInventario)) &&
                     sapRefrescado === false &&
                     grupoCompleto === true && (
