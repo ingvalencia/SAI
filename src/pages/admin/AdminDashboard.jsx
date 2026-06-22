@@ -1,7 +1,10 @@
 import { useState } from "react";
-import Usuarios from "./Usuarios";
+import ObservacionesProyecto from "../ObservacionesProyecto";
+import ConsultaObservacionesProyecto from "../ConsultaObservacionesProyecto";
+import EstadisticasInventario from "../EstadisticasInventario";
 import Control from "./Control";
 import Mapa from "./Mapa";
+import Usuarios from "./Usuarios";
 
 export default function AdminDashboard() {
   const [vista, setVista] = useState("inicio");
@@ -11,11 +14,12 @@ export default function AdminDashboard() {
     { id: "usuarios", label: "Usuarios y permisos", icon: "👥" },
     { id: "control", label: "Control de operaciones", icon: "⚙️" },
     { id: "mapa", label: "Mapa de operaciones", icon: "🗺️" },
+    { id: "observaciones", label: "Observaciones", icon: "📝" },
+    { id: "herramientas", label: "Herramientas", icon: "🧰" },
   ];
 
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
-
       <aside
         className={`relative overflow-hidden bg-gradient-to-br from-[#0b0508] via-[#3d0b20] to-[#611232] text-white transition-all duration-300 ease-in-out shadow-2xl flex flex-col
         ${collapsed ? "w-20" : "w-72"}`}
@@ -36,80 +40,120 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-  <div className="relative z-10 flex flex-col h-full">
+        <div className="relative z-10 flex flex-col h-full">
+          <div className="flex items-center justify-between px-4 h-16 border-b border-white/20">
+            {!collapsed && (
+              <div>
+                <h2 className="text-lg font-bold tracking-wide">SICAF</h2>
+                <p className="text-xs text-white/70">Administrador</p>
+              </div>
+            )}
 
-        <div className="flex items-center justify-between px-4 h-16 border-b border-white/20">
-
-          {!collapsed && (
-            <div>
-              <h2 className="text-lg font-bold tracking-wide">SICAF</h2>
-              <p className="text-xs text-white/70">Administrador</p>
-            </div>
-          )}
-
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="relative w-10 h-10 flex items-center justify-center group"
-          >
-            <div className="w-6 flex flex-col gap-1">
-              <span
-                className={`block h-0.5 bg-white transition-all duration-300
-                ${collapsed ? "rotate-45 translate-y-1.5" : ""}`}
-              ></span>
-
-              <span
-                className={`block h-0.5 bg-white transition-all duration-300
-                ${collapsed ? "opacity-0" : ""}`}
-              ></span>
-
-              <span
-                className={`block h-0.5 bg-white transition-all duration-300
-                ${collapsed ? "-rotate-45 -translate-y-1.5" : ""}`}
-              ></span>
-            </div>
-          </button>
-
-        </div>
-
-        <nav className="mt-6 flex-1 px-2 space-y-2">
-
-          {menuItems.map((item) => (
             <button
-              key={item.id}
-              onClick={() => setVista(item.id)}
-              className={`group flex items-center gap-4 w-full px-4 py-3 rounded-xl text-sm font-medium transition-all
+              onClick={() => setCollapsed(!collapsed)}
+              className="relative w-10 h-10 flex items-center justify-center group"
+            >
+              <div className="w-6 flex flex-col gap-1">
+                <span
+                  className={`block h-0.5 bg-white transition-all duration-300
+                ${collapsed ? "rotate-45 translate-y-1.5" : ""}`}
+                ></span>
+
+                <span
+                  className={`block h-0.5 bg-white transition-all duration-300
+                ${collapsed ? "opacity-0" : ""}`}
+                ></span>
+
+                <span
+                  className={`block h-0.5 bg-white transition-all duration-300
+                ${collapsed ? "-rotate-45 -translate-y-1.5" : ""}`}
+                ></span>
+              </div>
+            </button>
+          </div>
+
+          <nav className="mt-6 flex-1 px-2 space-y-2">
+            {menuItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => {
+                  if (item.id === "herramientas" && vista === "herramientas") {
+                    setVista("inicio");
+                  } else {
+                    setVista(item.id);
+                  }
+                }}
+                className={`group flex items-center gap-4 w-full px-4 py-3 rounded-xl text-sm font-medium transition-all
               ${
                 vista === item.id
                   ? "bg-white text-[#611232] shadow-lg"
                   : "hover:bg-white/10 text-white/90"
               }`}
-            >
+              >
+                <span className="text-xl">{item.icon}</span>
 
-              <span className="text-xl">{item.icon}</span>
+                {!collapsed && (
+                  <span className="whitespace-nowrap">{item.label}</span>
+                )}
 
-              {!collapsed && (
-                <span className="whitespace-nowrap">
-                  {item.label}
-                </span>
-              )}
+                {collapsed && (
+                  <span className="absolute left-20 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
+                    {item.label}
+                  </span>
+                )}
+              </button>
+            ))}
 
-              {collapsed && (
-                <span className="absolute left-20 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
-                  {item.label}
-                </span>
-              )}
+            {vista === "herramientas" && !collapsed && (
+            <div className="mt-3 space-y-3">
 
-            </button>
-          ))}
+              <div className="rounded-2xl bg-white/10 border border-white/15 p-3 shadow-inner">
+                <p className="text-xs text-white/60 font-bold uppercase tracking-[0.18em] mb-3 px-2">
+                  Accesos
+                </p>
 
-        </nav>
+                <a
+                  href="https://diniz.com.mx/diniz/generacion-codigos/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-semibold bg-white text-[#611232] shadow-lg hover:scale-[1.02] transition-all"
+                >
+                  <span className="text-xl">🏷️</span>
+                  <span className="whitespace-nowrap">Generar códigos de barras</span>
+                </a>
+              </div>
 
-        {!collapsed && (
-          <div className="p-4 border-t border-white/20 text-xs text-white/70 text-center">
-            © {new Date().getFullYear()} SICAF
-          </div>
-        )}
+              <div className="rounded-2xl bg-white/10 border border-white/15 p-3 shadow-inner">
+                <p className="text-xs text-white/60 font-bold uppercase tracking-[0.18em] mb-3 px-2">
+                  Consultas y estadísticas
+                </p>
 
+                <button
+                  onClick={() => setVista("consulta_observaciones")}
+                  className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-semibold bg-white text-[#611232] shadow-lg hover:scale-[1.02] transition-all"
+                >
+                  <span className="text-xl">📊</span>
+                  <span className="whitespace-nowrap">Consultar observaciones</span>
+                </button>
+
+                <button
+                  onClick={() => setVista("estadisticas")}
+                  className="mt-3 flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-semibold bg-white text-[#611232] shadow-lg hover:scale-[1.02] transition-all"
+                >
+                  <span className="text-xl">📈</span>
+                  <span className="whitespace-nowrap">Estadísticas</span>
+                </button>
+              </div>
+
+            </div>
+          )}
+          </nav>
+
+          {!collapsed && (
+            <div className="p-4 border-t border-white/20 text-xs text-white/70 text-center">
+              © {new Date().getFullYear()} SICAF
+            </div>
+          )}
         </div>
       </aside>
 
@@ -117,11 +161,9 @@ export default function AdminDashboard() {
         className={`flex-1 overflow-y-auto transition-all duration-300
         ${collapsed ? "p-6" : "p-10"}`}
       >
-
         {vista === "inicio" && (
           <div className="flex items-center justify-center h-full">
             <div className="relative overflow-hidden bg-white rounded-[2rem] shadow-[0_35px_100px_rgba(15,23,42,0.18)] max-w-5xl w-full p-12 text-center border border-gray-100">
-
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#3d0b20] via-[#611232] to-[#8a1b48]"></div>
 
               <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-[#611232]/5 blur-3xl"></div>
@@ -147,13 +189,12 @@ export default function AdminDashboard() {
                 </h2>
 
                 <p className="text-gray-600 leading-relaxed max-w-3xl mx-auto text-base">
-                  Plataforma centralizada para supervisar operaciones de inventario,
-                  gestionar capturistas y monitorear el estado de los procesos
-                  operativos dentro del sistema SICAF.
+                  Plataforma centralizada para supervisar operaciones de
+                  inventario, gestionar capturistas y monitorear el estado de
+                  los procesos operativos dentro del sistema SICAF.
                 </p>
 
                 <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-
                   <div className="group bg-gradient-to-br from-gray-50 to-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300">
                     <p className="text-3xl font-black text-[#611232]">v1.0</p>
                     <p className="text-xs text-gray-500 mt-2 tracking-[0.18em] font-bold">
@@ -178,7 +219,6 @@ export default function AdminDashboard() {
                       INVENTARIOS FÍSICOS
                     </p>
                   </div>
-
                 </div>
 
                 <div className="mt-10 pt-6 border-t border-gray-100">
@@ -187,7 +227,6 @@ export default function AdminDashboard() {
                   </p>
                 </div>
               </div>
-
             </div>
           </div>
         )}
@@ -195,11 +234,12 @@ export default function AdminDashboard() {
         {vista === "usuarios" && <Usuarios />}
         {vista === "control" && <Control />}
         {vista === "mapa" && <Mapa drawerRootId="drawer-root" />}
-
+        {vista === "observaciones" && <ObservacionesProyecto />}
+        {vista === "consulta_observaciones" && <ConsultaObservacionesProyecto />}
+        {vista === "estadisticas" && <EstadisticasInventario />}
       </main>
 
       <div id="drawer-root"></div>
-
     </div>
   );
 }

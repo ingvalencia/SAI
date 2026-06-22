@@ -87,6 +87,22 @@ foreach ($datos as $d) {
     }
 }
 
+$fecha_safe = addslashes($fecha);
+$empleado_safe = addslashes($empleado);
+
+mssql_query("
+    UPDATE CAP_INVENTARIO_SESIONES
+    SET fecha_fin = GETDATE(),
+        minutos_totales = CAST(DATEDIFF(SECOND, fecha_inicio, GETDATE()) / 60.0 AS DECIMAL(10,2)),
+        estatus = 1
+    WHERE cia = '$cia_safe'
+      AND almacen = '$alm_safe'
+      AND fecha_inventario = '$fecha_safe'
+      AND empleado = '$empleado_safe'
+      AND nro_conteo = $estatus
+      AND estatus = 0
+");
+
 
 if ($esBrigada) {
 

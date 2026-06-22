@@ -14,6 +14,7 @@ import CompararInventario from "./pages/CompararInventario";
 import EnMantenimiento from "./pages/EnMantenimiento";
 import Login from "./pages/auth/Login";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import ObservacionesProyecto from "./pages/ObservacionesProyecto";
 
 function FullscreenLoader({ text = "Verificando acceso al sistema..." }) {
   return (
@@ -48,6 +49,9 @@ function AppRoutes() {
   const location = useLocation();
   const yaVerificado = useRef(false);
   const sesionCerradaRef = useRef(false);
+
+  const rutasPublicas = ["/login", "/observaciones"];
+  const mostrarBarraUsuario = !rutasPublicas.includes(location.pathname);
 
   useEffect(() => {
     if (yaVerificado.current) return;
@@ -86,7 +90,7 @@ function AppRoutes() {
   }, [empleado]);
 
   useEffect(() => {
-    if (!empleado || !tokenSesion || location.pathname === "/login") return;
+    if (!empleado || !tokenSesion || rutasPublicas.includes(location.pathname)) return;
 
     const validarSesion = async () => {
       if (sesionCerradaRef.current) return;
@@ -158,8 +162,7 @@ function AppRoutes() {
 
   return (
     <>
-
-      {location.pathname !== "/login" && (
+      {mostrarBarraUsuario && (
         <div className="relative overflow-hidden flex flex-col md:flex-row md:justify-between md:items-center gap-2 bg-gradient-to-r from-[#0b0508] via-[#3d0b20] to-[#611232] text-white px-5 py-3 shadow-[0_8px_30px_rgba(0,0,0,0.35)] border-b border-white/10">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_left,rgba(255,255,255,0.08),transparent_35%)]"></div>
 
@@ -184,7 +187,8 @@ function AppRoutes() {
           </button>
         </div>
       )}
-      {modo_forzado && location.pathname !== "/login" && (
+
+      {modo_forzado && mostrarBarraUsuario && (
         <div className="bg-yellow-900 text-yellow-300 px-4 py-2 text-xs text-center border-b border-yellow-700">
           ⚠ Acceso de desarrollador. Sistema en mantenimiento para otros usuarios.
         </div>
@@ -192,6 +196,7 @@ function AppRoutes() {
 
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/observaciones" element={<ObservacionesProyecto />} />
 
         <Route
           path="/"

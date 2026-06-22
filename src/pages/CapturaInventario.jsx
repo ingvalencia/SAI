@@ -391,7 +391,15 @@ export default function CapturaInventario() {
 
     const estatusRes = await axios.get(
       "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/verifica_estatus.php",
-      { params: { almacen: alm, fecha: fecISO, empleado: emp, cia } }
+      {
+        params: {
+          almacen: alm,
+          fecha: fecISO,
+          empleado: emp,
+          cia,
+          nro_conteo: nroAsignado,
+        },
+      }
     );
 
     if (!estatusRes.data.success)
@@ -401,20 +409,21 @@ export default function CapturaInventario() {
     const estatusBackend = Number(estatusRes.data.estatus || 0);
     const conteoAsignadoActual = Number(nroConteo || 0);
 
-    if (
-      (esConteoIndividual && estatusBackend >= 2 && conteoAsignadoActual === 1) ||
-      (!esConteoIndividual && estatusBackend >= 4)
-    ) {
-      const conteoExistente = Number(estatusRes.data.nro_conteo || 0);
+    const existeConteoActual =
+      estatusRes.data.existe_conteo === true ||
+      estatusRes.data.existe_conteo === "1" ||
+      estatusRes.data.existe_conteo === 1;
 
+    if (existeConteoActual) {
       Swal.close();
+
       return navigate("/comparar", {
         state: {
           almacen: alm,
           fecha: fecISO,
           empleado: emp,
           cia,
-          estatus: Number(estatusRes.data.estatus || conteoExistente || nroAsignado || 1),
+          estatus: Number(conteoAsignadoActual || estatusRes.data.nro_conteo || estatusBackend || 1),
         },
       });
     }
@@ -508,6 +517,17 @@ export default function CapturaInventario() {
     );
 
     if (!r2.data.success) throw new Error(r2.data.error);
+
+    await axios.post(
+      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/iniciar_sesion_conteo.php",
+      new URLSearchParams({
+        almacen: alm,
+        fecha: fecISO,
+        empleado: emp,
+        cia: cia,
+        nro_conteo: String(estatusReal || 1),
+      })
+    );
 
     setDatos(r2.data.data || []);
 
@@ -1328,7 +1348,7 @@ const esCodigoValidoEnTabla = (codigoLeido) => {
                         </span>
                         <span className="flex-1 text-gray-700 ml-4 font-medium truncate">{h.nombre}</span>
                         <span className="font-bold text-green-700 bg-green-100 px-3 py-1 rounded-full text-xs ml-3">
-                          x{h.cantidad}
+                          Cantidad total: {h.cantidad}
                         </span>
                       </li>
                     ))}
@@ -1339,18 +1359,11 @@ const esCodigoValidoEnTabla = (codigoLeido) => {
                 {historial.length > 0 && (
                   <button
                     onClick={() => {
-                      const ultimo = historial[0];
-                      const nuevo = [...datos];
-                      const idx = nuevo.findIndex((x) => x.ItemCode === ultimo.codigo);
-                      if (idx !== -1) {
-                        nuevo[idx].cant_invfis = "";
-                        setDatos(nuevo);
-                      }
                       setHistorial((prev) => prev.slice(1));
                     }}
                     className="mt-5 w-full px-4 py-3 text-sm font-semibold bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all duration-200 shadow-md"
                   >
-                    ↩️ Deshacer último
+                    ↩️ Limpiar último registro del historial
                   </button>
                 )}
               </div>

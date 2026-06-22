@@ -455,6 +455,20 @@ const Login = () => {
               </button>
             </form>
 
+            <div className="mt-5">
+              <button
+                type="button"
+                onClick={() => navigate("/observaciones")}
+                className="w-full px-6 py-3 rounded-xl border border-[#611232]/20 bg-white text-[#611232] font-black shadow-sm hover:bg-[#611232]/5 hover:-translate-y-0.5 transition-all"
+              >
+                💬 Observaciones y sugerencias
+              </button>
+
+              <p className="text-center text-xs text-gray-400 mt-3">
+                Comparte comentarios, incidencias o sugerencias del proyecto SICAF.
+              </p>
+            </div>
+
             <div className="mt-10 pt-6 border-t border-gray-100">
               <div className="flex items-center justify-center gap-3">
                 <span className="w-10 h-[1px] bg-gray-300"></span>

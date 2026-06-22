@@ -95,6 +95,7 @@ export default function Mapa({ drawerRootId }) {
 
   const [mostrarResumenSAP, setMostrarResumenSAP] = useState(false);
   const [resumenSAP, setResumenSAP] = useState([]);
+  const [idsCierreSAP, setIdsCierreSAP] = useState([]);
 
   const [ordenTabla, setOrdenTabla] = useState({
     campo: null,
@@ -713,7 +714,7 @@ export default function Mapa({ drawerRootId }) {
       "CONTEO 1",
       "CONTEO 2",
       "CONTEO 3",
-      ...(mostrarConteo4 ? ["CONTEO 4"] : []),
+      ...(mostrarConteo4 ? ["Validación Fisico vs SAP"] : []),
       "COBRO A PRECIO VENTA",
       "TRANSFERENCIAS",
       "CAMBIOS DE CÓDIGO",
@@ -876,76 +877,76 @@ export default function Mapa({ drawerRootId }) {
   };
 
   const confirmarCierre = async () => {
-    try {
-      Swal.fire({
-        title: "Cargando catálogo...",
-        text: "Obteniendo proyecto y cuentas para el cierre.",
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading(),
-      });
+  try {
+    Swal.fire({
+      title: "Cargando catálogo...",
+      text: "Obteniendo proyecto y cuentas para el cierre.",
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+    });
 
-      const data = await fetchCatalogoCierre();
+    const data = await fetchCatalogoCierre();
 
-      Swal.close();
+    Swal.close();
 
-      const proyectoDefault = data.proyecto || "";
-      const cuentas = Array.isArray(data.cuentas) ? data.cuentas : [];
+    const proyectoDefault = data.proyecto || "";
+    const cuentas = Array.isArray(data.cuentas) ? data.cuentas : [];
 
-      const opcionesCuentas = cuentas.map((c) => ({
-        value: c.numero_cuenta,
-        label: `${c.numero_cuenta} - ${c.nombre_cuenta}`,
-      }));
+    const opcionesCuentas = cuentas.map((c) => ({
+      value: c.numero_cuenta,
+      label: `${c.numero_cuenta} - ${c.nombre_cuenta}`,
+    }));
 
-      let cuentaEMSeleccionada = null;
-      let cuentaSMSeleccionada = null;
+    let cuentaEMSeleccionada = null;
+    let cuentaSMSeleccionada = null;
 
-      const { isConfirmed, value } = await Swal.fire({
-        title: "¿Generar cierre oficial?",
-        icon: "warning",
-        width: 900,
-        padding: "1.25rem",
-        showCancelButton: true,
-        confirmButtonText: "Sí, generar cierre",
-        cancelButtonText: "Cancelar",
-        focusConfirm: false,
-        html: `
-          <div style="text-align:left; font-size:14px;">
-            <p style="margin:0 0 12px 0;">
-              Esto consolidará los conteos y creará los ajustes SAP.
-            </p>
+    const { isConfirmed, value } = await Swal.fire({
+      title: "¿Generar cierre oficial?",
+      icon: "warning",
+      width: 900,
+      padding: "1.25rem",
+      showCancelButton: true,
+      confirmButtonText: "Sí, generar cierre",
+      cancelButtonText: "Cancelar",
+      focusConfirm: false,
+      html: `
+        <div style="text-align:left; font-size:14px;">
+          <p style="margin:0 0 12px 0;">
+            Esto consolidará los conteos y creará los ajustes SAP.
+          </p>
 
-            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:14px; align-items:end;">
+          <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:14px; align-items:end;">
 
-              <div>
-                <label style="display:block; margin:0 0 6px;">Proyecto</label>
-                <input
-                  id="sw_proyecto"
-                  class="swal2-input"
-                  style="width:100%; margin:0;"
-                  value="${proyectoDefault}"
-                  readonly
-                  disabled
-                />
-              </div>
+            <div>
+              <label style="display:block; margin:0 0 6px;">Proyecto</label>
+              <input
+                id="sw_proyecto"
+                class="swal2-input"
+                style="width:100%; margin:0;"
+                value="${proyectoDefault}"
+                readonly
+                disabled
+              />
+            </div>
 
-              <div>
-                <label style="display:block; margin:0 0 6px;">Cuenta EM (Sobrante)</label>
-                <div id="sw_em_container"></div>
-              </div>
+            <div>
+              <label style="display:block; margin:0 0 6px;">Cuenta EM (Sobrante)</label>
+              <div id="sw_em_container"></div>
+            </div>
 
-              <div>
-                <label style="display:block; margin:0 0 6px;">Cuenta SM (Salida)</label>
-                <div id="sw_sm_container"></div>
-              </div>
+            <div>
+              <label style="display:block; margin:0 0 6px;">Cuenta SM (Salida)</label>
+              <div id="sw_sm_container"></div>
+            </div>
 
-              <div style="margin-top:20px;">
+            <div style="margin-top:20px;">
               <label style="
-                  display:block;
-                  margin:0 0 8px;
-                  font-weight:600;
-                  color:#374151;
-                  font-size:13px;
-                  letter-spacing:.5px;
+                display:block;
+                margin:0 0 8px;
+                font-weight:600;
+                color:#374151;
+                font-size:13px;
+                letter-spacing:.5px;
               ">
                 Comentario (máx 50 caracteres)
               </label>
@@ -975,247 +976,278 @@ export default function Mapa({ drawerRootId }) {
                     counter.innerText = this.value.length + '/50';
                     counter.style.color = this.value.length >= 50 ? '#dc2626' : '#6b7280';
                   "
-
                 ></textarea>
 
                 <div id="sw_counter" style="
-                    position:absolute;
-                    right:10px;
-                    bottom:8px;
-                    font-size:11px;
-                    color:#6b7280;
-                    font-weight:500;
+                  position:absolute;
+                  right:10px;
+                  bottom:8px;
+                  font-size:11px;
+                  color:#6b7280;
+                  font-weight:500;
                 ">
                   0/50
                 </div>
               </div>
             </div>
 
-
-            </div>
           </div>
-        `,
-        didOpen: () => {
-  const popup = Swal.getPopup();
-  if (popup) popup.style.overflow = "visible";
+        </div>
+      `,
+      didOpen: () => {
+        const popup = Swal.getPopup();
+        if (popup) popup.style.overflow = "visible";
 
-  const emContainer = document.getElementById("sw_em_container");
-  const smContainer = document.getElementById("sw_sm_container");
+        const emContainer = document.getElementById("sw_em_container");
+        const smContainer = document.getElementById("sw_sm_container");
 
-  if (emContainer) {
-    const rootEM = ReactDOM.createRoot(emContainer);
+        if (emContainer) {
+          const rootEM = ReactDOM.createRoot(emContainer);
 
-    rootEM.render(
-      <Select
-        options={opcionesCuentas}
-        placeholder="-- Selecciona cuenta EM --"
-        isSearchable
-        isClearable
-        menuPortalTarget={document.body}
-        styles={{
-          menuPortal: (base) => ({
-            ...base,
-            zIndex: 99999,
-          }),
-          control: (base) => ({
-            ...base,
-            minHeight: "40px",
-            fontSize: "14px",
-            textAlign: "left",
-          }),
-          menu: (base) => ({
-            ...base,
-            zIndex: 99999,
-            textAlign: "left",
-          }),
-          option: (base) => ({
-            ...base,
-            fontSize: "13px",
-            textAlign: "left",
-          }),
-          singleValue: (base) => ({
-            ...base,
-            fontSize: "13px",
-            textAlign: "left",
-          }),
-          placeholder: (base) => ({
-            ...base,
-            fontSize: "13px",
-            textAlign: "left",
-          }),
-        }}
-        onChange={(opcion) => {
-          cuentaEMSeleccionada = opcion ? opcion.value : null;
-        }}
-      />,
-    );
-  }
-
-  if (smContainer) {
-    const rootSM = ReactDOM.createRoot(smContainer);
-
-    rootSM.render(
-      <Select
-        options={opcionesCuentas}
-        placeholder="-- Selecciona cuenta SM --"
-        isSearchable
-        isClearable
-        menuPortalTarget={document.body}
-        styles={{
-          menuPortal: (base) => ({
-            ...base,
-            zIndex: 99999,
-          }),
-          control: (base) => ({
-            ...base,
-            minHeight: "40px",
-            fontSize: "14px",
-            textAlign: "left",
-          }),
-          menu: (base) => ({
-            ...base,
-            zIndex: 99999,
-            textAlign: "left",
-          }),
-          option: (base) => ({
-            ...base,
-            fontSize: "13px",
-            textAlign: "left",
-          }),
-          singleValue: (base) => ({
-            ...base,
-            fontSize: "13px",
-            textAlign: "left",
-          }),
-          placeholder: (base) => ({
-            ...base,
-            fontSize: "13px",
-            textAlign: "left",
-          }),
-        }}
-        onChange={(opcion) => {
-          cuentaSMSeleccionada = opcion ? opcion.value : null;
-        }}
-      />,
-    );
-  }
-},
-        preConfirm: () => {
-          const proyecto = document
-            .getElementById("sw_proyecto")
-            ?.value?.trim();
-          const cuentaEM = cuentaEMSeleccionada;
-          const cuentaSM = cuentaSMSeleccionada;
-          const comentario =
-            document.getElementById("sw_comentario")?.value?.trim() || "";
-
-          if (!cuentaEM) {
-            Swal.showValidationMessage("Selecciona la cuenta EM (sobrante).");
-            return;
-          }
-
-          if (!cuentaSM) {
-            Swal.showValidationMessage("Selecciona la cuenta SM (salida).");
-            return;
-          }
-
-          if (!comentario) {
-            Swal.showValidationMessage("El comentario es obligatorio.");
-            return;
-          }
-
-          if (comentario.length > 50) {
-            Swal.showValidationMessage(
-              "El comentario no puede exceder 50 caracteres.",
-            );
-            return;
-          }
-
-          return { proyecto, cuentaEM, cuentaSM, comentario };
-        },
-      });
-
-      if (!isConfirmed) return;
-
-      Swal.fire({
-        title: "Procesando...",
-        text: "Generando cierre del inventario...",
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading(),
-      });
-
-      const almacenesACerrar = grupoSeleccionado
-        ? Array.from(new Set(detalle.map((x) => x.almacen).filter(Boolean)))
-        : [almacenSeleccionado];
-
-      console.log("ALMACENES A CERRAR:", almacenesACerrar);
-
-      if (!almacenesACerrar || almacenesACerrar.length === 0) {
-        Swal.close();
-        Swal.fire("Error", "No hay almacenes para cerrar.", "error");
-        return;
-      }
-
-      const erroresCierre = [];
-
-      for (const alm of almacenesACerrar) {
-        try {
-          const res = await axios.get(
-            "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/cerrar_inventario_admin.php",
-            {
-              params: {
-                cia,
-                almacen: alm,
-                fecha,
-                usuario: sessionStorage.getItem("empleado"),
-                proyecto: value.proyecto,
-                cuenta_em: value.cuentaEM,
-                cuenta_sm: value.cuentaSM,
-                comentario: value.comentario,
-              },
-            },
+          rootEM.render(
+            <Select
+              options={opcionesCuentas}
+              placeholder="-- Selecciona cuenta EM --"
+              isSearchable
+              isClearable
+              menuPortalTarget={document.body}
+              styles={{
+                menuPortal: (base) => ({
+                  ...base,
+                  zIndex: 99999,
+                }),
+                control: (base) => ({
+                  ...base,
+                  minHeight: "40px",
+                  fontSize: "14px",
+                  textAlign: "left",
+                }),
+                menu: (base) => ({
+                  ...base,
+                  zIndex: 99999,
+                  textAlign: "left",
+                }),
+                option: (base) => ({
+                  ...base,
+                  fontSize: "13px",
+                  textAlign: "left",
+                }),
+                singleValue: (base) => ({
+                  ...base,
+                  fontSize: "13px",
+                  textAlign: "left",
+                }),
+                placeholder: (base) => ({
+                  ...base,
+                  fontSize: "13px",
+                  textAlign: "left",
+                }),
+              }}
+              onChange={(opcion) => {
+                cuentaEMSeleccionada = opcion ? opcion.value : null;
+              }}
+            />,
           );
-
-          console.log("RESPUESTA CIERRE:", alm, res.data);
-
-          if (!res.data || !res.data.success) {
-            erroresCierre.push(
-              `${alm}: ${res.data?.error || "Error desconocido"}`,
-            );
-          }
-        } catch (error) {
-          erroresCierre.push(`${alm}: ${error.message}`);
         }
-      }
 
-      if (erroresCierre.length > 0) {
-        throw new Error(erroresCierre.join("\n"));
-      }
+        if (smContainer) {
+          const rootSM = ReactDOM.createRoot(smContainer);
 
+          rootSM.render(
+            <Select
+              options={opcionesCuentas}
+              placeholder="-- Selecciona cuenta SM --"
+              isSearchable
+              isClearable
+              menuPortalTarget={document.body}
+              styles={{
+                menuPortal: (base) => ({
+                  ...base,
+                  zIndex: 99999,
+                }),
+                control: (base) => ({
+                  ...base,
+                  minHeight: "40px",
+                  fontSize: "14px",
+                  textAlign: "left",
+                }),
+                menu: (base) => ({
+                  ...base,
+                  zIndex: 99999,
+                  textAlign: "left",
+                }),
+                option: (base) => ({
+                  ...base,
+                  fontSize: "13px",
+                  textAlign: "left",
+                }),
+                singleValue: (base) => ({
+                  ...base,
+                  fontSize: "13px",
+                  textAlign: "left",
+                }),
+                placeholder: (base) => ({
+                  ...base,
+                  fontSize: "13px",
+                  textAlign: "left",
+                }),
+              }}
+              onChange={(opcion) => {
+                cuentaSMSeleccionada = opcion ? opcion.value : null;
+              }}
+            />,
+          );
+        }
+      },
+      preConfirm: () => {
+        const proyecto = document
+          .getElementById("sw_proyecto")
+          ?.value?.trim();
+
+        const cuentaEM = cuentaEMSeleccionada;
+        const cuentaSM = cuentaSMSeleccionada;
+
+        const comentario =
+          document.getElementById("sw_comentario")?.value?.trim() || "";
+
+        if (!cuentaEM) {
+          Swal.showValidationMessage("Selecciona la cuenta EM (sobrante).");
+          return;
+        }
+
+        if (!cuentaSM) {
+          Swal.showValidationMessage("Selecciona la cuenta SM (salida).");
+          return;
+        }
+
+        if (!comentario) {
+          Swal.showValidationMessage("El comentario es obligatorio.");
+          return;
+        }
+
+        if (comentario.length > 50) {
+          Swal.showValidationMessage(
+            "El comentario no puede exceder 50 caracteres.",
+          );
+          return;
+        }
+
+        return { proyecto, cuentaEM, cuentaSM, comentario };
+      },
+    });
+
+    if (!isConfirmed) return;
+
+    Swal.fire({
+      title: "Procesando...",
+      text: "Generando cierre del inventario...",
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+    });
+
+    const diferenciasParaCerrar = filasDiferencias.filter((x) =>
+      grupoSeleccionado
+        ? x.almacen
+        : x.almacen === almacenSeleccionado
+    );
+
+    const almacenesACerrar = grupoSeleccionado
+    ? grupoSeleccionado.almacenes
+    : [almacenSeleccionado];
+
+    if (!almacenesACerrar || almacenesACerrar.length === 0) {
       Swal.close();
-
-      await Swal.fire(
-        "Éxito",
-        grupoSeleccionado
-          ? "Cierre generado correctamente para todos los almacenes del grupo."
-          : "Cierre generado correctamente.",
-        "success",
-      );
-
-      setMostrarDrawer(false);
-
-      await fetchAlmacenes();
-
-      if (grupoSeleccionado) {
-        await fetchDetalleGrupo(grupoSeleccionado);
-      } else {
-        await fetchDetalle();
-      }
-    } catch (e) {
-      Swal.close();
-      Swal.fire("Error", e.message || "No se pudo generar el cierre", "error");
+      Swal.fire("Error", "No hay almacenes para cerrar.", "error");
+      return;
     }
-  };
+
+
+    if (!almacenesACerrar || almacenesACerrar.length === 0) {
+      Swal.close();
+      Swal.fire("Error", "No hay almacenes para cerrar.", "error");
+      return;
+    }
+
+    const erroresCierre = [];
+    const idsCierreGenerados = [];
+
+    for (const alm of almacenesACerrar) {
+      try {
+
+        const itemsAjuste = diferenciasParaCerrar
+          .filter((x) => x.almacen === alm)
+          .map((x) => ({
+            codigo: x.codigo,
+            codebars: x.codebars,
+            nombre: x.nombre,
+            almacen: x.almacen,
+            sap_final: Number(x.sap_final ?? 0),
+            conteo_final: Number(x.conteo_final ?? 0),
+            diferencia: Number(x.diferencia_cierre ?? 0),
+          }));
+
+
+        const res = await axios.get(
+          "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/cerrar_inventario_admin.php",
+          {
+            params: {
+              cia,
+              almacen: alm,
+              fecha,
+              usuario: sessionStorage.getItem("empleado"),
+              proyecto: value.proyecto,
+              cuenta_em: value.cuentaEM,
+              cuenta_sm: value.cuentaSM,
+              comentario: value.comentario,
+              items_ajuste: JSON.stringify(itemsAjuste),
+            },
+          },
+        );
+
+        console.log("RESPUESTA CIERRE:", alm, res.data);
+
+        if (!res.data || !res.data.success) {
+          erroresCierre.push(
+            `${alm}: ${res.data?.error || "Error desconocido"}`,
+          );
+        } else if (res.data.id_cierre) {
+          idsCierreGenerados.push(res.data.id_cierre);
+        }
+      } catch (error) {
+        erroresCierre.push(`${alm}: ${error.message}`);
+      }
+    }
+
+    if (erroresCierre.length > 0) {
+      throw new Error(erroresCierre.join("\n"));
+    }
+
+    setIdsCierreSAP(idsCierreGenerados);
+
+    Swal.close();
+
+    await Swal.fire(
+      "Éxito",
+      grupoSeleccionado
+        ? "Cierre generado correctamente para todos los almacenes del grupo."
+        : "Cierre generado correctamente.",
+      "success",
+    );
+
+    setMostrarDrawer(false);
+
+    await fetchAlmacenes();
+
+    if (grupoSeleccionado) {
+      await fetchDetalleGrupo(grupoSeleccionado);
+    } else {
+      await fetchDetalle();
+    }
+  } catch (e) {
+    Swal.close();
+    Swal.fire("Error", e.message || "No se pudo generar el cierre", "error");
+  }
+};
 
   const refreshSAP = async () => {
     if (!grupoSeleccionado || !grupoSeleccionado.almacenes?.length) {
@@ -1376,50 +1408,58 @@ export default function Mapa({ drawerRootId }) {
   };
 
   const fetchResumenSAP = async () => {
-    try {
-      Swal.fire({
-        title: "Validando...",
-        text: "Verificando si el cierre ya fue procesado en SAP.",
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading(),
-      });
+  try {
+    Swal.fire({
+      title: "Validando...",
+      text: "Verificando si el cierre ya fue procesado en SAP.",
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+    });
 
-      const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/resumen_sap.php",
-        {
-          params: {
-            cia,
-            almacen: grupoSeleccionado
-              ? grupoSeleccionado.almacenes.join(",")
-              : almacenSeleccionado,
-            fecha,
-          },
-        },
-      );
+    const params = {
+      cia,
+    };
 
-      Swal.close();
+    if (idsCierreSAP && idsCierreSAP.length > 0) {
+      params.id_cierre = idsCierreSAP.join(",");
+    } else {
+      params.almacen = grupoSeleccionado
+        ? grupoSeleccionado.almacenes.join(",")
+        : almacenSeleccionado;
 
-      if (!res.data.success) {
-        Swal.fire(
-          "Pendiente de procesamiento",
-          res.data.error ||
-            "Aún no se ha procesado a SAP, favor de contactar al administrador.",
-          "warning",
-        );
-        return;
-      }
-
-      setResumenSAP(res.data.data);
-      setMostrarResumenSAP(true);
-    } catch (e) {
-      Swal.close();
-      Swal.fire(
-        "Error",
-        e.message || "No se pudo obtener el resumen contable SAP.",
-        "error",
-      );
+      params.fecha = fecha;
     }
-  };
+
+    const res = await axios.get(
+      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/resumen_sap.php",
+      {
+        params,
+      },
+    );
+
+    Swal.close();
+
+    if (!res.data.success) {
+      Swal.fire(
+        "Pendiente de procesamiento",
+        res.data.error ||
+          "Aún no se ha procesado a SAP, favor de contactar al administrador.",
+        "warning",
+      );
+      return;
+    }
+
+    setResumenSAP(res.data.data);
+    setMostrarResumenSAP(true);
+  } catch (e) {
+    Swal.close();
+    Swal.fire(
+      "Error",
+      e.message || "No se pudo obtener el resumen contable SAP.",
+      "error",
+    );
+  }
+};
 
   const convertirImagenBase64 = (url) => {
     return new Promise((resolve, reject) => {
