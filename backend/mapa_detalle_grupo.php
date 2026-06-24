@@ -88,26 +88,27 @@ if (!$usuario) {
 
 
 $out = [];
-
 foreach ($almacenes as $alm) {
 
 
   $items = [];
 
   $qFoto = mssql_query("
-    SELECT
-      ItemCode,
-      ItemName,
-      familia,
-      subfamilia,
-      precio_foto,
-      inventario_sap_foto
-    FROM CAP_INVENTARIO_SAP_FOTO
-    WHERE almacen = '$alm'
-      AND fecha_inv = '$fecha'
-      AND cia = '$cia'
-      AND es_activa = 1
-  ", $conn);
+  SELECT
+    ItemCode,
+    ItemName,
+    familia,
+    subfamilia,
+    precio_foto,
+    inventario_sap_foto
+  FROM CAP_INVENTARIO_SAP_FOTO
+  WHERE almacen = '$alm'
+    AND fecha_inv = '$fecha'
+    AND cia = '$cia'
+    AND es_activa = 1
+  ORDER BY familia ASC, subfamilia ASC, ItemName ASC
+", $conn);
+
   if (!$qFoto) continue;
 
   while ($row = mssql_fetch_assoc($qFoto)) {
@@ -177,6 +178,26 @@ foreach ($almacenes as $alm) {
 
 $re = mssql_query(" SELECT MAX(estatus) AS estatus FROM CAP_INVENTARIO WHERE almacen IN ($listaAlmacenes) AND fecha_inv = '$fecha' AND cias = '$cia' ", $conn); $estatus = 0; if ($re && $e = mssql_fetch_assoc($re)) { $estatus = (int)$e['estatus']; }
 
+usort($out, function($a, $b) {
+  $fa = strtoupper($a['familia']);
+  $fb = strtoupper($b['familia']);
+
+  if ($fa != $fb) {
+    return strcmp($fa, $fb);
+  }
+
+  $sa = strtoupper($a['subfamilia']);
+  $sb = strtoupper($b['subfamilia']);
+
+  if ($sa != $sb) {
+    return strcmp($sa, $sb);
+  }
+
+  $na = strtoupper($a['nombre']);
+  $nb = strtoupper($b['nombre']);
+
+  return strcmp($na, $nb);
+});
 
 echo json_encode([
   "success" => true,

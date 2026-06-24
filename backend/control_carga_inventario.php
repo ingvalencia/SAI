@@ -99,12 +99,16 @@ $estatus_cfg   = intval($rowPermiso['estatus']);
 
 if ($estatus_cfg === 1) {
     echo json_encode([
-        'success' => false,
-        'error'   => 'Usuario bloqueado para capturas (otro usuario realizará el tercer conteo).'
+        'success' => true,
+        'modo' => 'solo lectura',
+        'mensaje' => 'Conteo finalizado, continuar a validación vs SAP.',
+        'nro_conteo_asignado' => $nro_asignado,
+        'estatus_proceso' => $estatus_cfg,
+        'capturista' => $empleado,
+        'ir_comparar' => true
     ]);
     exit;
 }
-
 
 if ($nro_conteo !== $nro_asignado) {
     echo json_encode([

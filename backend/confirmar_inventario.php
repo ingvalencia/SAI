@@ -106,11 +106,26 @@ mssql_query("
 
 if ($esBrigada) {
 
+    if ($id_config_actual > 0) {
+        mssql_query("
+            UPDATE CAP_CONTEO_CONFIG
+            SET estatus=1
+            WHERE id=$id_config_actual
+        ",$conn);
+    }
+
+    mssql_query("
+        UPDATE CAP_INVENTARIO
+        SET estatus=$estatus
+        WHERE almacen='$almacen' AND fecha_inv='$fecha' AND usuario=$empleado
+    ",$conn);
+
     echo json_encode([
         "success" => true,
-        "mensaje" => "Conteo guardado (brigada). El proceso no avanza automáticamente.",
+        "mensaje" => "Conteo guardado y cerrado correctamente.",
         "next_status" => $estatus,
-        "hay_diferencias" => false
+        "hay_diferencias" => false,
+        "conteo_cerrado" => true
     ]);
     exit;
 }

@@ -15,7 +15,12 @@ export default function Control() {
   const [vista, setVista] = useState("usuarios");
 
   const rolesSesion = JSON.parse(sessionStorage.getItem("roles") || "[]");
-  const rolLogueado = rolesSesion.length > 0 ? rolesSesion[0].id : null;
+  const rolLogueado =
+  rolesSesion.length > 0
+    ? Number(rolesSesion[0].id ?? rolesSesion[0].rol_id ?? rolesSesion[0])
+    : null;
+
+  const puedeGestionarAcciones = [1, 2].includes(Number(rolLogueado));
   const empleadoSesion = sessionStorage.getItem("empleado") || "";
 
   const [cia, setCia] = useState("");
@@ -239,9 +244,7 @@ export default function Control() {
     }
 
     if (rolLogueado === 3) {
-      base = usuarios.filter(
-        (u) => u.rol === 4 && u.creado_por === empleadoSesion
-      );
+      base = usuarios.filter((u) => Number(u.rol) === 4);
     }
 
     if (filtroRol) {
@@ -660,7 +663,8 @@ export default function Control() {
               <th className="px-4 md:px-6 py-4 text-left whitespace-nowrap font-black">CIA</th>
               <th className="px-4 md:px-6 py-4 text-left whitespace-nowrap font-black">Local</th>
               <th className="px-4 md:px-6 py-4 text-left whitespace-nowrap font-black">Estado</th>
-              <th className="px-4 md:px-6 py-4 text-left whitespace-nowrap font-black">Acciones</th>
+
+              {puedeGestionarAcciones && <th className="px-4 md:px-6 py-4 text-left whitespace-nowrap font-black">Acciones</th>}
             </tr>
           </thead>
 
@@ -738,30 +742,30 @@ export default function Control() {
                     )}
                   </td>
 
-                  <td className="px-4 md:px-6 py-4">
-                    <div className="flex flex-col xl:flex-row gap-2">
-                      <button
-                        onClick={() => toggleActivo(u.id, u.activo)}
-                        className={`w-full xl:w-auto px-4 py-2 rounded-xl text-xs font-black text-white transition-all duration-200 shadow-sm
-                          ${
-                            u.activo
-                              ? "bg-emerald-600 hover:bg-emerald-700 hover:shadow-emerald-600/25"
-                              : "bg-slate-600 hover:bg-slate-700 hover:shadow-slate-600/25"
-                          }`}
-                      >
-                        {u.activo ? "Desactivar" : "Activar"}
-                      </button>
+                  {puedeGestionarAcciones && (
+                    <td className="px-4 md:px-6 py-4">
+                      <div className="flex flex-col xl:flex-row gap-2">
+                        <button
+                          onClick={() => toggleActivo(u.id, u.activo)}
+                          className={`w-full xl:w-auto px-4 py-2 rounded-xl text-xs font-black text-white transition-all duration-200 shadow-sm
+                            ${
+                              u.activo
+                                ? "bg-emerald-600 hover:bg-emerald-700 hover:shadow-emerald-600/25"
+                                : "bg-slate-600 hover:bg-slate-700 hover:shadow-slate-600/25"
+                            }`}
+                        >
+                          {u.activo ? "Desactivar" : "Activar"}
+                        </button>
 
-                      {(rolLogueado === 1 || rolLogueado === 2) && (
                         <button
                           onClick={() => eliminarUsuario(u.id)}
                           className="w-full xl:w-auto px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-black transition-all duration-200 shadow-sm hover:shadow-red-600/25"
                         >
                           Eliminar
                         </button>
-                      )}
-                    </div>
-                  </td>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               );
             })}

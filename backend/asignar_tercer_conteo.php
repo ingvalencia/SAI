@@ -73,7 +73,7 @@ $sqlElegido = "
     WHERE c.cia = '$cia'
       AND c.almacen = '$almacen'
       AND c.tipo_conteo = 'Brigada'
-      AND c.estatus = 0
+      AND c.estatus IN (0,1)
       AND c.nro_conteo IN (1,2)
       AND CONVERT(date, c.fecha_asignacion) = '$fecha'
       AND TRY_CONVERT(INT, uj.value) = $idElegido
@@ -115,7 +115,7 @@ $sqlOtro = "
     WHERE c.cia = '$cia'
       AND c.almacen = '$almacen'
       AND c.tipo_conteo = 'Brigada'
-      AND c.estatus = 0
+      AND c.estatus IN (0,1)
       AND c.nro_conteo IN (1,2)
       AND CONVERT(date, c.fecha_asignacion) = '$fecha'
       AND c.id <> $idRowElegido

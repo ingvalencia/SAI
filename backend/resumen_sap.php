@@ -36,7 +36,7 @@ if (!preg_match('/^[A-Za-z0-9_]+$/', $cia)) {
 $ciaSap = $cia;
 
 if (strtolower($cia) == "recrefam") {
-  $ciaSap = "Pruebas_RECREFAM";
+  $ciaSap = "RECREFAM";
 }
 
 if (!preg_match('/^[A-Za-z0-9_]+$/', $ciaSap)) {
@@ -355,4 +355,3 @@ responder([
   ],
   "data" => $data
 ]);
-?>

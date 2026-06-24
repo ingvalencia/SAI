@@ -1,13 +1,43 @@
 <?php
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: http://localhost:3000');
-header('Access-Control-Allow-Credentials: true');
+header('Content-Type: application/json; charset=utf-8');
 
+$origen = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
 
-$empleado = isset($_GET['empleado']) ? $_GET['empleado'] : null;
-if (!$empleado) {
-  echo json_encode(['success' => false, 'error' => 'Falta el parámetro empleado']);
+$origenesPermitidos = array(
+  'http://localhost:3000',
+  'https://diniz.com.mx',
+  'http://diniz.com.mx'
+);
+
+if (in_array($origen, $origenesPermitidos)) {
+  header('Access-Control-Allow-Origin: ' . $origen);
+  header('Access-Control-Allow-Credentials: true');
+} else {
+  header('Access-Control-Allow-Origin: https://diniz.com.mx');
+  header('Access-Control-Allow-Credentials: true');
+}
+
+header('Access-Control-Allow-Methods: GET, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+  http_response_code(200);
   exit;
+}
+
+function responder($data) {
+  echo json_encode($data);
+  exit;
+}
+
+$empleado_raw = isset($_GET['empleado']) ? trim($_GET['empleado']) : '';
+
+if ($empleado_raw === '' || $empleado_raw === '0000' || intval($empleado_raw) <= 0) {
+  responder(array(
+    'success' => true,
+    'habilitado' => 1,
+    'mensaje' => 'Empleado no válido, acceso permitido por seguridad operativa'
+  ));
 }
 
 $server = "192.168.0.174";
@@ -16,35 +46,54 @@ $pass   = "P@ssw0rd";
 $db     = "LOGS_CONTROL";
 
 $conn = mssql_connect($server, $user, $pass);
+
 if (!$conn) {
-  echo json_encode(['success' => false, 'error' => 'No se pudo conectar a la base de datos']);
-  exit;
+  responder(array(
+    'success' => true,
+    'habilitado' => 1,
+    'mensaje' => 'No se pudo conectar a LOGS_CONTROL, acceso permitido por seguridad operativa'
+  ));
 }
-mssql_select_db($db, $conn);
+
+if (!mssql_select_db($db, $conn)) {
+  responder(array(
+    'success' => true,
+    'habilitado' => 1,
+    'mensaje' => 'No se pudo seleccionar LOGS_CONTROL, acceso permitido por seguridad operativa'
+  ));
+}
 
 $sql = "
-  SELECT habilitado, empleado_modo_desarrollo
+  SELECT
+    ISNULL(habilitado, 1) AS habilitado
   FROM Sistemas
   WHERE sistema_id = 3
 ";
+
 $res = mssql_query($sql, $conn);
+
 if (!$res) {
-  echo json_encode(['success' => false, 'error' => mssql_get_last_message()]);
-  exit;
+  responder(array(
+    'success' => true,
+    'habilitado' => 1,
+    'mensaje' => 'Error consultando estado del sistema, acceso permitido por seguridad operativa',
+    'detalle' => mssql_get_last_message()
+  ));
 }
+
 $row = mssql_fetch_assoc($res);
+
 if (!$row) {
-  echo json_encode(['success' => false, 'error' => 'Sistema no encontrado']);
-  exit;
+  responder(array(
+    'success' => true,
+    'habilitado' => 1,
+    'mensaje' => 'Sistema no configurado, acceso permitido por seguridad operativa'
+  ));
 }
 
 $habilitado = intval($row['habilitado']);
-$empleado_dev = intval($row['empleado_modo_desarrollo']);
-$modo_forzado = ($habilitado === 0 && intval($empleado) === $empleado_dev);
 
-echo json_encode([
+responder(array(
   'success' => true,
-  'habilitado' => $habilitado,
-  'modo_forzado' => $modo_forzado
-]);
-exit;
+  'habilitado' => $habilitado
+));

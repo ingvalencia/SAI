@@ -340,7 +340,7 @@ const Login = () => {
           </p>
 
           <div className="mt-10 border-t border-white/20 pt-4 text-xs text-gray-300">
-            <p>Versión 1.0</p>
+            <p>Versión 1.2</p>
             <p>GRUPO DINIZ · ÁREA DE TI · DESARROLLO SAP</p>
           </div>
         </div>

@@ -25,47 +25,41 @@ const coloresEstatus = {
   7: { color: "bg-indigo-700", label: "Validación Físico vs SAP", icono: "🔒" },
 };
 
+const tieneValorConteo = (valor) => {
+  return (
+    valor !== null &&
+    valor !== undefined &&
+    String(valor).trim() !== "" &&
+    !Number.isNaN(Number(valor))
+  );
+};
+
+const conteoCapturado = (valor) => {
+  return (
+    valor !== null &&
+    valor !== undefined &&
+    String(valor).trim() !== "" &&
+    !Number.isNaN(Number(valor)) &&
+    Number(valor) !== 0
+  );
+};
+
 const obtenerUltimoConteo = (item) => {
-  const sap = Number(item.inventario_sap ?? 0);
-  const c1 = Number(item.conteo1 ?? 0);
-  const c2 = Number(item.conteo2 ?? 0);
-  const c3 = Number(item.conteo3 ?? 0);
-  const c4 = Number(item.conteo4 ?? 0);
+  if (conteoCapturado(item.conteo4)) return Number(item.conteo4);
 
-  const debeIrAC3 =
-    c1 !== c2 ||
-    (c1 === sap && c2 !== sap) ||
-    (c2 === sap && c1 !== sap) ||
-    (c1 === c2 && c1 !== sap);
+  if (conteoCapturado(item.conteo3)) return Number(item.conteo3);
 
-  if (!debeIrAC3) {
-    return c2;
+  const c1Existe = tieneValorConteo(item.conteo1);
+  const c2Existe = tieneValorConteo(item.conteo2);
+
+  if (c1Existe && c2Existe && Number(item.conteo1) === Number(item.conteo2)) {
+    return Number(item.conteo2);
   }
 
-  const casoEspecialSapCeroConExistencia =
-    sap === 0 && c1 > 0 && c2 > 0 && c3 > 0;
+  if (c2Existe) return Number(item.conteo2);
+  if (c1Existe) return Number(item.conteo1);
 
-  const c3EsIgualAC1YC2PeroDistintoASap = c3 === c1 && c3 === c2 && c3 !== sap;
-
-  const c3EsIgualASap = c3 === sap;
-  const c3EsCeroIgualASap = c3 === 0 && sap === 0;
-
-  const debeIrAC4 =
-    casoEspecialSapCeroConExistencia ||
-    c3EsIgualAC1YC2PeroDistintoASap ||
-    (!c3EsIgualASap && !c3EsCeroIgualASap);
-
-  if (!debeIrAC4) {
-    return c3;
-  }
-
-  const c4EsCeroIgualASap = c4 === 0 && sap === 0;
-
-  if (c4EsCeroIgualASap) {
-    return c4;
-  }
-
-  return c4;
+  return 0;
 };
 
 export default function Mapa({ drawerRootId }) {
@@ -330,13 +324,12 @@ export default function Mapa({ drawerRootId }) {
           setSapRefrescado(null);
         }
 
-        const hayConteo4 = (
-          Array.isArray(res.data.data) ? res.data.data : []
-        ).some(
+        const hayConteo4 = (Array.isArray(res.data.data) ? res.data.data : []).some(
           (row) =>
             row.conteo4 !== null &&
             row.conteo4 !== undefined &&
-            String(row.conteo4).trim() !== "",
+            String(row.conteo4).trim() !== "" &&
+            Number(row.conteo4) !== 0
         );
 
         setMostrarConteo4(hayConteo4);
@@ -390,13 +383,12 @@ export default function Mapa({ drawerRootId }) {
         },
       );
 
-      const hayConteo4 = (
-        Array.isArray(res.data.data) ? res.data.data : []
-      ).some(
+      const hayConteo4 = (Array.isArray(res.data.data) ? res.data.data : []).some(
         (row) =>
           row.conteo4 !== null &&
           row.conteo4 !== undefined &&
-          String(row.conteo4).trim() !== "",
+          String(row.conteo4).trim() !== "" &&
+          Number(row.conteo4) !== 0
       );
 
       setMostrarConteo4(hayConteo4);
@@ -767,7 +759,7 @@ export default function Mapa({ drawerRootId }) {
       const sap = Number(item.inventario_sap ?? 0);
 
       const ultimoConteo = obtenerUltimoConteo(item);
-      const diferencia = Number((sap - ultimoConteo).toFixed(2));
+      const diferencia = Number((ultimoConteo - sap).toFixed(2));
 
       const row = worksheet.addRow([
         i + 1,

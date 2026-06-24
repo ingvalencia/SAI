@@ -15,6 +15,7 @@ import EnMantenimiento from "./pages/EnMantenimiento";
 import Login from "./pages/auth/Login";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import ObservacionesProyecto from "./pages/ObservacionesProyecto";
+import EstadisticasObservaciones from "./pages/EstadisticasObservaciones";
 
 function FullscreenLoader({ text = "Verificando acceso al sistema..." }) {
   return (
@@ -36,48 +37,69 @@ function FullscreenLoader({ text = "Verificando acceso al sistema..." }) {
 }
 
 function AppRoutes() {
-  const [estadoSistema, setEstadoSistema] = useState({
-    habilitado: 1,
-    modo_forzado: false,
-  });
+  const [estadoSistema, setEstadoSistema] = useState(null);
+  const [errorVerificacionSistema, setErrorVerificacionSistema] = useState("");
 
   const empleado = sessionStorage.getItem("empleado");
   const nombre = sessionStorage.getItem("nombre");
-  const roles = JSON.parse(sessionStorage.getItem("roles") || "[]");
-  const tokenSesion = sessionStorage.getItem("token_sesion");
 
+  let roles = [];
+  try {
+    roles = JSON.parse(sessionStorage.getItem("roles") || "[]");
+  } catch {
+    roles = [];
+  }
+
+  const tokenSesion = sessionStorage.getItem("token_sesion");
   const location = useLocation();
-  const yaVerificado = useRef(false);
   const sesionCerradaRef = useRef(false);
 
   const rutasPublicas = ["/login", "/observaciones"];
   const mostrarBarraUsuario = !rutasPublicas.includes(location.pathname);
 
   useEffect(() => {
-    if (yaVerificado.current) return;
-    yaVerificado.current = true;
-
     let cancelado = false;
 
     const run = async () => {
       if (!empleado) {
-        setEstadoSistema({ habilitado: 1, modo_forzado: false });
+        if (!cancelado) {
+          setEstadoSistema({
+            habilitado: 1,
+            modo_forzado: false
+          });
+        }
         return;
       }
 
       try {
         const res = await fetch(
-          `https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/verifica_estado_sistema.php?empleado=${empleado}`
+          `https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/verifica_estado_sistema.php?empleado=${encodeURIComponent(empleado)}`
         );
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
 
         const data = await res.json();
 
-        if (!data?.success) throw new Error();
+        if (!data || data.success !== true) {
+          throw new Error(data?.error || "Respuesta inválida del servidor");
+        }
 
-        if (!cancelado) setEstadoSistema(data);
-      } catch {
         if (!cancelado) {
-          setEstadoSistema({ habilitado: 1, modo_forzado: false });
+          setEstadoSistema({
+            habilitado: Number(data.habilitado),
+            modo_forzado: Boolean(data.modo_forzado)
+          });
+          setErrorVerificacionSistema("");
+        }
+      } catch (error) {
+        if (!cancelado) {
+          setEstadoSistema({
+            habilitado: 1,
+            modo_forzado: false
+          });
+          setErrorVerificacionSistema(error.message || "No se pudo validar el estado del sistema");
         }
       }
     };
@@ -101,13 +123,13 @@ function AppRoutes() {
           {
             method: "POST",
             headers: {
-              "Content-Type": "application/json",
+              "Content-Type": "application/json"
             },
             credentials: "include",
             body: JSON.stringify({
               empleado: empleado,
-              token_sesion: tokenSesion,
-            }),
+              token_sesion: tokenSesion
+            })
           }
         );
 
@@ -119,11 +141,11 @@ function AppRoutes() {
           sessionStorage.clear();
 
           await Swal.fire({
-            title: "Sesión cerrada",
+            title: "Conteo finalizado",
             text: "Tu cuenta fue abierta en otro dispositivo.",
             icon: "warning",
             confirmButtonText: "Aceptar",
-            allowOutsideClick: false,
+            allowOutsideClick: false
           });
 
           window.location.href = "/diniz/inventarios/#/login";
@@ -149,16 +171,24 @@ function AppRoutes() {
 
   const RequireAuth = ({ children }) => {
     if (!empleado) return <Navigate to="/login" replace />;
-    if (!estadoSistema && empleado) return <FullscreenLoader />;
+
+    if (estadoSistema === null) {
+      return <FullscreenLoader />;
+    }
 
     const { habilitado, modo_forzado } = estadoSistema;
+    const bloqueado = Number(habilitado) === 0 && !modo_forzado;
 
-    if (habilitado === 0 && !modo_forzado) return <EnMantenimiento />;
+    if (bloqueado) return <EnMantenimiento />;
 
     return children;
   };
 
-  const { modo_forzado } = estadoSistema || {};
+  const modo_forzado = estadoSistema?.modo_forzado || false;
+
+  if (estadoSistema === null && !rutasPublicas.includes(location.pathname)) {
+    return <FullscreenLoader />;
+  }
 
   return (
     <>
@@ -194,6 +224,12 @@ function AppRoutes() {
         </div>
       )}
 
+      {errorVerificacionSistema && mostrarBarraUsuario && (
+        <div className="bg-red-900 text-red-200 px-4 py-2 text-xs text-center border-b border-red-700">
+          ⚠ No se pudo validar el estado de mantenimiento. Se permite acceso operativo. Detalle: {errorVerificacionSistema}
+        </div>
+      )}
+
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/observaciones" element={<ObservacionesProyecto />} />
@@ -202,7 +238,7 @@ function AppRoutes() {
           path="/"
           element={
             <RequireAuth>
-              {roles.some((r) => [1, 2, 3].includes(r.id)) ? (
+              {roles.some((r) => [1, 2, 3].includes(Number(r.id ?? r))) ? (
                 <Navigate to="/admin" replace />
               ) : (
                 <Navigate to="/captura" replace />
@@ -239,6 +275,17 @@ function AppRoutes() {
             <RequireAuth>
               <RutaProtegida permitidos={[1, 2, 3]}>
                 <AdminDashboard />
+              </RutaProtegida>
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/observaciones/estadisticas"
+          element={
+            <RequireAuth>
+              <RutaProtegida permitidos={[1, 2]}>
+                <EstadisticasObservaciones />
               </RutaProtegida>
             </RequireAuth>
           }

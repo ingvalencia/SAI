@@ -64,6 +64,27 @@ function run($sql, $conn, $errPrefix = 'Error SQL: ')
   return $r;
 }
 
+
+function ordenarData(&$data)
+{
+  usort($data, function($a, $b) {
+    $fa = strtoupper(isset($a['nom_fam']) ? $a['nom_fam'] : '');
+    $fb = strtoupper(isset($b['nom_fam']) ? $b['nom_fam'] : '');
+
+    if ($fa != $fb) return strcmp($fa, $fb);
+
+    $sa = strtoupper(isset($a['nom_subfam']) ? $a['nom_subfam'] : '');
+    $sb = strtoupper(isset($b['nom_subfam']) ? $b['nom_subfam'] : '');
+
+    if ($sa != $sb) return strcmp($sa, $sb);
+
+    $na = strtoupper(isset($a['Itemname']) ? $a['Itemname'] : '');
+    $nb = strtoupper(isset($b['Itemname']) ? $b['Itemname'] : '');
+
+    return strcmp($na, $nb);
+  });
+}
+
 function loadSapMap($conn, $almacen, $fecha, $empleado, $cia, $soloNoCero = true)
 {
   $sqlFoto = "
@@ -212,6 +233,8 @@ switch ($estatus) {
       while ($row = mssql_fetch_assoc($res)) {
         $data[] = array_map('utf8_encode', $row);
       }
+
+      ordenarData($data);
       json_ok($data, 1, $esBrigada);
     }
 
@@ -259,10 +282,11 @@ switch ($estatus) {
   $data = [];
 
   while ($row = mssql_fetch_assoc($res)) {
-    $data[] = array_map('utf8_encode', $row);
-  }
+      $data[] = array_map('utf8_encode', $row);
+    }
 
-  json_ok($data, 2, $esBrigada);
+    ordenarData($data);
+    json_ok($data, 2, $esBrigada);
 }
 
 
@@ -423,8 +447,9 @@ switch ($estatus) {
     $data[] = array_map('utf8_encode', $row);
   }
 
+  ordenarData($data);
   json_ok($data, 3, $esBrigada);
-}
+  }
 
     case 7: {
 
@@ -604,6 +629,7 @@ switch ($estatus) {
     $data[] = array_map('utf8_encode', $row);
   }
 
+  ordenarData($data);
   json_ok($data, 7, $esBrigada);
 }
 
