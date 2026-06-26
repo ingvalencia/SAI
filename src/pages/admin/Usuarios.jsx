@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
+import { endpoint } from "../../config/apiConfig";
 
 const MySwal = withReactContent(Swal);
 
@@ -86,7 +87,7 @@ export default function Usuarios() {
   const fetchUsuariosDisponibles = async () => {
     try {
       const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/usuarios_disponibles.php"
+        await endpoint("admin/usuarios_disponibles.php")
       );
       if (res.data.success) {
         setUsuariosDisponibles(res.data.data);
@@ -108,8 +109,8 @@ export default function Usuarios() {
   // === Fetch usuarios ===
   const fetchUsuarios = async () => {
     try {
-      const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/usuarios.php"
+     const res = await axios.get(
+        await endpoint("admin/usuarios.php")
       );
       if (res.data.success) setUsuarios(res.data.data);
     } catch (err) {
@@ -121,11 +122,9 @@ export default function Usuarios() {
   const fetchLocales = async (cia) => {
     try {
       const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/catalogo_almacenes.php",
+        await endpoint("catalogo_almacenes.php"),
         { params: { cia }, withCredentials: true }
       );
-
-
       if (res.data.success) setLocales(res.data.data);
       else setLocales([]);
     } catch {
@@ -137,7 +136,7 @@ export default function Usuarios() {
   const fetchRoles = async () => {
     try {
       const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/catalogo_roles.php"
+        await endpoint("admin/catalogo_roles.php")
       );
       if (res.data.success) setRoles(res.data.data);
     } catch {
@@ -187,7 +186,7 @@ export default function Usuarios() {
     }
 
     const res = await axios.get(
-      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/asignar_operador_existente.php",
+      await endpoint("admin/asignar_operador_existente.php"),
       {
         params: {
           tipo_conteo: tipoConteo,
@@ -252,7 +251,7 @@ export default function Usuarios() {
       formData.append("id", id);
 
       const res = await axios.post(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/eliminar_usuario.php",
+        await endpoint("admin/eliminar_usuario.php"),
         formData
       );
       if (res.data.success) {
@@ -274,7 +273,7 @@ export default function Usuarios() {
       formData.append("activo", activo ? 0 : 1);
 
       const res = await axios.post(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/toggle_usuario.php",
+        await endpoint("admin/toggle_usuario.php"),
         formData
       );
 
@@ -317,7 +316,7 @@ export default function Usuarios() {
 
     try {
       const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/mysql_buscar_usuario.php",
+        await endpoint("admin/mysql_buscar_usuario.php"),
         { params: { empleado } }
       );
 
@@ -344,7 +343,7 @@ export default function Usuarios() {
 
     try {
       const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/mysql_buscar_usuario.php",
+        await endpoint("admin/mysql_buscar_usuario.php"),
         { params: { empleado } }
       );
 
@@ -376,7 +375,7 @@ const buscarUsuarioMysqlAdmin = async (empleado) => {
 
     try {
       const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/mysql_buscar_usuario.php",
+        await endpoint("admin/mysql_buscar_usuario.php"),
         { params: { empleado } }
       );
 
@@ -492,7 +491,7 @@ const buscarUsuarioMysqlAdmin = async (empleado) => {
             setLoading(true);
             try {
               const res = await axios.post(
-                "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/registrar_usuario_base.php",
+                await endpoint("admin/registrar_usuario_base.php"),
                 {
                   empleado: formBase.empleado,
                   nombre: formBase.nombre,
@@ -926,7 +925,7 @@ const buscarUsuarioMysqlAdmin = async (empleado) => {
             };
 
             const res = await axios.post(
-              "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/crear_usuario.php",
+              await endpoint("admin/crear_usuario.php"),
               payload,
               { withCredentials: true }
             );

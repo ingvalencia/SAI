@@ -3,7 +3,7 @@ import axios from "axios";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 import Select from "react-select";
-
+import { endpoint } from "../../config/apiConfig";
 
 const MySwal = withReactContent(Swal);
 
@@ -39,7 +39,7 @@ export default function Control() {
   const fetchUsuarios = async () => {
     try {
       const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/usuarios.php"
+        await endpoint("admin/usuarios.php")
       );
       if (res.data.success) setUsuarios(res.data.data);
     } catch (err) {
@@ -79,7 +79,7 @@ export default function Control() {
       formData.append("id", id);
 
       const res = await axios.post(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/eliminar_usuario.php",
+        await endpoint("admin/eliminar_usuario.php"),
         formData
       );
       if (res.data.success) {
@@ -107,7 +107,7 @@ export default function Control() {
 
     try {
       const res = await axios.post(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/crud_configuracion_inventario.php?action=eliminar",
+        await endpoint("admin/crud_configuracion_inventario.php?action=eliminar"),
         { id }
       );
 
@@ -189,7 +189,7 @@ export default function Control() {
       payload.append("usuario", empleadoSesion);
 
       const res = await axios.post(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/crud_configuracion_inventario.php?action=editar",
+        await endpoint("admin/crud_configuracion_inventario.php?action=editar"),
         payload
       );
 
@@ -212,7 +212,7 @@ export default function Control() {
       formData.append("activo", activo ? 0 : 1);
 
       const res = await axios.post(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/toggle_usuario.php",
+        await endpoint("admin/toggle_usuario.php"),
         formData
       );
 
@@ -326,8 +326,8 @@ export default function Control() {
   const fetchAlmacenes = async (ciaSeleccionada) => {
     try {
       const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/catalogo_almacenes.php",
-        { params: { cia: ciaSeleccionada }, withCredentials: true }
+        await endpoint("catalogo_almacenes.php"),
+        { params: { cia } }
       );
       if (res.data.success) setAlmacenes(res.data.data);
       else setAlmacenes([]);
@@ -340,7 +340,7 @@ export default function Control() {
   const fetchConfiguraciones = async () => {
     try {
       const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/crud_configuracion_inventario.php",
+        await endpoint("admin/crud_configuracion_inventario.php"),
         { params: { action: "listar" } }
       );
 
@@ -400,7 +400,7 @@ export default function Control() {
       });
 
       const res = await axios.post(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/guardar_configuracion_inventario.php",
+        await endpoint("admin/guardar_configuracion_inventario.php"),
         formData,
         { withCredentials: true }
       );

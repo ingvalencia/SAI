@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
+import { endpoint } from "../config/apiConfig";
 
-const API_BASE = "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap";
 
 export default function EstadisticasObservaciones() {
   const [loading, setLoading] = useState(false);
@@ -24,9 +24,10 @@ export default function EstadisticasObservaciones() {
         fecha_fin: fechaFin,
       };
 
-      const res = await axios.get(`${API_BASE}/estadisticas_observaciones.php`, {
-        params,
-      });
+     const res = await axios.get(
+        await endpoint("estadisticas_observaciones.php"),
+        { params }
+      );
 
       if (!res.data.success) {
         throw new Error(res.data.error || "No se pudo cargar la estadística");

@@ -1,3 +1,4 @@
+import { endpoint } from "./config/apiConfig";
 import { useEffect, useState, useRef } from "react";
 import {
   Route,
@@ -73,7 +74,7 @@ function AppRoutes() {
 
       try {
         const res = await fetch(
-          `https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/verifica_estado_sistema.php?empleado=${encodeURIComponent(empleado)}`
+          await endpoint(`verifica_estado_sistema.php?empleado=${encodeURIComponent(empleado)}`)
         );
 
         if (!res.ok) {
@@ -119,7 +120,7 @@ function AppRoutes() {
 
       try {
         const res = await fetch(
-          "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/auth/validar_sesion.php",
+          await endpoint("auth/validar_sesion.php"),
           {
             method: "POST",
             headers: {
@@ -141,7 +142,7 @@ function AppRoutes() {
           sessionStorage.clear();
 
           await Swal.fire({
-            title: "Conteo finalizado",
+            title: "Sesión cerrada",
             text: "Tu cuenta fue abierta en otro dispositivo.",
             icon: "warning",
             confirmButtonText: "Aceptar",

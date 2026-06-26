@@ -124,10 +124,10 @@ foreach ($almacenes as $alm) {
         'subfamilia'     => $row['subfamilia'],
         'precio'         => (float)$row['precio_foto'],
         'inventario_sap' => 0,
-        'conteo1'        => 0,
-        'conteo2'        => 0,
-        'conteo3'        => 0,
-        'conteo4'        => 0,
+        'conteo1'        => null,
+        'conteo2'        => null,
+        'conteo3'        => null,
+        'conteo4'        => null,
       ];
     }
     $items[$key]['inventario_sap'] += (float)$row['inventario_sap_foto'];
@@ -153,19 +153,26 @@ foreach ($almacenes as $alm) {
     $n = (int)$r['nro_conteo'];
     $v = (float)$r['cantidad'];
 
-    if ($n <= 1)      $items[$key]['conteo1'] += $v;
-    elseif ($n == 2)  $items[$key]['conteo2'] += $v;
-    elseif ($n == 3)  $items[$key]['conteo3'] += $v;
-    elseif ($n == 7)  $items[$key]['conteo4'] += $v;
+    if ($n <= 1) {
+      $items[$key]['conteo1'] = is_null($items[$key]['conteo1']) ? $v : $items[$key]['conteo1'] + $v;
+    } elseif ($n == 2) {
+      $items[$key]['conteo2'] = is_null($items[$key]['conteo2']) ? $v : $items[$key]['conteo2'] + $v;
+    } elseif ($n == 3) {
+      $items[$key]['conteo3'] = is_null($items[$key]['conteo3']) ? $v : $items[$key]['conteo3'] + $v;
+    } elseif ($n == 7) {
+      $items[$key]['conteo4'] = is_null($items[$key]['conteo4']) ? $v : $items[$key]['conteo4'] + $v;
+    }
   }
   mssql_free_result($q);
 
 
   foreach ($items as $it) {
     $conteo_final =
-      ($it['conteo4'] > 0) ? $it['conteo4'] :
-      (($it['conteo3'] > 0) ? $it['conteo3'] :
-      (($it['conteo2'] > 0) ? $it['conteo2'] : $it['conteo1']));
+    (!is_null($it['conteo4'])) ? $it['conteo4'] :
+    ((!is_null($it['conteo3'])) ? $it['conteo3'] :
+    ((!is_null($it['conteo2']) && !is_null($it['conteo1']) && (float)$it['conteo1'] == (float)$it['conteo2']) ? $it['conteo2'] :
+    ((!is_null($it['conteo2']) && !is_null($it['conteo1']) && (float)$it['conteo1'] != (float)$it['conteo2']) ? 0 :
+    ((!is_null($it['conteo1'])) ? $it['conteo1'] : 0))));
 
     $it['conteo_final'] = $conteo_final;
     $it['diferencia']   = $conteo_final - $it['inventario_sap'];

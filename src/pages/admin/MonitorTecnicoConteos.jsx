@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
 import Select from "react-select";
+import { endpoint } from "../../config/apiConfig";
 
-const API_BASE = "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap";
 
 export default function MonitorTecnicoConteos() {
   const [cia, setCia] = useState("recrefam");
@@ -65,7 +65,7 @@ export default function MonitorTecnicoConteos() {
     try {
       setLoadingAlmacenes(true);
 
-      const res = await axios.get(`${API_BASE}/catalogo_almacenes.php`, {
+     const res = await axios.get(await endpoint("catalogo_almacenes.php"), {
         params: { cia: ciaActual },
       });
 
@@ -97,7 +97,7 @@ export default function MonitorTecnicoConteos() {
       setLoading(true);
       setData(null);
 
-      const res = await axios.get(`${API_BASE}/monitor_conteo_almacen.php`, {
+      const res = await axios.get(await endpoint("monitor_conteo_almacen.php"), {
         params: { cia, almacen, fecha },
       });
 
@@ -198,7 +198,7 @@ export default function MonitorTecnicoConteos() {
       formData.append("accion", accion);
       formData.append("motivo", motivo.value);
 
-      const res = await axios.post(`${API_BASE}/rollback_conteo_almacen.php`, formData);
+      const res = await axios.post(await endpoint("rollback_conteo_almacen.php"), formData);
 
       Swal.close();
 

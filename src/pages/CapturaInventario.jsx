@@ -7,6 +7,7 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 import EscanerCamaraQuagga from "../components/EscanerCamaraQuagga";
 import LectorCodigo from "../components/LectorCodigo";
+import { endpoint } from "../config/apiConfig";
 
 const MySwal = withReactContent(Swal);
 
@@ -76,7 +77,7 @@ export default function CapturaInventario() {
     const fetchAsignacion = async () => {
       try {
         const res = await axios.get(
-          `https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/admin/verificar_asignacion.php?empleado=${empleado}`,
+          await endpoint(`admin/verificar_asignacion.php?empleado=${encodeURIComponent(empleado)}`)
         );
 
         if (res.data?.success && res.data.asignacion) {
@@ -384,7 +385,7 @@ export default function CapturaInventario() {
       });
 
       const estatusRes = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/verifica_estatus.php",
+        await endpoint("verifica_estatus.php"),
         {
           params: {
             almacen: alm,
@@ -448,7 +449,7 @@ export default function CapturaInventario() {
       });
 
       const r1 = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/control_carga_inventario.php",
+        await endpoint("control_carga_inventario.php"),
         {
           params: {
             almacen: alm,
@@ -498,7 +499,7 @@ export default function CapturaInventario() {
       });
 
       const r2 = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/obtener_inventario.php",
+        await endpoint("obtener_inventario.php"),
         {
           params: {
             almacen: alm,
@@ -513,7 +514,7 @@ export default function CapturaInventario() {
       if (!r2.data.success) throw new Error(r2.data.error);
 
       await axios.post(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/iniciar_sesion_conteo.php",
+        await endpoint("iniciar_sesion_conteo.php"),
         new URLSearchParams({
           almacen: alm,
           fecha: fecISO,
@@ -523,7 +524,25 @@ export default function CapturaInventario() {
         }),
       );
 
-      setDatos(r2.data.data || []);
+      const dataNormalizada = (r2.data.data || []).map((item) => {
+      const conteoActual =
+        Number(estatusReal) === 1
+          ? item.conteo_1 ?? item.conteo1 ?? item.cant_invfis ?? 0
+          : Number(estatusReal) === 2
+          ? item.conteo_2 ?? item.conteo2 ?? item.cant_invfis ?? 0
+          : Number(estatusReal) === 3
+          ? item.conteo_3 ?? item.conteo3 ?? item.cant_invfis ?? 0
+          : Number(estatusReal) === 7
+          ? item.conteo_4 ?? item.conteo4 ?? item.cant_invfis ?? 0
+          : item.cant_invfis ?? 0;
+
+      return {
+        ...item,
+        cant_invfis: conteoActual === null || conteoActual === undefined || conteoActual === "" ? 0 : conteoActual,
+      };
+    });
+
+    setDatos(dataNormalizada);
 
       Swal.close();
 
@@ -612,7 +631,7 @@ export default function CapturaInventario() {
       form.append("usuario", empleado);
 
       const res = await axios.post(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/guardar_conteo.php",
+        await endpoint("guardar_conteo.php"),
         form,
       );
 
@@ -695,11 +714,11 @@ export default function CapturaInventario() {
 
         payload.append("datos", JSON.stringify(lotes[i]));
 
-        const endpoint = esBrigada
-          ? "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/confirmar_inventario.php"
-          : "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/confirmar_inventario_individual.php";
+        const urlEndpoint = esBrigada
+          ? await endpoint("confirmar_inventario.php")
+          : await endpoint("confirmar_inventario_individual.php");
 
-        const res = await axios.post(endpoint, payload);
+        const res = await axios.post(urlEndpoint, payload);
 
         if (!res.data.success) throw new Error(res.data.error);
 
@@ -953,83 +972,105 @@ export default function CapturaInventario() {
       if (index !== -1) {
         setBusqueda(producto.ItemCode);
 
-        const { value: cantidad } = await MySwal.fire({
-          title: `<div class="text-xl font-bold text-gray-800 text-center">
-                    Producto encontrado: ${producto.Itemname}
-                  </div>`,
-          html: `
-            <div class="text-left text-sm text-gray-700 leading-relaxed mb-2">
-              <p>🧾 <strong>Código:</strong> ${producto.ItemCode}</p>
-              <p>🏬 <strong>Almacén:</strong> ${producto.almacen}</p>
-              <p>📁 <strong>Familia:</strong> ${producto.nom_fam}</p>
-              <p class="mt-2 text-blue-700 font-semibold">
-                📦 Cantidad contada: ${parseFloat(producto.cant_invfis) || 0}
-              </p>
-              <p class="text-xs text-gray-500 mt-1">
-                Usa <strong>+ / -</strong> para sumar o restar (ej: +10, -5)
-              </p>
-            </div>
+        let tiempoUltimo = 0;
+let bufferCodigo = "";
 
-            <input
-              type="text"
-              id="cantidad"
-              class="swal2-input text-center text-lg font-bold"
-              placeholder="Ej: 10+20+30 o +5"
-              inputmode="text"
-            />
-          `,
-          focusConfirm: false,
-          confirmButtonText: "Guardar",
-          showCancelButton: true,
-          cancelButtonText: "Cancelar",
-          allowOutsideClick: false,
-          didOpen: () => {
-            const input = document.getElementById("cantidad");
-            if (input) {
-              input.focus();
-              input.addEventListener("keydown", (e) => {
-                const ahora = Date.now();
-                const delta = ahora - tiempoUltimo;
-                tiempoUltimo = ahora;
+const { value: cantidad } = await MySwal.fire({
+  title: `<div class="text-xl font-bold text-gray-800 text-center">
+            Producto encontrado: ${producto.Itemname}
+          </div>`,
+  html: `
+    <div class="text-left text-sm text-gray-700 leading-relaxed mb-2">
+      <p>🧾 <strong>Código:</strong> ${producto.ItemCode}</p>
+      <p>🏬 <strong>Almacén:</strong> ${producto.almacen}</p>
+      <p>📁 <strong>Familia:</strong> ${producto.nom_fam}</p>
+      <p class="mt-2 text-blue-700 font-semibold">
+        📦 Cantidad contada: ${parseFloat(producto.cant_invfis) || 0}
+      </p>
+      <p class="text-xs text-gray-500 mt-1">
+        Usa <strong>+ / -</strong> para sumar o restar (ej: +10, -5)
+      </p>
+    </div>
 
-                if (delta < 35 && /^[0-9]$/.test(e.key)) {
-                  bufferCodigo += e.key;
-                  clearTimeout(window.timerScanner);
-                  window.timerScanner = setTimeout(() => {
-                    if (bufferCodigo.length >= 6) {
-                      document.querySelector(".swal2-confirm")?.click();
-                    }
-                    bufferCodigo = "";
-                  }, 80);
-                }
+    <input
+      type="text"
+      id="cantidad"
+      class="swal2-input text-center text-lg font-bold"
+      placeholder="Ej: 10+20+30 o +5"
+      inputmode="text"
+      autocomplete="off"
+    />
+  `,
+  focusConfirm: false,
+  confirmButtonText: "Guardar",
+  showCancelButton: true,
+  cancelButtonText: "Cancelar",
+  allowOutsideClick: false,
+  didOpen: () => {
+    const input = document.getElementById("cantidad");
 
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  document.querySelector(".swal2-confirm")?.click();
-                }
-              });
-            }
-          },
-          preConfirm: () => {
-            let raw = document.getElementById("cantidad").value || "";
-            raw = raw.trim().replace(/\s+/g, "");
+    if (input) {
+      input.focus();
 
-            if (!raw) {
-              Swal.showValidationMessage("Ingresa una cantidad");
-              return false;
+      input.addEventListener("keydown", (e) => {
+        const ahora = Date.now();
+        const delta = ahora - tiempoUltimo;
+        tiempoUltimo = ahora;
+
+        if (e.key === "Enter") {
+          e.preventDefault();
+          Swal.clickConfirm();
+          return;
+        }
+
+        if (e.key.length === 1) {
+          if (delta < 35 && /^[0-9]$/.test(e.key)) {
+            bufferCodigo += e.key;
+
+            if (window.timerScanner) {
+              clearTimeout(window.timerScanner);
             }
 
-            const base = parseFloat(producto.cant_invfis) || 0;
-            const { ok, total, error } = calcularTotalDesdeInput(raw, base);
+            window.timerScanner = setTimeout(() => {
+              if (bufferCodigo.length >= 4) {
+                Swal.clickConfirm();
+              }
+              bufferCodigo = "";
+            }, 120);
+          } else {
+            bufferCodigo = /^[0-9]$/.test(e.key) ? e.key : "";
+          }
+        }
+      });
+    }
+  },
+  willClose: () => {
+    if (window.timerScanner) {
+      clearTimeout(window.timerScanner);
+      window.timerScanner = null;
+    }
+    bufferCodigo = "";
+  },
+  preConfirm: () => {
+    let raw = document.getElementById("cantidad").value || "";
+    raw = raw.trim().replace(/\s+/g, "");
 
-            if (!ok) {
-              Swal.showValidationMessage(error);
-              return false;
-            }
+    if (!raw) {
+      Swal.showValidationMessage("Ingresa una cantidad");
+      return false;
+    }
 
-            return total;
-          },
-        });
+    const base = parseFloat(producto.cant_invfis) || 0;
+    const { ok, total, error } = calcularTotalDesdeInput(raw, base);
+
+    if (!ok) {
+      Swal.showValidationMessage(error);
+      return false;
+    }
+
+    return total;
+  },
+});
 
         if (cantidad !== undefined) {
           const nuevo = [...datos];
@@ -1293,7 +1334,7 @@ export default function CapturaInventario() {
                       bufferCodigo += e.key;
                       clearTimeout(window.timerScanner);
                       window.timerScanner = setTimeout(() => {
-                        if (bufferCodigo.length >= 6) {
+                        if (bufferCodigo.length >= 4) {
                           handleCodigoDetectado(bufferCodigo);
 
                           const campo = document.getElementById("inputCaptura");
@@ -1594,7 +1635,7 @@ export default function CapturaInventario() {
                               <input
                                 type="text"
                                 inputMode="numeric"
-                                value={valor}
+                                value={valor === null || valor === undefined || valor === "" ? 0 : valor}
                                 className="w-20 md:w-24 px-2 py-1 border rounded text-xs md:text-sm text-right"
                                 onFocus={(e) => {
                                   setEditandoCelda(true);
@@ -1658,14 +1699,11 @@ export default function CapturaInventario() {
                                     }));
                                   }
 
-                                  const totalFinal = total === "" ? "" : total;
+                                  const totalFinal = total === "" ? 0 : total;
                                   nuevo[idx].cant_invfis = totalFinal;
                                   setDatos(nuevo);
 
-                                  await autoGuardar(
-                                    item,
-                                    totalFinal === "" ? 0 : totalFinal,
-                                  );
+                                  await autoGuardar(item, totalFinal);
                                 }}
                               />
 

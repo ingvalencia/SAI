@@ -460,6 +460,7 @@ switch ($estatus) {
     $c1Map = loadConteoMap_CapInventario($conn, $almacen, $fecha, $cia, 1, $usuarioConteo1);
     $c2Map = loadConteoMap_CapInventario($conn, $almacen, $fecha, $cia, 2, $usuarioConteo2);
     $c3Map = loadConteo3Map($conn, $almacen, $fecha, $cia);
+    $c4Map = loadConteoMap_CapInventario($conn, $almacen, $fecha, $cia, 7, null);
 
   } else {
 
@@ -522,6 +523,7 @@ switch ($estatus) {
     array_keys($c1Map),
     array_keys($c2Map),
     array_keys($c3Map),
+    array_keys($c4Map),
     array_keys($sapMap)
   ));
 
@@ -622,10 +624,27 @@ switch ($estatus) {
   $data = [];
   while ($row = mssql_fetch_assoc($res)) {
     $code = trim($row['ItemCode']);
-    $row['conteo_1'] = isset($c1Map[$code]) ? $c1Map[$code] : 0;
-    $row['conteo_2'] = isset($c2Map[$code]) ? $c2Map[$code] : 0;
-    $row['conteo_3'] = isset($c3Map[$code]) ? $c3Map[$code] : 0;
-    $row['sap'] = isset($sapMap[$code]) ? $sapMap[$code] : 0;
+    $$c1 = isset($c1Map[$code]) ? $c1Map[$code] : 0;
+    $c2 = isset($c2Map[$code]) ? $c2Map[$code] : 0;
+    $c3 = isset($c3Map[$code]) ? $c3Map[$code] : 0;
+    $c4 = isset($c4Map[$code]) ? $c4Map[$code] : 0;
+    $sap = isset($sapMap[$code]) ? $sapMap[$code] : 0;
+
+    $final = $c4 > 0 ? $c4 : $c3;
+
+    $row['conteo1'] = $c1;
+    $row['conteo2'] = $c2;
+    $row['conteo3'] = $c3;
+    $row['conteo4'] = $c4;
+
+    $row['conteo_1'] = $c1;
+    $row['conteo_2'] = $c2;
+    $row['conteo_3'] = $c3;
+    $row['conteo_4'] = $c4;
+
+    $row['sap'] = $sap;
+    $row['conteo_final'] = $final;
+    $row['cant_invfis'] = $final;
     $data[] = array_map('utf8_encode', $row);
   }
 

@@ -12,6 +12,7 @@ import Swal from "sweetalert2";
 import logoDiniz from "../../assets/logo-diniz.png";
 import Select from "react-select";
 import ReactDOM from "react-dom/client";
+import { endpoint } from "../../config/apiConfig";
 
 pdfMake.vfs = pdfFonts.vfs;
 
@@ -45,19 +46,42 @@ const conteoCapturado = (valor) => {
 };
 
 const obtenerUltimoConteo = (item) => {
-  if (conteoCapturado(item.conteo4)) return Number(item.conteo4);
-
-  if (conteoCapturado(item.conteo3)) return Number(item.conteo3);
+  const estatusItem = Number(item.estatus ?? item.estatusInventario ?? 0);
 
   const c1Existe = tieneValorConteo(item.conteo1);
   const c2Existe = tieneValorConteo(item.conteo2);
+  const c3Existe = tieneValorConteo(item.conteo3);
+  const c4Existe = tieneValorConteo(item.conteo4);
 
-  if (c1Existe && c2Existe && Number(item.conteo1) === Number(item.conteo2)) {
-    return Number(item.conteo2);
+  const sap = Number(item.inventario_sap ?? item.sap_final ?? 0);
+  const c1 = Number(item.conteo1 ?? 0);
+  const c2 = Number(item.conteo2 ?? 0);
+  const c3 = Number(item.conteo3 ?? 0);
+  const c4 = Number(item.conteo4 ?? 0);
+
+  if (c3Existe && c3 === sap) {
+  return c3;
   }
 
-  if (c2Existe) return Number(item.conteo2);
-  if (c1Existe) return Number(item.conteo1);
+  if (c1Existe && c2Existe && c1 === c2 && !c3Existe && !c4Existe && c1 === sap) {
+    return c2;
+  }
+
+  if (c1Existe && c2Existe && c1 === c2 && !c3Existe && !c4Existe && c1 !== sap) {
+    return 0;
+  }
+
+  if ([4, 7, 5].includes(estatusItem)) {
+    return c4Existe ? c4 : 0;
+  }
+
+  if (c4Existe) return c4;
+  if (c3Existe) return c3;
+
+  if (c1Existe && c2Existe && c1 === c2) return c2;
+  if (c1Existe && c2Existe && c1 !== c2) return 0;
+
+  if (c1Existe) return c1;
 
   return 0;
 };
@@ -112,7 +136,7 @@ export default function Mapa({ drawerRootId }) {
       });
 
       const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/mapa_fechas.php",
+        await endpoint("mapa_fechas.php"),
         { params: { cia: ciaActiva } },
       );
 
@@ -170,7 +194,7 @@ export default function Mapa({ drawerRootId }) {
       });
 
       const res = await axios.get(
-        `https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/mapa_operaciones.php`,
+        await endpoint("mapa_operaciones.php"),
         { params: { cia, fecha } },
       );
 
@@ -236,17 +260,31 @@ export default function Mapa({ drawerRootId }) {
 
   const normalizarDetalle = (data = []) => {
     return (Array.isArray(data) ? data : []).map((item) => {
-      const c1 = Number(item.conteo1 ?? 0);
-      const c2 = Number(item.conteo2 ?? 0);
-      const c3 = Number(item.conteo3 ?? 0);
-      const c4 = Number(item.conteo4 ?? 0);
+      const c1 = tieneValorConteo(item.conteo1) ? Number(item.conteo1) : 0;
+      const c2 = tieneValorConteo(item.conteo2) ? Number(item.conteo2) : 0;
+      const c3 = tieneValorConteo(item.conteo3) ? Number(item.conteo3) : 0;
+      const c4 = tieneValorConteo(item.conteo4) ? Number(item.conteo4) : 0;
 
-      const conteo_final = obtenerUltimoConteo(item);
       const sap_final = Number(item.inventario_sap ?? 0);
+
+      const conteo_final =
+        tieneValorConteo(item.conteo1) &&
+        tieneValorConteo(item.conteo2) &&
+        Number(item.conteo1) === Number(item.conteo2) &&
+        !tieneValorConteo(item.conteo3) &&
+        !tieneValorConteo(item.conteo4) &&
+        Number(item.conteo1) !== sap_final
+          ? 0
+          : obtenerUltimoConteo({
+            ...item,
+            estatus: Number(estatusInventario),
+          });
+
       const diferencia_cierre = Number((conteo_final - sap_final).toFixed(2));
 
       return {
         ...item,
+        estatus: Number(estatusInventario),
         conteo1: c1,
         conteo2: c2,
         conteo3: c3,
@@ -300,7 +338,7 @@ export default function Mapa({ drawerRootId }) {
       });
 
       const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/mapa_detalle.php",
+        await endpoint("mapa_detalle.php"),
         { params: { almacen: almacenSeleccionado, fecha, cia } },
       );
 
@@ -311,7 +349,7 @@ export default function Mapa({ drawerRootId }) {
 
         try {
           const resp = await axios.get(
-            "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/estado_refresh_sap.php",
+            await endpoint("estado_refresh_sap.php"),
             { params: { almacen: almacenSeleccionado, fecha, cia } },
           );
 
@@ -324,13 +362,17 @@ export default function Mapa({ drawerRootId }) {
           setSapRefrescado(null);
         }
 
-        const hayConteo4 = (Array.isArray(res.data.data) ? res.data.data : []).some(
+        const estatusActual = Number(res.data.estatus);
+
+        const hayConteo4 = [4, 5, 7].includes(estatusActual) || (Array.isArray(res.data.data) ? res.data.data : []).some(
           (row) =>
             row.conteo4 !== null &&
             row.conteo4 !== undefined &&
             String(row.conteo4).trim() !== "" &&
-            Number(row.conteo4) !== 0
+            !Number.isNaN(Number(row.conteo4))
         );
+
+        setMostrarConteo4(hayConteo4);
 
         setMostrarConteo4(hayConteo4);
 
@@ -361,115 +403,137 @@ export default function Mapa({ drawerRootId }) {
   };
 
   const fetchDetalleGrupo = async (grupo) => {
-    if (!cia || !fecha || !grupo?.base || !grupo?.almacenes?.length) return;
+  if (!cia || !fecha || !grupo?.base || !grupo?.almacenes?.length) return;
+
+  try {
+    Swal.fire({
+      title: "Procesando...",
+      text: `Obteniendo detalle del grupo ${grupo.base}...`,
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+    });
+
+    const res = await axios.get(await endpoint("mapa_detalle_grupo.php"), {
+      params: {
+        grupo: grupo.base,
+        fecha,
+        cia,
+        usuario: sessionStorage.getItem("empleado"),
+      },
+    });
+
+    const estatusActual = Number(res.data.estatus);
+
+    const hayConteo4 = [4, 5, 7].includes(estatusActual) || (Array.isArray(res.data.data) ? res.data.data : []).some(
+      (row) =>
+        row.conteo4 !== null &&
+        row.conteo4 !== undefined &&
+        String(row.conteo4).trim() !== "" &&
+        !Number.isNaN(Number(row.conteo4))
+    );
+
+    setMostrarConteo4(hayConteo4);
+
+    setMostrarConteo4(hayConteo4);
+
+    Swal.close();
+
+    if (!res.data.success) {
+      Swal.fire(
+        "Error",
+        res.data.error || "Error al obtener detalle del grupo",
+        "error",
+      );
+      return;
+    }
+
+    setEstatusInventario(Number(res.data.estatus));
 
     try {
-      Swal.fire({
-        title: "Procesando...",
-        text: `Obteniendo detalle del grupo ${grupo.base}...`,
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading(),
+      const almacenesCSV = grupo.almacenes.join(",");
+
+      const resp = await axios.get(await endpoint("estado_refresh_sap.php"), {
+        params: {
+          almacen: almacenesCSV,
+          fecha,
+          cia,
+        },
       });
 
-      const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/mapa_detalle_grupo.php",
-        {
-          params: {
-            grupo: grupo.base,
-            fecha,
-            cia,
-            usuario: sessionStorage.getItem("empleado"),
-          },
-        },
-      );
-
-      const hayConteo4 = (Array.isArray(res.data.data) ? res.data.data : []).some(
-        (row) =>
-          row.conteo4 !== null &&
-          row.conteo4 !== undefined &&
-          String(row.conteo4).trim() !== "" &&
-          Number(row.conteo4) !== 0
-      );
-
-      setMostrarConteo4(hayConteo4);
-
-      Swal.close();
-
-      if (!res.data.success) {
-        Swal.fire(
-          "Error",
-          res.data.error || "Error al obtener detalle del grupo",
-          "error",
-        );
-        return;
-      }
-
-      setEstatusInventario(Number(res.data.estatus));
-
-      try {
-        const almacenesCSV = grupo.almacenes.join(",");
-
-        const resp = await axios.get(
-          "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/estado_refresh_sap.php",
-          {
-            params: {
-              almacen: almacenesCSV,
-              fecha,
-              cia,
-            },
-          },
-        );
-
-        if (resp.data && resp.data.success) {
-          setSapRefrescado(resp.data.sap_refrescado === 1);
-          setGrupoCompleto(Number(resp.data.total) === grupo.almacenes.length);
-        } else {
-          setSapRefrescado(null);
-          setGrupoCompleto(false);
-        }
-      } catch (e) {
+      if (resp.data && resp.data.success) {
+        setSapRefrescado(resp.data.sap_refrescado === 1);
+        setGrupoCompleto(Number(resp.data.total) === grupo.almacenes.length);
+      } else {
         setSapRefrescado(null);
         setGrupoCompleto(false);
       }
-
-      const detalleConFinal = (
-        Array.isArray(res.data.data) ? res.data.data : []
-      ).map((item) => {
-        const c1 = Number(item.conteo1 ?? 0);
-        const c2 = Number(item.conteo2 ?? 0);
-        const c3 = Number(item.conteo3 ?? 0);
-        const c4 = Number(item.conteo4 ?? 0);
-
-        const conteo_final = obtenerUltimoConteo(item);
-
-        const sap_final = Number(item.inventario_sap ?? 0);
-        const diferencia_cierre = Number((conteo_final - sap_final).toFixed(2));
-
-        return {
-          ...item,
-          conteo1: c1,
-          conteo2: c2,
-          conteo3: c3,
-          conteo4: c4,
-          conteo_final,
-          sap_final,
-          diferencia_cierre,
-        };
-      });
-
-      setDetalle(filtrarArticulosValidos(detalleConFinal));
-
-      setPaginaActual(1);
-
-      if (detalleConFinal.length === 0) {
-        Swal.fire("Sin datos", "No hay información para este grupo.", "info");
-      }
-    } catch (err) {
-      Swal.close();
-      console.error(err);
-      Swal.fire("Error", "No se pudo obtener el detalle del grupo.", "error");
+    } catch (e) {
+      setSapRefrescado(null);
+      setGrupoCompleto(false);
     }
-  };
+
+    const detalleConFinal = (
+      Array.isArray(res.data.data) ? res.data.data : []
+    ).map((item) => {
+
+
+      const itemParaCalculo = {
+  ...item,
+  estatus: Number(res.data.estatus),
+};
+
+const conteo_final = obtenerUltimoConteo(itemParaCalculo);
+
+const c1 = tieneValorConteo(item.conteo1) ? Number(item.conteo1) : 0;
+const c2 = tieneValorConteo(item.conteo2) ? Number(item.conteo2) : 0;
+const c3 = tieneValorConteo(item.conteo3) ? Number(item.conteo3) : 0;
+const c4 = tieneValorConteo(item.conteo4) ? Number(item.conteo4) : 0;
+
+const itemConEstatus = {
+  ...item,
+  estatus: Number(res.data.estatus),
+  conteo1: c1,
+  conteo2: c2,
+  conteo3: c3,
+  conteo4: c4,
+};
+
+
+      const sap_final = Number(item.inventario_sap ?? 0);
+
+      const conteoFinalAjustado =
+        tieneValorConteo(item.conteo1) &&
+        tieneValorConteo(item.conteo2) &&
+        Number(item.conteo1) === Number(item.conteo2) &&
+        !tieneValorConteo(item.conteo3) &&
+        !tieneValorConteo(item.conteo4) &&
+        Number(item.conteo1) !== sap_final
+          ? 0
+          : conteo_final;
+
+      const diferencia_cierre = Number((conteoFinalAjustado - sap_final).toFixed(2));
+
+      return {
+        ...itemConEstatus,
+        conteo_final: conteoFinalAjustado,
+        sap_final,
+        diferencia_cierre,
+      };
+    });
+
+    setDetalle(filtrarArticulosValidos(detalleConFinal));
+
+    setPaginaActual(1);
+
+    if (detalleConFinal.length === 0) {
+      Swal.fire("Sin datos", "No hay información para este grupo.", "info");
+    }
+  } catch (err) {
+    Swal.close();
+    console.error(err);
+    Swal.fire("Error", "No se pudo obtener el detalle del grupo.", "error");
+  }
+};
 
   useEffect(() => {
     if (!fecha || !cia) {
@@ -852,7 +916,7 @@ export default function Mapa({ drawerRootId }) {
     }
 
     const res = await axios.get(
-      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/get_catalogo_cierre.php",
+      await endpoint("get_catalogo_cierre.php"),
       {
         params: {
           cia,
@@ -881,7 +945,8 @@ export default function Mapa({ drawerRootId }) {
 
     Swal.close();
 
-    const proyectoDefault = data.proyecto || "";
+    const proyectoDefault = data.proyecto || cia || "GENERAL";
+
     const cuentas = Array.isArray(data.cuentas) ? data.cuentas : [];
 
     const opcionesCuentas = cuentas.map((c) => ({
@@ -1179,24 +1244,27 @@ export default function Mapa({ drawerRootId }) {
           }));
 
 
-        const res = await axios.get(
-          "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/cerrar_inventario_admin.php",
-          {
-            params: {
-              cia,
-              almacen: alm,
-              fecha,
-              usuario: sessionStorage.getItem("empleado"),
-              proyecto: value.proyecto,
-              cuenta_em: value.cuentaEM,
-              cuenta_sm: value.cuentaSM,
-              comentario: value.comentario,
-              items_ajuste: JSON.stringify(itemsAjuste),
-            },
-          },
-        );
+        const payload = new URLSearchParams();
 
-        console.log("RESPUESTA CIERRE:", alm, res.data);
+        payload.append("cia", cia);
+        payload.append("almacen", alm);
+        payload.append("fecha", fecha);
+        payload.append("usuario", sessionStorage.getItem("empleado"));
+        payload.append("proyecto", value.proyecto || proyectoDefault || cia || "GENERAL");
+        payload.append("cuenta_em", value.cuentaEM);
+        payload.append("cuenta_sm", value.cuentaSM);
+        payload.append("comentario", value.comentario);
+        payload.append("items_ajuste", JSON.stringify(itemsAjuste));
+
+        const res = await axios.post(
+          await endpoint("cerrar_inventario_admin.php"),
+          payload,
+          {
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+          }
+        );
 
         if (!res.data || !res.data.success) {
           erroresCierre.push(
@@ -1366,7 +1434,7 @@ export default function Mapa({ drawerRootId }) {
       const grupoRefresh = grupoSeleccionado.base;
 
       const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/refresh_sap.php",
+        await endpoint("refresh_sap.php"),
         {
           params: {
             almacen: almacenesRefresh,
@@ -1423,7 +1491,7 @@ export default function Mapa({ drawerRootId }) {
     }
 
     const res = await axios.get(
-      "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/resumen_sap.php",
+      await endpoint("resumen_sap.php"),
       {
         params,
       },
@@ -1522,7 +1590,7 @@ export default function Mapa({ drawerRootId }) {
             stack: [
               { text: "Código:", fontSize: 8 },
               { text: `Fecha emisión: ${fecha}`, fontSize: 8 },
-              { text: "Versión: 1", fontSize: 8 },
+              { text: "Versión: 1.25", fontSize: 8 },
               { text: `Emitido por: ${usuarioSesion}`, fontSize: 8 },
             ],
           },
@@ -2177,7 +2245,7 @@ export default function Mapa({ drawerRootId }) {
                       <strong>Fecha emisión:</strong> {fecha}
                     </p>
                     <p>
-                      <strong>Versión:</strong> 1
+                      <strong>Versión:</strong> 1.25
                     </p>
                   </div>
                 </div>
@@ -3001,26 +3069,26 @@ export default function Mapa({ drawerRootId }) {
 
                                 <td className="px-2 py-2 text-center">
                                   <span className="inline-flex items-center justify-center min-w-9 rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-black text-red-700">
-                                    {d.conteo1 ?? "-"}
+                                    {d.conteo1 ?? 0}
                                   </span>
                                 </td>
 
                                 <td className="px-2 py-2 text-center">
                                   <span className="inline-flex items-center justify-center min-w-9 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-black text-amber-700">
-                                    {d.conteo2 ?? "-"}
+                                    {d.conteo2 ?? 0}
                                   </span>
                                 </td>
 
                                 <td className="px-2 py-2 text-center">
                                   <span className="inline-flex items-center justify-center min-w-9 rounded-lg border border-green-200 bg-green-50 px-2 py-1 text-[10px] font-black text-green-700">
-                                    {d.conteo3 ?? "-"}
+                                    {d.conteo3 ?? 0}
                                   </span>
                                 </td>
 
                                 {mostrarConteo4 && (
                                   <td className="px-2 py-2 text-center">
                                     <span className="inline-flex items-center justify-center min-w-9 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-black text-indigo-700">
-                                      {d.conteo4 ?? "-"}
+                                      {d.conteo4 ?? 0}
                                     </span>
                                   </td>
                                 )}

@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
   Legend
 } from "recharts";
+import { endpoint } from "../config/apiConfig";
 
 export default function EstadisticasInventario() {
   const [datos, setDatos] = useState([]);
@@ -102,7 +103,7 @@ export default function EstadisticasInventario() {
       setLoadingAlmacenes(true);
 
       const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/catalogo_almacenes.php",
+        await endpoint("catalogo_almacenes.php"),
         { params: { cia } }
       );
 
@@ -135,7 +136,7 @@ export default function EstadisticasInventario() {
       });
 
       const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/estadisticas_inventario.php",
+        await endpoint("estadisticas_inventario.php"),
         { params }
       );
 

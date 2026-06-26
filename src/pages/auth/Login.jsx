@@ -3,6 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import logoDiniz from "../../assets/logo-diniz.png";
 import logoDinizF from "../../assets/logo-diniz-transparente.png";
+import { endpoint } from "../../config/apiConfig";
 
 const Login = () => {
   const [empleado, setEmpleado] = useState("");
@@ -19,7 +20,7 @@ const Login = () => {
 
     try {
       const res = await axios.post(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/auth/login.php",
+        await endpoint("auth/login.php"),
         { empleado, password }
       );
 
@@ -340,7 +341,7 @@ const Login = () => {
           </p>
 
           <div className="mt-10 border-t border-white/20 pt-4 text-xs text-gray-300">
-            <p>Versión 1.2</p>
+            <p>Versión 1.25</p>
             <p>GRUPO DINIZ · ÁREA DE TI · DESARROLLO SAP</p>
           </div>
         </div>

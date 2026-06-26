@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
+import { endpoint } from "../config/apiConfig";
 
 const MySwal = withReactContent(Swal);
 
@@ -28,7 +29,7 @@ export default function ObservacionesProyecto() {
   const cargarTipos = async () => {
     try {
       const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/observaciones_tipos.php"
+        await endpoint("observaciones_tipos.php")
       );
 
       if (res.data.success) {
@@ -171,7 +172,7 @@ export default function ObservacionesProyecto() {
       }
 
       const res = await axios.post(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/guardar_observacion_proyecto.php",
+        await endpoint("guardar_observacion_proyecto.php"),
         payload
       );
 
@@ -365,7 +366,7 @@ export default function ObservacionesProyecto() {
                     Evidencia de soporte
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    Imagen, PDF, Excel o documento.
+                    Imagen, PDF, Excel o documento. Máximo 1 MB. Las imágenes se comprimen antes de guardar.
                   </p>
                 </div>
 
@@ -430,7 +431,7 @@ export default function ObservacionesProyecto() {
                   Control · Operación · Evidencia
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
-                  La observación quedará disponible para consulta ejecutiva.
+                 La observación y su evidencia quedarán guardadas en base de datos.
                 </p>
               </div>
 

@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
 
+const API_OBSERVACIONES =
+  "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/consultar_observaciones_proyecto.php";
+
 export default function ConsultaObservacionesProyecto() {
   const [observaciones, setObservaciones] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -20,14 +23,31 @@ export default function ConsultaObservacionesProyecto() {
     consultarObservaciones();
   }, []);
 
-  const consultarObservaciones = async () => {
+  const tieneEvidencia = (item) => {
+    return item?.tiene_evidencia == 1 || !!item?.evidencia_url;
+  };
+
+  const obtenerUrlEvidencia = (item) => {
+    if (!item) return "";
+
+    if (item.evidencia_url) {
+      return item.evidencia_url;
+    }
+
+    if (item.tiene_evidencia == 1 && item.id_observacion) {
+      return `${API_OBSERVACIONES}?ver_evidencia=1&id_observacion=${item.id_observacion}`;
+    }
+
+    return "";
+  };
+
+  const consultarObservaciones = async (paramsPersonalizados = null) => {
     try {
       setLoading(true);
 
-      const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/consultar_observaciones_proyecto.php",
-        { params: filtros }
-      );
+      const params = paramsPersonalizados || filtros;
+
+      const res = await axios.get(API_OBSERVACIONES, { params });
 
       if (!res.data.success) {
         throw new Error(res.data.error || "No se pudieron consultar las observaciones.");
@@ -52,10 +72,7 @@ export default function ConsultaObservacionesProyecto() {
     };
 
     setFiltros(vacios);
-
-    setTimeout(() => {
-      consultarObservaciones();
-    }, 100);
+    consultarObservaciones(vacios);
   };
 
   const cambiarFiltro = (campo, valor) => {
@@ -72,7 +89,7 @@ export default function ConsultaObservacionesProyecto() {
   const estadisticas = useMemo(() => {
     const total = observaciones.length;
     const abiertas = observaciones.filter((item) => item.estatus === "ABIERTA").length;
-    const conEvidencia = observaciones.filter((item) => item.evidencia_url).length;
+    const conEvidencia = observaciones.filter((item) => tieneEvidencia(item)).length;
 
     return {
       total,
@@ -223,7 +240,7 @@ export default function ConsultaObservacionesProyecto() {
                 </button>
 
                 <button
-                  onClick={consultarObservaciones}
+                  onClick={() => consultarObservaciones()}
                   className="px-6 py-2.5 rounded-xl bg-[#611232] text-white text-sm font-black shadow-[0_12px_30px_rgba(97,18,50,0.25)] hover:bg-[#4a0d26] transition"
                 >
                   Buscar
@@ -262,50 +279,54 @@ export default function ConsultaObservacionesProyecto() {
                   </thead>
 
                   <tbody className="bg-white divide-y divide-gray-100">
-                    {observaciones.map((item, index) => (
-                      <tr key={item.id_observacion} className="hover:bg-[#611232]/[0.03] transition">
-                        <td className="p-4 font-bold text-gray-500">{index + 1}</td>
-                        <td className="p-4 font-bold text-gray-800 uppercase">{item.cia}</td>
-                        <td className="p-4 font-bold text-[#611232]">{item.cef}</td>
-                        <td className="p-4 text-gray-700">{item.fecha_observacion}</td>
-                        <td className="p-4 font-semibold text-gray-700">{item.responsable}</td>
-                        <td className="p-4 text-gray-700">{item.tipo_observacion}</td>
-                        <td className="p-4 text-gray-600 max-w-[280px] truncate">{item.descripcion}</td>
-                        <td className="p-4">
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-black ${
-                              item.estatus === "ABIERTA"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : "bg-green-100 text-green-800"
-                            }`}
-                          >
-                            {item.estatus}
-                          </span>
-                        </td>
-                        <td className="p-4 text-center">
-                          {item.evidencia_url ? (
-                            <a
-                              href={item.evidencia_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-[#611232] text-white text-xs font-black hover:bg-[#4a0d26]"
+                    {observaciones.map((item, index) => {
+                      const urlEvidencia = obtenerUrlEvidencia(item);
+
+                      return (
+                        <tr key={item.id_observacion} className="hover:bg-[#611232]/[0.03] transition">
+                          <td className="p-4 font-bold text-gray-500">{index + 1}</td>
+                          <td className="p-4 font-bold text-gray-800 uppercase">{item.cia}</td>
+                          <td className="p-4 font-bold text-[#611232]">{item.cef}</td>
+                          <td className="p-4 text-gray-700">{item.fecha_observacion}</td>
+                          <td className="p-4 font-semibold text-gray-700">{item.responsable}</td>
+                          <td className="p-4 text-gray-700">{item.tipo_observacion}</td>
+                          <td className="p-4 text-gray-600 max-w-[280px] truncate">{item.descripcion}</td>
+                          <td className="p-4">
+                            <span
+                              className={`px-3 py-1 rounded-full text-xs font-black ${
+                                item.estatus === "ABIERTA"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-green-100 text-green-800"
+                              }`}
                             >
-                              Ver
-                            </a>
-                          ) : (
-                            <span className="text-gray-400 text-xs font-bold">Sin evidencia</span>
-                          )}
-                        </td>
-                        <td className="p-4 text-center">
-                          <button
-                            onClick={() => setSeleccionada(item)}
-                            className="px-3 py-1.5 rounded-lg bg-gray-100 text-gray-800 text-xs font-black hover:bg-gray-200 transition"
-                          >
-                            Abrir
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                              {item.estatus}
+                            </span>
+                          </td>
+                          <td className="p-4 text-center">
+                            {tieneEvidencia(item) && urlEvidencia ? (
+                              <a
+                                href={urlEvidencia}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-[#611232] text-white text-xs font-black hover:bg-[#4a0d26]"
+                              >
+                                Ver
+                              </a>
+                            ) : (
+                              <span className="text-gray-400 text-xs font-bold">Sin evidencia</span>
+                            )}
+                          </td>
+                          <td className="p-4 text-center">
+                            <button
+                              onClick={() => setSeleccionada(item)}
+                              className="px-3 py-1.5 rounded-lg bg-gray-100 text-gray-800 text-xs font-black hover:bg-gray-200 transition"
+                            >
+                              Abrir
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -381,9 +402,9 @@ export default function ConsultaObservacionesProyecto() {
                   </p>
                 </div>
 
-                {seleccionada.evidencia_url && (
+                {tieneEvidencia(seleccionada) && obtenerUrlEvidencia(seleccionada) && (
                   <a
-                    href={seleccionada.evidencia_url}
+                    href={obtenerUrlEvidencia(seleccionada)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-5 py-3 rounded-xl bg-[#611232] text-white text-sm font-black hover:bg-[#4a0d26] transition"
@@ -398,4 +419,4 @@ export default function ConsultaObservacionesProyecto() {
       )}
     </div>
   );
-}
+} 

@@ -9,18 +9,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit;
 }
 
-$cia = isset($_GET['cia']) ? trim($_GET['cia']) : null;
-$almacen = isset($_GET['almacen']) ? trim($_GET['almacen']) : null;
-$fecha = isset($_GET['fecha']) ? trim($_GET['fecha']) : null;
-$usuario = isset($_GET['usuario']) ? trim($_GET['usuario']) : null;
-$proyecto = isset($_GET['proyecto']) ? trim($_GET['proyecto']) : null;
-$cuenta_em = isset($_GET['cuenta_em']) ? trim($_GET['cuenta_em']) : null;
-$cuenta_sm = isset($_GET['cuenta_sm']) ? trim($_GET['cuenta_sm']) : null;
-$comentario_front = isset($_GET['comentario']) ? trim($_GET['comentario']) : '';
-$items_ajuste_raw = isset($_GET['items_ajuste']) ? $_GET['items_ajuste'] : '';
+$input = $_SERVER['REQUEST_METHOD'] === 'POST' ? $_POST : $_GET;
 
-if (!$cia || !$almacen || !$fecha || !$usuario || !$proyecto || !$cuenta_em || !$cuenta_sm) {
-  echo json_encode(array("success" => false, "error" => "Faltan parámetros"));
+$cia = isset($input['cia']) ? trim($input['cia']) : null;
+$almacen = isset($input['almacen']) ? trim($input['almacen']) : null;
+$fecha = isset($input['fecha']) ? trim($input['fecha']) : null;
+$usuario = isset($input['usuario']) ? trim($input['usuario']) : null;
+$proyecto = isset($input['proyecto']) ? trim($input['proyecto']) : null;
+$cuenta_em = isset($input['cuenta_em']) ? trim($input['cuenta_em']) : null;
+$cuenta_sm = isset($input['cuenta_sm']) ? trim($input['cuenta_sm']) : null;
+$comentario_front = isset($input['comentario']) ? trim($input['comentario']) : '';
+$items_ajuste_raw = isset($input['items_ajuste']) ? $input['items_ajuste'] : '';
+
+$faltantes = array();
+
+if (!$cia) $faltantes[] = "cia";
+if (!$almacen) $faltantes[] = "almacen";
+if (!$fecha) $faltantes[] = "fecha";
+if (!$usuario) $faltantes[] = "usuario";
+if (!$proyecto) $faltantes[] = "proyecto";
+if (!$cuenta_em) $faltantes[] = "cuenta_em";
+if (!$cuenta_sm) $faltantes[] = "cuenta_sm";
+
+if (count($faltantes) > 0) {
+  echo json_encode(array(
+    "success" => false,
+    "error" => "Faltan parámetros: " . implode(", ", $faltantes),
+    "debug" => array(
+      "method" => $_SERVER['REQUEST_METHOD'],
+      "post" => $_POST,
+      "get" => $_GET
+    )
+  ));
   exit;
 }
 

@@ -7,7 +7,7 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 import pdfMake from "pdfmake/build/pdfmake";
 import pdfFonts from "pdfmake/build/vfs_fonts";
-
+import { endpoint } from "../config/apiConfig";
 pdfMake.vfs = pdfFonts.vfs;
 
 
@@ -229,7 +229,7 @@ export default function CompararInventario() {
    const obtenerComparacion = async () => {
     try {
       const res = await axios.get(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/comparar_inventarios.php",
+        await endpoint("comparar_inventarios.php"),
         { params: { almacen, fecha, usuario: empleado, cia } }
       );
 
@@ -368,7 +368,7 @@ export default function CompararInventario() {
       formData.append("estatus", resGlobal.nro_conteo);
 
       const res = await axios.post(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/cerrar_inventario.php",
+        await endpoint("cerrar_inventario.php"),
         formData
       );
 
@@ -570,7 +570,7 @@ export default function CompararInventario() {
       formData.append("empleado_elegido", empleadoElegido);
 
       const r = await axios.post(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/asignar_tercer_conteo.php",
+        await endpoint("asignar_tercer_conteo.php"),
         formData
       );
 
@@ -638,7 +638,7 @@ export default function CompararInventario() {
       formData7.append("estatus", 7);
 
       await axios.post(
-        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/actualizar_estatus.php",
+        await endpoint("actualizar_estatus.php"),
         formData7
       );
 
@@ -732,7 +732,7 @@ export default function CompararInventario() {
                         formData.append("estatus", 2);
 
                         await axios.post(
-                          "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/actualizar_estatus.php",
+                          await endpoint("actualizar_estatus.php"),
                           formData
                         );
 
@@ -775,7 +775,7 @@ export default function CompararInventario() {
                       formData3.append("estatus", 3);
 
                       await axios.post(
-                        "https://diniz.com.mx/diniz/servicios/services/admin_inventarios_sap/actualizar_estatus.php",
+                        await endpoint("actualizar_estatus.php"),
                         formData3
                       );
 

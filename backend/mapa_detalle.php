@@ -93,10 +93,10 @@ while ($row = mssql_fetch_assoc($resFoto)) {
     'codebars'       => $row['codebars'],
     'cias'           => $row['cia'],
     'usuario'        => $row['usuario_genero'],
-    'conteo1'        => 0,
-    'conteo2'        => 0,
-    'conteo3'        => 0,
-    'conteo4'        => 0,
+    'conteo1'        => null,
+    'conteo2'        => null,
+    'conteo3'        => null,
+    'conteo4'        => null,
   ];
 }
 
@@ -146,10 +146,15 @@ while ($row = mssql_fetch_assoc($q)) {
   $n = (int)$row['nro_conteo'];
   $val = (float)$row['cantidad'];
 
-  if ($n <= 1)        $items[$codigo]['conteo1'] = $val;
-  else if ($n == 2)   $items[$codigo]['conteo2'] = $val;
-  else if ($n == 3)   $items[$codigo]['conteo3'] = $val;
-  else if ($n == 7)   $items[$codigo]['conteo4'] = $val;
+  if ($n <= 1) {
+    $items[$codigo]['conteo1'] = is_null($items[$codigo]['conteo1']) ? $val : $items[$codigo]['conteo1'] + $val;
+  } else if ($n == 2) {
+    $items[$codigo]['conteo2'] = is_null($items[$codigo]['conteo2']) ? $val : $items[$codigo]['conteo2'] + $val;
+  } else if ($n == 3) {
+    $items[$codigo]['conteo3'] = is_null($items[$codigo]['conteo3']) ? $val : $items[$codigo]['conteo3'] + $val;
+  } else if ($n == 7) {
+    $items[$codigo]['conteo4'] = is_null($items[$codigo]['conteo4']) ? $val : $items[$codigo]['conteo4'] + $val;
+  }
 }
 }
 
@@ -171,19 +176,15 @@ if ($resEstatus && $rowEst = mssql_fetch_assoc($resEstatus)) {
 
 $out = [];
 foreach ($items as $it) {
-  $base = 0.0;
+  $conteo_final =
+    (!is_null($it['conteo4'])) ? $it['conteo4'] :
+    ((!is_null($it['conteo3'])) ? $it['conteo3'] :
+    ((!is_null($it['conteo2']) && !is_null($it['conteo1']) && (float)$it['conteo1'] == (float)$it['conteo2']) ? $it['conteo2'] :
+    ((!is_null($it['conteo2']) && !is_null($it['conteo1']) && (float)$it['conteo1'] != (float)$it['conteo2']) ? 0 :
+    ((!is_null($it['conteo1'])) ? $it['conteo1'] : 0))));
 
-  if ($estatus === 1) {
-    $base = $it['conteo1'];
-  } elseif ($estatus === 2) {
-    $base = $it['conteo2'];
-  } elseif ($estatus === 3) {
-    $base = $it['conteo3'];
-  } elseif ($estatus === 7) {
-    $base = $it['conteo4'];
-  }
-
-  $it['diferencia'] = (float)$it['inventario_sap'] - (float)$base;
+  $it['conteo_final'] = $conteo_final;
+  $it['diferencia'] = (float)$conteo_final - (float)$it['inventario_sap'];
 
   $out[] = $it;
 }
