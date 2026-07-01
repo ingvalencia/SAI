@@ -466,7 +466,7 @@ export default function AdminDashboard() {
                 <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-5">
                   <div className="group relative overflow-hidden rounded-3xl bg-white border border-slate-200 p-6 shadow-sm hover:shadow-xl transition-all duration-300">
                     <div className="absolute -right-8 -top-8 w-24 h-24 rounded-full bg-[#611232]/8"></div>
-                    <p className="text-3xl font-black text-[#611232]">v1.25</p>
+                    <p className="text-3xl font-black text-[#611232]">v1.26</p>
                     <p className="text-xs text-slate-500 mt-2 tracking-[0.18em] font-black uppercase">
                       Versión del sistema
                     </p>

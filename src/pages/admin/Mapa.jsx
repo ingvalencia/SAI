@@ -816,64 +816,62 @@ const itemConEstatus = {
     headerRow.height = 28;
 
     datosExportar.forEach((item, i) => {
-      const c1 = Number(item.conteo1 ?? 0);
-      const c2 = Number(item.conteo2 ?? 0);
-      const c3 = Number(item.conteo3 ?? 0);
-      const c4 = Number(item.conteo4 ?? 0);
-      const sap = Number(item.inventario_sap ?? 0);
+  const c1 = Number(item.conteo1 ?? 0);
+  const c2 = Number(item.conteo2 ?? 0);
+  const c3 = Number(item.conteo3 ?? 0);
+  const c4 = Number(item.conteo4 ?? 0);
+  const sap = Number(item.sap_final ?? item.inventario_sap ?? 0);
+  const diferencia = Number(item.diferencia_cierre ?? 0);
 
-      const ultimoConteo = obtenerUltimoConteo(item);
-      const diferencia = Number((ultimoConteo - sap).toFixed(2));
+  const row = worksheet.addRow([
+    i + 1,
+    item.codigo ?? "-",
+    item.nombre ?? "-",
+    item.almacen ?? "-",
+    item.familia ?? "-",
+    item.subfamilia ?? "-",
+    Number(item.precio ?? 0),
+    sap,
+    c1,
+    c2,
+    c3,
+    ...(mostrarConteo4 ? [c4] : []),
+    "",
+    "",
+    "",
+    "",
+    diferencia,
+  ]);
 
-      const row = worksheet.addRow([
-        i + 1,
-        item.codigo ?? "-",
-        item.nombre ?? "-",
-        item.almacen ?? "-",
-        item.familia ?? "-",
-        item.subfamilia ?? "-",
-        Number(item.precio ?? 0),
-        sap,
-        c1,
-        c2,
-        c3,
-        ...(mostrarConteo4 ? [c4] : []),
-        "",
-        "",
-        "",
-        "",
-        diferencia,
-      ]);
+  row.eachCell((cell, colNumber) => {
+    cell.border = {
+      top: { style: "thin" },
+      left: { style: "thin" },
+      bottom: { style: "thin" },
+      right: { style: "thin" },
+    };
 
-      row.eachCell((cell, colNumber) => {
-        cell.border = {
-          top: { style: "thin" },
-          left: { style: "thin" },
-          bottom: { style: "thin" },
-          right: { style: "thin" },
-        };
+    if (colNumber >= 7 && colNumber <= headers.length) {
+      cell.numFmt = "#,##0.00";
+    }
 
-        if (colNumber >= 7 && colNumber <= headers.length) {
-          cell.numFmt = "#,##0.00";
-        }
+    cell.alignment = {
+      vertical: "middle",
+      horizontal: colNumber === 3 ? "left" : "center",
+    };
+  });
 
-        cell.alignment = {
-          vertical: "middle",
-          horizontal: colNumber === 3 ? "left" : "center",
-        };
-      });
+  const diffColIndex = headers.indexOf("DIF. STOCK VS FISICO") + 1;
+  const diffCell = row.getCell(diffColIndex);
 
-      const diffColIndex = headers.indexOf("DIF. STOCK VS FISICO") + 1;
-      const diffCell = row.getCell(diffColIndex);
-
-      if (diferencia === 0) {
-        diffCell.font = { color: { argb: "FFD700" }, bold: true };
-      } else if (diferencia < 0) {
-        diffCell.font = { color: { argb: "008000" }, bold: true };
-      } else {
-        diffCell.font = { color: { argb: "FF0000" }, bold: true };
-      }
-    });
+  if (diferencia === 0) {
+    diffCell.font = { color: { argb: "FFD700" }, bold: true };
+  } else if (diferencia < 0) {
+    diffCell.font = { color: { argb: "008000" }, bold: true };
+  } else {
+    diffCell.font = { color: { argb: "FF0000" }, bold: true };
+  }
+});
 
     worksheet.autoFilter = {
       from: { row: 1, column: 1 },
@@ -1590,7 +1588,7 @@ const itemConEstatus = {
             stack: [
               { text: "Código:", fontSize: 8 },
               { text: `Fecha emisión: ${fecha}`, fontSize: 8 },
-              { text: "Versión: 1.25", fontSize: 8 },
+              { text: "Versión: 1.26", fontSize: 8 },
               { text: `Emitido por: ${usuarioSesion}`, fontSize: 8 },
             ],
           },
@@ -2245,7 +2243,7 @@ const itemConEstatus = {
                       <strong>Fecha emisión:</strong> {fecha}
                     </p>
                     <p>
-                      <strong>Versión:</strong> 1.25
+                      <strong>Versión:</strong> 1.26
                     </p>
                   </div>
                 </div>

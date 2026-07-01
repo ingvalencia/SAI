@@ -36,7 +36,7 @@ if (!preg_match('/^[A-Za-z0-9_]+$/', $cia)) {
 $ciaSap = $cia;
 
 if (strtolower($cia) == "recrefam") {
-  $ciaSap = "RECREFAM";
+  $ciaSap = "Pruebas_RECREFAM";
 }
 
 if (!preg_match('/^[A-Za-z0-9_]+$/', $ciaSap)) {

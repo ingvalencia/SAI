@@ -98,6 +98,402 @@ export default function ConsultaObservacionesProyecto() {
     };
   }, [observaciones]);
 
+ const exportarWord = () => {
+  if (!observaciones || observaciones.length === 0) {
+    Swal.fire("Sin datos", "No hay observaciones para exportar.", "warning");
+    return;
+  }
+
+  const limpiarTexto = (valor) => {
+    if (valor === null || valor === undefined || valor === "") return "-";
+
+    return String(valor)
+      .normalize("NFC")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;")
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n")
+      .replace(/\n/g, "<br/>");
+  };
+
+  const fechaReporte = new Date().toLocaleString("es-MX", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const filtrosAplicados = `
+    CIA: ${limpiarTexto(filtros.cia || "Todas")} |
+    CEF: ${limpiarTexto(filtros.cef || "Todos")} |
+    Tipo: ${limpiarTexto(filtros.tipo || "Todos")} |
+    Estatus: ${limpiarTexto(filtros.estatus || "Todos")} |
+    Desde: ${limpiarTexto(filtros.fecha_inicio || "Sin filtro")} |
+    Hasta: ${limpiarTexto(filtros.fecha_fin || "Sin filtro")}
+  `;
+
+  const tarjetas = observaciones
+    .map((item, index) => {
+      const evidencia = tieneEvidencia(item) ? "Sí" : "No";
+
+      return `
+        <div class="card">
+          <div class="card-header">
+            <table class="header-table">
+              <tr>
+                <td>
+                  <span class="badge">Observación ${index + 1}</span>
+                  <h2>${limpiarTexto(item.tipo_observacion)}</h2>
+                </td>
+                <td class="status-cell">
+                  <div class="status">${limpiarTexto(item.estatus)}</div>
+                </td>
+              </tr>
+            </table>
+          </div>
+
+          <table class="meta">
+            <tr>
+              <td>
+                <div class="label">CIA</div>
+                <div class="value">${limpiarTexto(item.cia).toUpperCase()}</div>
+              </td>
+              <td>
+                <div class="label">CEF</div>
+                <div class="value">${limpiarTexto(item.cef).toUpperCase()}</div>
+              </td>
+              <td>
+                <div class="label">Fecha observación</div>
+                <div class="value">${limpiarTexto(item.fecha_observacion)}</div>
+              </td>
+              <td>
+                <div class="label">Responsable</div>
+                <div class="value">${limpiarTexto(item.responsable)}</div>
+              </td>
+              <td>
+                <div class="label">Evidencia</div>
+                <div class="value">${evidencia}</div>
+              </td>
+            </tr>
+          </table>
+
+          <table class="detail">
+            <tr>
+              <td class="section">
+                <div class="section-title">Comentario / Descripción</div>
+                <div class="section-text">${limpiarTexto(item.descripcion)}</div>
+              </td>
+              <td class="section">
+                <div class="section-title">Acción sugerida</div>
+                <div class="section-text">${limpiarTexto(item.accion_sugerida || "Sin acción sugerida")}</div>
+              </td>
+            </tr>
+          </table>
+
+          <div class="footer-card">
+            <strong>Capturó:</strong> ${limpiarTexto(item.usuario_creacion)}
+            &nbsp;&nbsp;|&nbsp;&nbsp;
+            <strong>Fecha registro:</strong> ${limpiarTexto(item.fecha_creacion)}
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>Reporte Ejecutivo de Observaciones</title>
+        <style>
+          @page Section1 {
+            size: 841.95pt 595.35pt;
+            margin: 28pt 28pt 28pt 28pt;
+            mso-page-orientation: landscape;
+          }
+
+          div.Section1 {
+            page: Section1;
+          }
+
+          body {
+            font-family: Arial, Helvetica, sans-serif;
+            color: #1f2937;
+            font-size: 9pt;
+            background: #ffffff;
+            margin: 0;
+            padding: 0;
+          }
+
+          .cover {
+            border-bottom: 5px solid #611232;
+            padding-bottom: 12px;
+            margin-bottom: 14px;
+          }
+
+          .title {
+            background: #611232;
+            color: #ffffff;
+            padding: 14px 18px;
+          }
+
+          .title h1 {
+            margin: 0;
+            font-size: 22pt;
+            letter-spacing: 0.3px;
+          }
+
+          .title p {
+            margin: 5px 0 0 0;
+            font-size: 9pt;
+            color: #f7dce8;
+          }
+
+          .summary {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+            table-layout: fixed;
+          }
+
+          .summary td {
+            border: 1px solid #e5e7eb;
+            background: #f9fafb;
+            padding: 10px;
+            width: 25%;
+            vertical-align: top;
+          }
+
+          .summary .label {
+            color: #6b7280;
+            font-size: 7.5pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+          }
+
+          .summary .number {
+            color: #611232;
+            font-size: 18pt;
+            font-weight: bold;
+            margin-top: 4px;
+          }
+
+          .filters {
+            margin-top: 10px;
+            padding: 8px 10px;
+            background: #fff7fb;
+            border-left: 5px solid #611232;
+            font-size: 8pt;
+            color: #374151;
+          }
+
+          .card {
+            page-break-inside: avoid;
+            border: 1px solid #d1d5db;
+            margin-bottom: 12px;
+            padding: 0;
+            width: 100%;
+          }
+
+          .card-header {
+            background: #f3f4f6;
+            border-bottom: 1px solid #d1d5db;
+            padding: 8px 10px;
+          }
+
+          .header-table {
+            width: 100%;
+            border-collapse: collapse;
+          }
+
+          .header-table td {
+            border: none;
+            vertical-align: middle;
+          }
+
+          .status-cell {
+            width: 120px;
+            text-align: right;
+          }
+
+          .badge {
+            background: #611232;
+            color: #ffffff;
+            padding: 3px 7px;
+            font-size: 7.5pt;
+            font-weight: bold;
+            text-transform: uppercase;
+          }
+
+          .card-header h2 {
+            margin: 6px 0 0 0;
+            color: #111827;
+            font-size: 13pt;
+          }
+
+          .status {
+            background: #ffffff;
+            border: 1px solid #611232;
+            color: #611232;
+            padding: 5px 9px;
+            font-weight: bold;
+            font-size: 8pt;
+            text-transform: uppercase;
+            display: inline-block;
+          }
+
+          .meta {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+          }
+
+          .meta td {
+            border-bottom: 1px solid #e5e7eb;
+            border-right: 1px solid #e5e7eb;
+            padding: 7px;
+            vertical-align: top;
+          }
+
+          .meta td:last-child {
+            border-right: none;
+          }
+
+          .label {
+            color: #6b7280;
+            font-size: 7pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+          }
+
+          .value {
+            color: #111827;
+            font-size: 8.5pt;
+            font-weight: bold;
+          }
+
+          .detail {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+          }
+
+          .detail td {
+            width: 50%;
+            vertical-align: top;
+            padding: 10px;
+            border-right: 1px solid #e5e7eb;
+          }
+
+          .detail td:last-child {
+            border-right: none;
+          }
+
+          .section-title {
+            color: #611232;
+            font-size: 9pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 7px;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 4px;
+          }
+
+          .section-text {
+            font-size: 8.7pt;
+            line-height: 1.35;
+            color: #1f2937;
+            text-align: justify;
+          }
+
+          .footer-card {
+            background: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+            padding: 7px 10px;
+            font-size: 8pt;
+            color: #4b5563;
+          }
+
+          .document-footer {
+            margin-top: 16px;
+            text-align: right;
+            font-size: 7.5pt;
+            color: #6b7280;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 8px;
+          }
+        </style>
+      </head>
+
+      <body>
+        <div class="Section1">
+          <div class="cover">
+            <div class="title">
+              <h1>Reporte Ejecutivo de Observaciones</h1>
+              <p>Hallazgos, comentarios, responsables, evidencias y acciones sugeridas del proceso de inventario.</p>
+            </div>
+
+            <table class="summary">
+              <tr>
+                <td>
+                  <div class="label">Total de observaciones</div>
+                  <div class="number">${estadisticas.total}</div>
+                </td>
+                <td>
+                  <div class="label">Observaciones abiertas</div>
+                  <div class="number">${estadisticas.abiertas}</div>
+                </td>
+                <td>
+                  <div class="label">Con evidencia</div>
+                  <div class="number">${estadisticas.conEvidencia}</div>
+                </td>
+                <td>
+                  <div class="label">Fecha de generación</div>
+                  <div class="number" style="font-size: 12pt;">${fechaReporte}</div>
+                </td>
+              </tr>
+            </table>
+
+            <div class="filters">
+              <strong>Filtros aplicados:</strong> ${filtrosAplicados}
+            </div>
+          </div>
+
+          ${tarjetas}
+
+          <div class="document-footer">
+            Documento generado automáticamente desde SICAF · ${fechaReporte}
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  const blob = new Blob(["\ufeff", html], {
+    type: "application/msword;charset=utf-8",
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  const fechaArchivo = new Date().toISOString().slice(0, 10);
+  link.href = url;
+  link.download = `reporte_ejecutivo_observaciones_${fechaArchivo}.doc`;
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-100 via-white to-gray-100 p-6">
       <div className="max-w-7xl mx-auto">
@@ -237,6 +633,18 @@ export default function ConsultaObservacionesProyecto() {
                   className="px-5 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-700 text-sm font-black hover:bg-gray-100 transition"
                 >
                   Limpiar
+                </button>
+
+                <button
+                  onClick={exportarWord}
+                  disabled={loading || observaciones.length === 0}
+                  className={`px-6 py-2.5 rounded-xl text-sm font-black shadow transition ${
+                    loading || observaciones.length === 0
+                      ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                      : "bg-blue-900 text-white hover:bg-blue-950"
+                  }`}
+                >
+                  Descargar Word
                 </button>
 
                 <button
@@ -419,4 +827,4 @@ export default function ConsultaObservacionesProyecto() {
       )}
     </div>
   );
-} 
+}

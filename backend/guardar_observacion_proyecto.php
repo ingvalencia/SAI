@@ -2,7 +2,7 @@
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   http_response_code(200);
@@ -11,7 +11,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 function limpiar($valor)
 {
-  return str_replace("'", "''", trim((string)$valor));
+  if ($valor === null) {
+    return '';
+  }
+
+  $valor = trim((string)$valor);
+
+  if ($valor === '') {
+    return '';
+  }
+
+  if (function_exists('get_magic_quotes_gpc') && get_magic_quotes_gpc()) {
+    $valor = stripslashes($valor);
+  }
+
+  $valor = str_replace("\xEF\xBB\xBF", '', $valor);
+  $valor = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', ' ', $valor);
+
+  if (!preg_match('//u', $valor)) {
+    $valorConvertido = @utf8_encode($valor);
+    if ($valorConvertido !== false && $valorConvertido !== '') {
+      $valor = $valorConvertido;
+    }
+  }
+
+  $buscar = array(
+    'Á', 'À', 'Â', 'Ä', 'Ã', 'Å', 'á', 'à', 'â', 'ä', 'ã', 'å',
+    'É', 'È', 'Ê', 'Ë', 'é', 'è', 'ê', 'ë',
+    'Í', 'Ì', 'Î', 'Ï', 'í', 'ì', 'î', 'ï',
+    'Ó', 'Ò', 'Ô', 'Ö', 'Õ', 'ó', 'ò', 'ô', 'ö', 'õ',
+    'Ú', 'Ù', 'Û', 'Ü', 'ú', 'ù', 'û', 'ü',
+    'Ñ', 'ñ', 'Ç', 'ç',
+    '“', '”', '‘', '’', '´', '`',
+    '–', '—', '…', '•',
+    '¡', '¿',
+    '°', 'ª', 'º',
+    'Ã¡', 'Ã©', 'Ã­', 'Ã³', 'Ãº', 'Ã±', 'Ã‘',
+    'ÃÁ', 'Ã‰', 'ÃÍ', 'Ã“', 'Ãš',
+    'Â', '�'
+  );
+
+  $reemplazar = array(
+    'A', 'A', 'A', 'A', 'A', 'A', 'a', 'a', 'a', 'a', 'a', 'a',
+    'E', 'E', 'E', 'E', 'e', 'e', 'e', 'e',
+    'I', 'I', 'I', 'I', 'i', 'i', 'i', 'i',
+    'O', 'O', 'O', 'O', 'O', 'o', 'o', 'o', 'o', 'o',
+    'U', 'U', 'U', 'U', 'u', 'u', 'u', 'u',
+    'N', 'n', 'C', 'c',
+    '"', '"', '', '', '', '',
+    '-', '-', '...', '-',
+    '', '',
+    '', '', '',
+    'a', 'e', 'i', 'o', 'u', 'n', 'N',
+    'A', 'E', 'I', 'O', 'U',
+    '', ''
+  );
+
+  $valor = str_replace($buscar, $reemplazar, $valor);
+
+  if (function_exists('iconv')) {
+    $valorIconv = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $valor);
+    if ($valorIconv !== false && $valorIconv !== '') {
+      $valor = $valorIconv;
+    }
+  }
+
+  $valor = preg_replace('/[^A-Za-z0-9\s\.\,\-\_\:\;\(\)\[\]\/]/', ' ', $valor);
+  $valor = preg_replace('/[ ]+/', ' ', $valor);
+  $valor = preg_replace('/[\r\n]+/', ' ', $valor);
+  $valor = trim($valor);
+
+  return str_replace("'", "''", $valor);
 }
 
 function responder($data)
@@ -25,7 +95,7 @@ function mimePorExtension($extension)
   $mimes = array(
     'jpg' => 'image/jpeg',
     'jpeg' => 'image/jpeg',
-    'png' => 'image/jpeg',
+    'png' => 'image/png',
     'gif' => 'image/gif',
     'pdf' => 'application/pdf',
     'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -147,7 +217,7 @@ if (isset($_FILES['evidencia']) && $_FILES['evidencia']['error'] === UPLOAD_ERR_
   if ($pesoArchivo > $pesoMaximo) {
     responder(array(
       "success" => false,
-      "error" => "La evidencia supera el peso máximo permitido de 1 MB"
+      "error" => "La evidencia supera el peso maximo permitido de 1 MB"
     ));
   }
 
@@ -215,7 +285,7 @@ $sqlInsert = "
     usuario_creacion,
     fecha_creacion
   )
- OUTPUT INSERTED.id_observacion AS id_observacion
+  OUTPUT INSERTED.id_observacion AS id_observacion
   VALUES (
     '$cia',
     '$cef',
@@ -244,7 +314,7 @@ $result = mssql_query($sqlInsert, $conn);
 if (!$result) {
   responder(array(
     "success" => false,
-    "error" => "Error al guardar la observación",
+    "error" => "Error al guardar la observacion",
     "detalle" => mssql_get_last_message()
   ));
 }
@@ -289,7 +359,7 @@ if ($id_observacion > 0 && $evidencia_binaria_hex != 'NULL') {
   if (!$resultEvidencia) {
     responder(array(
       "success" => false,
-      "error" => "La observación se guardó, pero falló la evidencia",
+      "error" => "La observacion se guardo, pero fallo la evidencia",
       "detalle" => mssql_get_last_message(),
       "id_observacion" => $id_observacion
     ));
@@ -298,7 +368,7 @@ if ($id_observacion > 0 && $evidencia_binaria_hex != 'NULL') {
 
 responder(array(
   "success" => true,
-  "mensaje" => "Observación guardada correctamente",
+  "mensaje" => "Observacion guardada correctamente",
   "id_observacion" => $id_observacion,
   "evidencia_nombre" => $evidencia_nombre,
   "evidencia_mime" => $evidencia_mime,
