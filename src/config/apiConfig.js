@@ -5,20 +5,51 @@ const normalizarUrl = (url) => {
   return url.replace(/\/+$/, "");
 };
 
+const obtenerAmbienteFallback = () => {
+  const path = window.location.pathname.toLowerCase();
+
+  if (path.includes("inventarios_pruebas")) {
+    return "desarrollo";
+  }
+
+  return "produccion";
+};
+
+const obtenerBaseSistema = () => {
+  const origin = window.location.origin;
+  const pathname = window.location.pathname;
+
+  const rutaLimpia = pathname.endsWith("/")
+    ? pathname.replace(/\/+$/, "")
+    : pathname.substring(0, pathname.lastIndexOf("/"));
+
+  return `${origin}${rutaLimpia}`;
+};
+
 export const cargarConfiguracion = async () => {
   if (configuracionCache) return configuracionCache;
 
   try {
-    const response = await fetch(`${process.env.PUBLIC_URL}/configuracion.json`, {
-      cache: "no-store",
-    });
+    const baseSistema = obtenerBaseSistema();
+
+    const response = await fetch(
+      `${baseSistema}/configuracion.json?v=${Date.now()}`,
+      {
+        cache: "no-store",
+      }
+    );
 
     if (!response.ok) {
       throw new Error("No se pudo cargar configuracion.json");
     }
 
     const config = await response.json();
-    const ambiente = String(config.ambiente || "").toLowerCase();
+    const ambienteLeido = String(config.ambiente || "").toLowerCase();
+
+    const ambiente =
+      ambienteLeido === "produccion" || ambienteLeido === "desarrollo"
+        ? ambienteLeido
+        : obtenerAmbienteFallback();
 
     const apiDesarrollo = normalizarUrl(process.env.REACT_APP_API_DESARROLLO);
     const apiProduccion = normalizarUrl(process.env.REACT_APP_API_PRODUCCION);
@@ -34,16 +65,19 @@ export const cargarConfiguracion = async () => {
 
     return configuracionCache;
   } catch (error) {
-    const apiBaseUrl = normalizarUrl(process.env.REACT_APP_API_PRODUCCION);
+    const ambiente = obtenerAmbienteFallback();
+
+    const apiDesarrollo = normalizarUrl(process.env.REACT_APP_API_DESARROLLO);
+    const apiProduccion = normalizarUrl(process.env.REACT_APP_API_PRODUCCION);
+
+    const apiBaseUrl = ambiente === "produccion" ? apiProduccion : apiDesarrollo;
 
     configuracionCache = {
-      ambiente: "produccion",
+      ambiente,
       apiBaseUrl,
-      esProduccion: true,
-      esDesarrollo: false,
+      esProduccion: ambiente === "produccion",
+      esDesarrollo: ambiente === "desarrollo",
     };
-
-    
 
     return configuracionCache;
   }

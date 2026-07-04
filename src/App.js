@@ -17,6 +17,7 @@ import Login from "./pages/auth/Login";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import ObservacionesProyecto from "./pages/ObservacionesProyecto";
 import EstadisticasObservaciones from "./pages/EstadisticasObservaciones";
+import AmbienteBanner from "./components/AmbienteBanner";
 
 function FullscreenLoader({ text = "Verificando acceso al sistema..." }) {
   return (
@@ -149,7 +150,7 @@ function AppRoutes() {
             allowOutsideClick: false
           });
 
-          window.location.href = "/diniz/inventarios/#/login";
+          irALogin();
         }
       } catch (error) {
         console.error("Error al validar sesión:", error.message);
@@ -165,9 +166,14 @@ function AppRoutes() {
     return () => clearInterval(intervalo);
   }, [empleado, tokenSesion, location.pathname]);
 
+  const irALogin = () => {
+    const baseUrl = `${window.location.origin}${window.location.pathname}`;
+    window.location.href = `${baseUrl}#/login`;
+  };
+
   const handleLogout = () => {
     sessionStorage.clear();
-    window.location.href = "/diniz/inventarios/#/login";
+    irALogin();
   };
 
   const RequireAuth = ({ children }) => {
@@ -304,6 +310,7 @@ function AppRoutes() {
 export default function App() {
   return (
     <HashRouter>
+      <AmbienteBanner />
       <AppRoutes />
     </HashRouter>
   );
