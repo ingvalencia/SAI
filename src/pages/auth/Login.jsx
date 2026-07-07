@@ -336,7 +336,7 @@ const Login = () => {
 
           <p className="text-gray-300 leading-relaxed text-sm">
             Plataforma corporativa para la gestión de inventarios físicos,
-            diseñada para capturas rápidas, control de conteos y conciliación
+            diseñada para capturas rápidas, control de conteos 
             contra SAP en tiempo real.
           </p>
 

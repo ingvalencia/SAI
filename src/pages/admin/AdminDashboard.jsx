@@ -398,9 +398,7 @@ export default function AdminDashboard() {
                       <div className="px-4 py-2 rounded-full bg-[#611232]/10 text-[#611232] text-xs font-black tracking-wide">
                         CONTROL OPERATIVO
                       </div>
-                      <div className="px-4 py-2 rounded-full bg-slate-900/10 text-slate-800 text-xs font-black tracking-wide">
-                        CONCILIACIÓN SAP
-                      </div>
+
                       <div className="px-4 py-2 rounded-full bg-emerald-100 text-emerald-800 text-xs font-black tracking-wide">
                         SEGUIMIENTO EN TIEMPO REAL
                       </div>
@@ -495,7 +493,7 @@ export default function AdminDashboard() {
 
                 <div className="mt-10 pt-6 border-t border-slate-200 text-center">
                   <p className="text-xs text-slate-400 tracking-[0.28em] uppercase font-bold">
-                    Control · Operación · Conciliación SAP · Observaciones
+                    Control · Operación ·  Observaciones
                   </p>
                 </div>
               </div>

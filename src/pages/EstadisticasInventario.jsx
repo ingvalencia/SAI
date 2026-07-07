@@ -1,14 +1,14 @@
-import { useMemo, useState } from "react";
 import axios from "axios";
+import { useMemo, useState } from "react";
 import {
-  BarChart,
   Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend
 } from "recharts";
 import { endpoint } from "../config/apiConfig";
 
@@ -29,7 +29,7 @@ export default function EstadisticasInventario() {
     empleado: "",
     fecha_desde: "",
     fecha_hasta: "",
-    nro_conteo: ""
+    nro_conteo: "",
   });
 
   const registrosPorPagina = 10;
@@ -49,14 +49,14 @@ export default function EstadisticasInventario() {
   const formatoNumero = (valor) => {
     return numero(valor).toLocaleString("es-MX", {
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
     });
   };
 
   const formatoDecimal = (valor) => {
     return numero(valor).toLocaleString("es-MX", {
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+      maximumFractionDigits: 2,
     });
   };
 
@@ -88,7 +88,7 @@ export default function EstadisticasInventario() {
   const cambiarFiltro = (campo, valor) => {
     setFiltros((prev) => ({
       ...prev,
-      [campo]: valor
+      [campo]: valor,
     }));
   };
 
@@ -102,10 +102,9 @@ export default function EstadisticasInventario() {
 
       setLoadingAlmacenes(true);
 
-      const res = await axios.get(
-        await endpoint("catalogo_almacenes.php"),
-        { params: { cia } }
-      );
+      const res = await axios.get(await endpoint("catalogo_almacenes.php"), {
+        params: { cia },
+      });
 
       if (res.data.success && Array.isArray(res.data.data)) {
         setCatalogoAlmacenes(res.data.data);
@@ -127,17 +126,29 @@ export default function EstadisticasInventario() {
       setPaginaResumen(1);
       setPaginaDetalle(1);
 
+      const filtrosConsulta = {
+        ...filtros,
+        fecha_hasta:
+          filtros.fecha_desde && !filtros.fecha_hasta
+            ? filtros.fecha_desde
+            : filtros.fecha_hasta,
+        fecha_desde:
+          filtros.fecha_hasta && !filtros.fecha_desde
+            ? filtros.fecha_hasta
+            : filtros.fecha_desde,
+      };
+
       const params = {};
 
-      Object.keys(filtros).forEach((key) => {
-        if (filtros[key] !== "") {
-          params[key] = filtros[key];
+      Object.keys(filtrosConsulta).forEach((key) => {
+        if (filtrosConsulta[key] !== "") {
+          params[key] = filtrosConsulta[key];
         }
       });
 
       const res = await axios.get(
         await endpoint("estadisticas_inventario.php"),
-        { params }
+        { params },
       );
 
       if (!res.data.success) {
@@ -164,7 +175,7 @@ export default function EstadisticasInventario() {
       empleado: "",
       fecha_desde: "",
       fecha_hasta: "",
-      nro_conteo: ""
+      nro_conteo: "",
     });
     setCatalogoAlmacenes([]);
     setDatos([]);
@@ -178,8 +189,8 @@ export default function EstadisticasInventario() {
       ...new Set(
         catalogoAlmacenes
           .map((alm) => String(alm.codigo || "").split("-")[0])
-          .filter(Boolean)
-      )
+          .filter(Boolean),
+      ),
     ].sort();
   }, [catalogoAlmacenes]);
 
@@ -187,7 +198,7 @@ export default function EstadisticasInventario() {
     if (!filtros.cef) return catalogoAlmacenes;
 
     return catalogoAlmacenes.filter((alm) =>
-      String(alm.codigo || "").startsWith(`${filtros.cef}-`)
+      String(alm.codigo || "").startsWith(`${filtros.cef}-`),
     );
   }, [catalogoAlmacenes, filtros.cef]);
 
@@ -196,11 +207,19 @@ export default function EstadisticasInventario() {
       const key = `${item.cia}-${item.almacen}-${item.fecha_inventario}`;
       const totalArticulos = numero(item.total_articulos);
       const capturados = numero(item.articulos_capturados);
-      const tiempoSesionSegundos = numero(item.tiempo_guardado_lote_segundos);
-      const tiempoCapturaSegundos = numero(item.tiempo_guardado_lote_segundos);
       const conteo = numero(item.nro_conteo);
-      const inicioTs = fechaTs(item.primera_captura_guardada);
-      const finTs = fechaTs(item.ultima_captura_guardada);
+
+      const tiempoSesionSegundos = numero(item.tiempo_sesion_segundos);
+
+      const tiempoCapturaSegundos = numero(item.tiempo_guardado_lote_segundos);
+
+      const inicioTs =
+        fechaTs(item.fecha_inicio) || fechaTs(item.primera_captura_guardada);
+
+      const finTs =
+        fechaTs(item.fecha_fin) ||
+        fechaTs(item.ultima_captura_guardada) ||
+        inicioTs;
 
       if (!acc[key]) {
         acc[key] = {
@@ -237,12 +256,15 @@ export default function EstadisticasInventario() {
           avance_porcentaje: 0,
           articulos_por_minuto: 0,
           estado_tiempo: item.estado_tiempo || "-",
-          avance_actual: item.avance_actual || "-"
+          avance_actual: item.avance_actual || "-",
         };
       }
 
       acc[key].sesiones += 1;
-      acc[key].total_articulos = Math.max(acc[key].total_articulos, totalArticulos);
+      acc[key].total_articulos = Math.max(
+        acc[key].total_articulos,
+        totalArticulos,
+      );
       acc[key].tiempo_operativo_segundos += tiempoSesionSegundos;
       acc[key].tiempo_captura_segundos += tiempoCapturaSegundos;
 
@@ -268,7 +290,10 @@ export default function EstadisticasInventario() {
       ) {
         acc[key].tiempo_real_segundos = Math.max(
           0,
-          Math.round((acc[key].ultima_fecha_fin_ts - acc[key].primera_fecha_inicio_ts) / 1000)
+          Math.round(
+            (acc[key].ultima_fecha_fin_ts - acc[key].primera_fecha_inicio_ts) /
+              1000,
+          ),
         );
       }
 
@@ -313,15 +338,17 @@ export default function EstadisticasInventario() {
       }
 
       acc[key].total_capturados =
-        acc[key].conteo3 > 0
+      acc[key].conteo7 > 0
+        ? acc[key].conteo7
+        : acc[key].conteo3 > 0
           ? acc[key].conteo3
           : acc[key].conteo2 > 0
-          ? acc[key].conteo2
-          : acc[key].conteo1;
+            ? acc[key].conteo2
+            : acc[key].conteo1;
 
       acc[key].pendientes = Math.max(
         acc[key].total_articulos - acc[key].total_capturados,
-        0
+        0,
       );
 
       acc[key].avance_porcentaje =
@@ -331,7 +358,8 @@ export default function EstadisticasInventario() {
 
       acc[key].articulos_por_minuto =
         acc[key].tiempo_operativo_segundos > 0
-          ? acc[key].total_capturados / (acc[key].tiempo_operativo_segundos / 60)
+          ? acc[key].total_capturados /
+            (acc[key].tiempo_operativo_segundos / 60)
           : 0;
 
       return acc;
@@ -340,8 +368,12 @@ export default function EstadisticasInventario() {
     return Object.values(resultado)
       .map((item) => {
         const sesionesUnicas = Object.values(item._sesiones_unicas || {});
-        item.sesiones_abiertas = sesionesUnicas.filter((estado) => estado === "SESION ABIERTA").length;
-        item.sesiones_cerradas = sesionesUnicas.filter((estado) => estado === "SESION CERRADA").length;
+        item.sesiones_abiertas = sesionesUnicas.filter(
+          (estado) => estado === "SESION ABIERTA",
+        ).length;
+        item.sesiones_cerradas = sesionesUnicas.filter(
+          (estado) => estado === "SESION CERRADA",
+        ).length;
         delete item._sesiones_unicas;
         return item;
       })
@@ -371,12 +403,10 @@ export default function EstadisticasInventario() {
         const fechaActual = fechaTs(
           mapa[key].fecha_fin ||
             mapa[key].ultima_captura_guardada ||
-            mapa[key].fecha_inicio
+            mapa[key].fecha_inicio,
         );
         const fechaNueva = fechaTs(
-          item.fecha_fin ||
-            item.ultima_captura_guardada ||
-            item.fecha_inicio
+          item.fecha_fin || item.ultima_captura_guardada || item.fecha_inicio,
         );
 
         if ((fechaNueva || 0) > (fechaActual || 0)) {
@@ -388,12 +418,13 @@ export default function EstadisticasInventario() {
     return Object.values(mapa)
       .map((item) => {
         const capturados = numero(item.articulos_capturados);
-        const segundosCaptura = numero(item.tiempo_guardado_lote_segundos);
+        const segundosSesion = numero(item.tiempo_sesion_segundos);
 
         return {
           ...item,
+          tiempo_operativo_real_segundos: segundosSesion,
           articulos_por_minuto:
-            segundosCaptura > 0 ? capturados / (segundosCaptura / 60) : 0
+            segundosSesion > 0 ? capturados / (segundosSesion / 60) : 0,
         };
       })
       .sort((a, b) => {
@@ -416,27 +447,35 @@ export default function EstadisticasInventario() {
   }, [datos]);
 
   const totalSesiones = detalleConProductividad.length;
-  const sesionesCerradas = detalleConProductividad.filter((d) => d.estado_sesion === "SESION CERRADA").length;
-  const sesionesAbiertas = detalleConProductividad.filter((d) => d.estado_sesion === "SESION ABIERTA").length;
+  const sesionesCerradas = detalleConProductividad.filter(
+    (d) => d.estado_sesion === "SESION CERRADA",
+  ).length;
+  const sesionesAbiertas = detalleConProductividad.filter(
+    (d) => d.estado_sesion === "SESION ABIERTA",
+  ).length;
 
   const totalArticulosUniverso = resumenPorAlmacen.reduce(
     (acc, item) => acc + numero(item.total_articulos),
-    0
+    0,
   );
 
   const totalCapturados = resumenPorAlmacen.reduce(
     (acc, item) => acc + numero(item.total_capturados),
-    0
+    0,
   );
 
-  const tiempoRealTotalSegundos = resumenPorAlmacen.reduce(
-    (acc, item) => acc + numero(item.tiempo_real_segundos),
-    0
-  );
+  const tiempoRealTotalSegundos =
+  resumenPorAlmacen.length > 0
+    ? Math.max(
+        ...resumenPorAlmacen.map((item) =>
+          numero(item.tiempo_real_segundos),
+        ),
+      )
+    : 0;
 
   const tiempoOperativoTotalSegundos = resumenPorAlmacen.reduce(
     (acc, item) => acc + numero(item.tiempo_operativo_segundos),
-    0
+    0,
   );
 
   const avanceGlobal =
@@ -449,97 +488,108 @@ export default function EstadisticasInventario() {
       ? totalCapturados / (tiempoOperativoTotalSegundos / 60)
       : 0;
 
-  const articulosPendientes = Math.max(totalArticulosUniverso - totalCapturados, 0);
+  const articulosPendientes = Math.max(
+    totalArticulosUniverso - totalCapturados,
+    0,
+  );
 
   const almacenesAtrasados = resumenPorAlmacen.filter(
-    (item) => item.estado_tiempo === "ATRASADO" && item.avance_actual !== "CERRADO"
+    (item) =>
+      item.estado_tiempo === "ATRASADO" && item.avance_actual !== "CERRADO",
   ).length;
 
   const almacenMasTardado =
     resumenPorAlmacen.length > 0
-      ? [...resumenPorAlmacen].sort((a, b) => b.tiempo_real_segundos - a.tiempo_real_segundos)[0]
+      ? [...resumenPorAlmacen].sort(
+          (a, b) => b.tiempo_real_segundos - a.tiempo_real_segundos,
+        )[0]
       : null;
 
   const almacenMayorTiempoOperativo =
     resumenPorAlmacen.length > 0
-      ? [...resumenPorAlmacen].sort((a, b) => b.tiempo_operativo_segundos - a.tiempo_operativo_segundos)[0]
+      ? [...resumenPorAlmacen].sort(
+          (a, b) => b.tiempo_operativo_segundos - a.tiempo_operativo_segundos,
+        )[0]
       : null;
 
   const almacenMasProductivo =
     resumenPorAlmacen.length > 0
-      ? [...resumenPorAlmacen].sort((a, b) => b.articulos_por_minuto - a.articulos_por_minuto)[0]
+      ? [...resumenPorAlmacen].sort(
+          (a, b) => b.articulos_por_minuto - a.articulos_por_minuto,
+        )[0]
       : null;
 
   const almacenMenorAvance =
     resumenPorAlmacen.length > 0
-      ? [...resumenPorAlmacen].sort((a, b) => a.avance_porcentaje - b.avance_porcentaje)[0]
+      ? [...resumenPorAlmacen].sort(
+          (a, b) => a.avance_porcentaje - b.avance_porcentaje,
+        )[0]
       : null;
 
   const totalPaginasResumen = Math.max(
     1,
-    Math.ceil(resumenPorAlmacen.length / registrosPorPagina)
+    Math.ceil(resumenPorAlmacen.length / registrosPorPagina),
   );
 
   const totalPaginasDetalle = Math.max(
     1,
-    Math.ceil(detalleConProductividad.length / registrosPorPagina)
+    Math.ceil(detalleConProductividad.length / registrosPorPagina),
   );
 
   const resumenPaginado = resumenPorAlmacen.slice(
     (paginaResumen - 1) * registrosPorPagina,
-    paginaResumen * registrosPorPagina
+    paginaResumen * registrosPorPagina,
   );
 
   const detallePaginado = detalleConProductividad.slice(
     (paginaDetalle - 1) * registrosPorPagina,
-    paginaDetalle * registrosPorPagina
+    paginaDetalle * registrosPorPagina,
   );
 
   const resumenPorConteoTabla = useMemo(() => {
-    const mapa = {};
+  const mapa = {};
 
-    detallePaginado.forEach((item) => {
-      const conteo = numero(item.nro_conteo);
-      const key = `Conteo ${conteo}`;
+  detallePaginado.forEach((item) => {
+    const conteo = numero(item.nro_conteo);
+    const key = conteo === 7 ? "Finalizado" : `Conteo ${conteo}`;
+    const tiempoSesion = numero(item.tiempo_operativo_real_segundos);
+    const tiempoCaptura = numero(item.tiempo_guardado_lote_segundos);
 
-      if (!mapa[key]) {
-        mapa[key] = {
-          conteo: key,
-          capturados: 0,
-          tiempo_sesion: 0,
-          tiempo_captura: 0,
-          sesiones: 0,
-          abiertas: 0,
-          cerradas: 0,
-          articulos_minuto: 0
-        };
-      }
+    if (!mapa[key]) {
+      mapa[key] = {
+        conteo: key,
+        orden: conteo,
+        capturados: 0,
+        tiempo_sesion: 0,
+        tiempo_captura: 0,
+        sesiones: 0,
+        abiertas: 0,
+        cerradas: 0,
+        articulos_minuto: 0,
+      };
+    }
 
-      mapa[key].capturados += numero(item.articulos_capturados);
-      mapa[key].tiempo_sesion += numero(item.tiempo_guardado_lote_segundos);
-      mapa[key].tiempo_captura += numero(item.tiempo_guardado_lote_segundos);
-      mapa[key].sesiones += 1;
+    mapa[key].capturados += numero(item.articulos_capturados);
+    mapa[key].tiempo_sesion += tiempoSesion;
+    mapa[key].tiempo_captura += tiempoCaptura;
+    mapa[key].sesiones += 1;
 
-      if (item.estado_sesion === "SESION ABIERTA") {
-        mapa[key].abiertas += 1;
-      }
+    if (item.estado_sesion === "SESION ABIERTA") {
+      mapa[key].abiertas += 1;
+    }
 
-      if (item.estado_sesion === "SESION CERRADA") {
-        mapa[key].cerradas += 1;
-      }
+    if (item.estado_sesion === "SESION CERRADA") {
+      mapa[key].cerradas += 1;
+    }
 
-      mapa[key].articulos_minuto =
-        mapa[key].tiempo_sesion > 0
-          ? mapa[key].capturados / (mapa[key].tiempo_sesion / 60)
-          : 0;
-    });
+    mapa[key].articulos_minuto =
+      mapa[key].tiempo_sesion > 0
+        ? mapa[key].capturados / (mapa[key].tiempo_sesion / 60)
+        : 0;
+  });
 
-    return Object.values(mapa).sort((a, b) => {
-      const ca = Number(String(a.conteo).replace("Conteo ", ""));
-      const cb = Number(String(b.conteo).replace("Conteo ", ""));
-      return ca - cb;
-    });
-  }, [detallePaginado]);
+  return Object.values(mapa).sort((a, b) => a.orden - b.orden);
+}, [detallePaginado]);
 
   const resumenPorAlmacenConteoTabla = useMemo(() => {
     return resumenPaginado.map((item) => ({
@@ -555,7 +605,7 @@ export default function EstadisticasInventario() {
       tiempo_captura_conteo1: numero(item.tiempo_captura_conteo1_segundos),
       tiempo_captura_conteo2: numero(item.tiempo_captura_conteo2_segundos),
       tiempo_captura_conteo3: numero(item.tiempo_captura_conteo3_segundos),
-      tiempo_captura_conteo7: numero(item.tiempo_captura_conteo7_segundos)
+      tiempo_captura_conteo7: numero(item.tiempo_captura_conteo7_segundos),
     }));
   }, [resumenPaginado]);
 
@@ -563,12 +613,15 @@ export default function EstadisticasInventario() {
     almacen: item.almacen,
     total_articulos: numero(item.total_articulos),
     capturados: numero(item.total_capturados),
-    pendientes: Math.max(numero(item.total_articulos) - numero(item.total_capturados), 0),
+    pendientes: Math.max(
+      numero(item.total_articulos) - numero(item.total_capturados),
+      0,
+    ),
     avance: Number(numero(item.avance_porcentaje).toFixed(2)),
     duracion_real: numero(item.tiempo_real_segundos),
     tiempo_operativo: numero(item.tiempo_operativo_segundos),
     articulos_minuto: Number(numero(item.articulos_por_minuto).toFixed(2)),
-    sesiones_abiertas: numero(item.sesiones_abiertas)
+    sesiones_abiertas: numero(item.sesiones_abiertas),
   }));
 
   const graficaDetalleTabla = detallePaginado.map((item) => ({
@@ -577,9 +630,9 @@ export default function EstadisticasInventario() {
     empleado_conteo: `${item.empleado || "-"} C${item.nro_conteo}`,
     capturados: numero(item.articulos_capturados),
     avance: Number(numero(item.avance_porcentaje).toFixed(2)),
-    tiempo_sesion: numero(item.tiempo_guardado_lote_segundos),
+    tiempo_sesion: numero(item.tiempo_operativo_real_segundos),
     tiempo_captura: numero(item.tiempo_guardado_lote_segundos),
-    articulos_minuto: Number(numero(item.articulos_por_minuto).toFixed(2))
+    articulos_minuto: Number(numero(item.articulos_por_minuto).toFixed(2)),
   }));
 
   const cambiarPaginaResumen = (nuevaPagina) => {
@@ -621,8 +674,8 @@ export default function EstadisticasInventario() {
               {esTiempo
                 ? formatoTiempoSegundos(item.value)
                 : esPorcentaje
-                ? `${formatoDecimal(item.value)}%`
-                : formatoDecimal(item.value)}
+                  ? `${formatoDecimal(item.value)}%`
+                  : formatoDecimal(item.value)}
             </p>
           );
         })}
@@ -643,7 +696,9 @@ export default function EstadisticasInventario() {
                 Panel Ejecutivo de Inventarios
               </h1>
               <p className="text-white/80 text-sm md:text-base max-w-4xl">
-                Métricas reales de sesiones, avance, productividad, duración cronológica, tiempo operativo y ritmo real de captura por conteo.
+                Métricas reales de sesiones, avance, productividad, duración
+                cronológica, tiempo operativo y ritmo real de captura por
+                conteo.
               </p>
             </div>
 
@@ -652,7 +707,9 @@ export default function EstadisticasInventario() {
                 Estado de consulta
               </p>
               <p className="text-2xl font-black">
-                {consultado ? `${formatoNumero(datos.length)} registros` : "Sin consultar"}
+                {consultado
+                  ? `${formatoNumero(datos.length)} registros`
+                  : "Sin consultar"}
               </p>
               <p className="text-xs text-white/70">
                 La información se carga solo al presionar Consultar métricas.
@@ -719,10 +776,10 @@ export default function EstadisticasInventario() {
                   {!filtros.cia
                     ? "Selecciona una CIA"
                     : loadingAlmacenes
-                    ? "Cargando almacenes..."
-                    : filtros.cef
-                    ? `Todos ${filtros.cef}`
-                    : "Todos los almacenes"}
+                      ? "Cargando almacenes..."
+                      : filtros.cef
+                        ? `Todos ${filtros.cef}`
+                        : "Todos los almacenes"}
                 </option>
 
                 {almacenesFiltradosPorCef.map((alm) => (
@@ -783,7 +840,7 @@ export default function EstadisticasInventario() {
                 <option value="1">Conteo 1</option>
                 <option value="2">Conteo 2</option>
                 <option value="3">Conteo 3</option>
-                <option value="7">Conteo 7</option>
+                <option value="7">Finalizado</option>
               </select>
             </div>
 
@@ -814,7 +871,8 @@ export default function EstadisticasInventario() {
               Selecciona filtros y consulta métricas
             </h2>
             <p className="text-gray-500 max-w-2xl mx-auto">
-              Las gráficas, indicadores y tablas se activan únicamente después de consultar.
+              Las gráficas, indicadores y tablas se activan únicamente después
+              de consultar.
             </p>
           </div>
         )}
@@ -822,8 +880,12 @@ export default function EstadisticasInventario() {
         {loading && (
           <div className="bg-white rounded-3xl p-12 text-center shadow-sm border border-gray-200">
             <div className="w-12 h-12 border-4 border-[#611232]/20 border-t-[#611232] rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-700 font-bold">Consultando información real...</p>
-            <p className="text-gray-500 text-sm">SQL está trabajando. El que se queja es el navegador.</p>
+            <p className="text-gray-700 font-bold">
+              Consultando información real...
+            </p>
+            <p className="text-gray-500 text-sm">
+              SQL está trabajando. El que se queja es el navegador.
+            </p>
           </div>
         )}
 
@@ -843,65 +905,137 @@ export default function EstadisticasInventario() {
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4 mb-6">
               <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
-                <p className="text-xs text-gray-500 font-bold uppercase">Avance global</p>
-                <p className="text-3xl font-black text-[#611232]">{formatoDecimal(avanceGlobal)}%</p>
-                <p className="text-xs text-gray-500">{formatoNumero(totalCapturados)} de {formatoNumero(totalArticulosUniverso)} artículos</p>
+                <p className="text-xs text-gray-500 font-bold uppercase">
+                  Avance global
+                </p>
+                <p className="text-3xl font-black text-[#611232]">
+                  {formatoDecimal(avanceGlobal)}%
+                </p>
+                <p className="text-xs text-gray-500">
+                  {formatoNumero(totalCapturados)} de{" "}
+                  {formatoNumero(totalArticulosUniverso)} artículos
+                </p>
               </div>
 
               <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
-                <p className="text-xs text-gray-500 font-bold uppercase">Pendientes</p>
-                <p className="text-3xl font-black text-[#9f2241]">{formatoNumero(articulosPendientes)}</p>
+                <p className="text-xs text-gray-500 font-bold uppercase">
+                  Pendientes
+                </p>
+                <p className="text-3xl font-black text-[#9f2241]">
+                  {formatoNumero(articulosPendientes)}
+                </p>
                 <p className="text-xs text-gray-500">Artículos no capturados</p>
               </div>
 
               <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
-                <p className="text-xs text-gray-500 font-bold uppercase">Duración real</p>
-                <p className="text-3xl font-black text-[#235b4e]">{formatoTiempoCorto(tiempoRealTotalSegundos)}</p>
-                <p className="text-xs text-gray-500">Tiempo cronológico de almacenes</p>
+                <p className="text-xs text-gray-500 font-bold uppercase">
+                  Duración real
+                </p>
+                <p className="text-3xl font-black text-[#235b4e]">
+                  {formatoTiempoCorto(tiempoRealTotalSegundos)}
+                </p>
+                <p className="text-xs text-gray-500">
+                  Tiempo cronológico de almacenes
+                </p>
               </div>
 
               <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
-                <p className="text-xs text-gray-500 font-bold uppercase">Tiempo operativo</p>
-                <p className="text-3xl font-black text-[#bc955c]">{formatoTiempoCorto(tiempoOperativoTotalSegundos)}</p>
-                <p className="text-xs text-gray-500">Tiempo efectivo de captura</p>
+                <p className="text-xs text-gray-500 font-bold uppercase">
+                  Tiempo operativo
+                </p>
+                <p className="text-3xl font-black text-[#bc955c]">
+                  {formatoTiempoCorto(tiempoOperativoTotalSegundos)}
+                </p>
+                <p className="text-xs text-gray-500">
+                  Tiempo efectivo de captura
+                </p>
               </div>
 
               <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
-                <p className="text-xs text-gray-500 font-bold uppercase">Productividad</p>
-                <p className="text-3xl font-black text-gray-900">{formatoDecimal(productividadGeneral)}</p>
-                <p className="text-xs text-gray-500">Artículos por minuto operativo</p>
+                <p className="text-xs text-gray-500 font-bold uppercase">
+                  Productividad
+                </p>
+                <p className="text-3xl font-black text-gray-900">
+                  {formatoDecimal(productividadGeneral)}
+                </p>
+                <p className="text-xs text-gray-500">
+                  Artículos por minuto operativo
+                </p>
               </div>
 
               <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
-                <p className="text-xs text-gray-500 font-bold uppercase">Sesiones</p>
-                <p className="text-3xl font-black text-red-700">{formatoNumero(totalSesiones)}</p>
-                <p className="text-xs text-gray-500">{formatoNumero(sesionesAbiertas)} abiertas · {formatoNumero(sesionesCerradas)} finalizadas</p>
+                <p className="text-xs text-gray-500 font-bold uppercase">
+                  Sesiones
+                </p>
+                <p className="text-3xl font-black text-red-700">
+                  {formatoNumero(totalSesiones)}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {formatoNumero(sesionesAbiertas)} abiertas ·{" "}
+                  {formatoNumero(sesionesCerradas)} finalizadas
+                </p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 mb-6">
               <div className="bg-[#611232] text-white rounded-2xl p-5 shadow-sm">
-                <p className="text-xs text-white/70 font-bold uppercase mb-1">Mayor duración real</p>
-                <p className="text-2xl font-black">{almacenMasTardado?.almacen || "-"}</p>
-                <p className="text-sm text-white/80">{almacenMasTardado ? formatoTiempoSegundos(almacenMasTardado.tiempo_real_segundos) : "-"}</p>
+                <p className="text-xs text-white/70 font-bold uppercase mb-1">
+                  Mayor duración real
+                </p>
+                <p className="text-2xl font-black">
+                  {almacenMasTardado?.almacen || "-"}
+                </p>
+                <p className="text-sm text-white/80">
+                  {almacenMasTardado
+                    ? formatoTiempoSegundos(
+                        almacenMasTardado.tiempo_real_segundos,
+                      )
+                    : "-"}
+                </p>
               </div>
 
               <div className="bg-[#7b183b] text-white rounded-2xl p-5 shadow-sm">
-                <p className="text-xs text-white/70 font-bold uppercase mb-1">Mayor tiempo operativo</p>
-                <p className="text-2xl font-black">{almacenMayorTiempoOperativo?.almacen || "-"}</p>
-                <p className="text-sm text-white/80">{almacenMayorTiempoOperativo ? formatoTiempoSegundos(almacenMayorTiempoOperativo.tiempo_operativo_segundos) : "-"}</p>
+                <p className="text-xs text-white/70 font-bold uppercase mb-1">
+                  Mayor tiempo operativo
+                </p>
+                <p className="text-2xl font-black">
+                  {almacenMayorTiempoOperativo?.almacen || "-"}
+                </p>
+                <p className="text-sm text-white/80">
+                  {almacenMayorTiempoOperativo
+                    ? formatoTiempoSegundos(
+                        almacenMayorTiempoOperativo.tiempo_operativo_segundos,
+                      )
+                    : "-"}
+                </p>
               </div>
 
               <div className="bg-[#235b4e] text-white rounded-2xl p-5 shadow-sm">
-                <p className="text-xs text-white/70 font-bold uppercase mb-1">Mejor productividad</p>
-                <p className="text-2xl font-black">{almacenMasProductivo?.almacen || "-"}</p>
-                <p className="text-sm text-white/80">{almacenMasProductivo ? `${formatoDecimal(almacenMasProductivo.articulos_por_minuto)} artículos/min` : "-"}</p>
+                <p className="text-xs text-white/70 font-bold uppercase mb-1">
+                  Mejor productividad
+                </p>
+                <p className="text-2xl font-black">
+                  {almacenMasProductivo?.almacen || "-"}
+                </p>
+                <p className="text-sm text-white/80">
+                  {almacenMasProductivo
+                    ? `${formatoDecimal(almacenMasProductivo.articulos_por_minuto)} artículos/min`
+                    : "-"}
+                </p>
               </div>
 
               <div className="bg-[#9f2241] text-white rounded-2xl p-5 shadow-sm">
-                <p className="text-xs text-white/70 font-bold uppercase mb-1">Menor avance</p>
-                <p className="text-2xl font-black">{almacenMenorAvance?.almacen || "-"}</p>
-                <p className="text-sm text-white/80">{almacenMenorAvance ? `${formatoDecimal(almacenMenorAvance.avance_porcentaje)}% avance` : "-"}</p>
+                <p className="text-xs text-white/70 font-bold uppercase mb-1">
+                  Menor avance
+                </p>
+                <p className="text-2xl font-black">
+                  {almacenMenorAvance?.almacen || "-"}
+                </p>
+                <p className="text-sm text-white/80">
+                  {almacenMenorAvance
+                    ? `${formatoDecimal(almacenMenorAvance.avance_porcentaje)}% avance`
+                    : "-"}
+                </p>
               </div>
             </div>
 
@@ -914,7 +1048,8 @@ export default function EstadisticasInventario() {
                         Capturados por almacén y conteo
                       </h2>
                       <p className="text-xs text-gray-500">
-                        Cada barra muestra lo capturado por conteo en los almacenes visibles.
+                        Cada barra muestra lo capturado por conteo en los
+                        almacenes visibles.
                       </p>
                     </div>
 
@@ -926,10 +1061,30 @@ export default function EstadisticasInventario() {
                           <YAxis />
                           <Tooltip content={<TooltipEjecutivo />} />
                           <Legend />
-                          <Bar dataKey="conteo1" name="Conteo 1" fill="#235b4e" radius={[8, 8, 0, 0]} />
-                          <Bar dataKey="conteo2" name="Conteo 2" fill="#611232" radius={[8, 8, 0, 0]} />
-                          <Bar dataKey="conteo3" name="Conteo 3" fill="#bc955c" radius={[8, 8, 0, 0]} />
-                          <Bar dataKey="conteo7" name="Conteo 7" fill="#6f7271" radius={[8, 8, 0, 0]} />
+                          <Bar
+                            dataKey="conteo1"
+                            name="Conteo 1"
+                            fill="#235b4e"
+                            radius={[8, 8, 0, 0]}
+                          />
+                          <Bar
+                            dataKey="conteo2"
+                            name="Conteo 2"
+                            fill="#611232"
+                            radius={[8, 8, 0, 0]}
+                          />
+                          <Bar
+                            dataKey="conteo3"
+                            name="Conteo 3"
+                            fill="#bc955c"
+                            radius={[8, 8, 0, 0]}
+                          />
+                          <Bar
+                            dataKey="conteo7"
+                            name="Finalizado"
+                            fill="#6f7271"
+                            radius={[8, 8, 0, 0]}
+                          />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -941,7 +1096,8 @@ export default function EstadisticasInventario() {
                         Tiempo operativo por conteo
                       </h2>
                       <p className="text-xs text-gray-500">
-                        Tiempo de captura acumulado por conteo en los almacenes visibles.
+                        Tiempo de captura acumulado por conteo en los almacenes
+                        visibles.
                       </p>
                     </div>
 
@@ -950,13 +1106,35 @@ export default function EstadisticasInventario() {
                         <BarChart data={resumenPorAlmacenConteoTabla}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="almacen" />
-                          <YAxis tickFormatter={(value) => formatoTiempoCorto(value)} />
+                          <YAxis
+                            tickFormatter={(value) => formatoTiempoCorto(value)}
+                          />
                           <Tooltip content={<TooltipEjecutivo />} />
                           <Legend />
-                          <Bar dataKey="tiempo_conteo1" name="Conteo 1" fill="#235b4e" radius={[8, 8, 0, 0]} />
-                          <Bar dataKey="tiempo_conteo2" name="Conteo 2" fill="#611232" radius={[8, 8, 0, 0]} />
-                          <Bar dataKey="tiempo_conteo3" name="Conteo 3" fill="#bc955c" radius={[8, 8, 0, 0]} />
-                          <Bar dataKey="tiempo_conteo7" name="Conteo 7" fill="#6f7271" radius={[8, 8, 0, 0]} />
+                          <Bar
+                            dataKey="tiempo_conteo1"
+                            name="Conteo 1"
+                            fill="#235b4e"
+                            radius={[8, 8, 0, 0]}
+                          />
+                          <Bar
+                            dataKey="tiempo_conteo2"
+                            name="Conteo 2"
+                            fill="#611232"
+                            radius={[8, 8, 0, 0]}
+                          />
+                          <Bar
+                            dataKey="tiempo_conteo3"
+                            name="Conteo 3"
+                            fill="#bc955c"
+                            radius={[8, 8, 0, 0]}
+                          />
+                          <Bar
+                            dataKey="tiempo_conteo7"
+                            name="Finalizado"
+                            fill="#6f7271"
+                            radius={[8, 8, 0, 0]}
+                          />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -968,7 +1146,8 @@ export default function EstadisticasInventario() {
                         Tiempo captura por conteo
                       </h2>
                       <p className="text-xs text-gray-500">
-                        Tiempo real de guardado por conteo en los almacenes visibles.
+                        Tiempo real de guardado por conteo en los almacenes
+                        visibles.
                       </p>
                     </div>
 
@@ -977,13 +1156,35 @@ export default function EstadisticasInventario() {
                         <BarChart data={resumenPorAlmacenConteoTabla}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="almacen" />
-                          <YAxis tickFormatter={(value) => formatoTiempoCorto(value)} />
+                          <YAxis
+                            tickFormatter={(value) => formatoTiempoCorto(value)}
+                          />
                           <Tooltip content={<TooltipEjecutivo />} />
                           <Legend />
-                          <Bar dataKey="tiempo_captura_conteo1" name="Conteo 1" fill="#235b4e" radius={[8, 8, 0, 0]} />
-                          <Bar dataKey="tiempo_captura_conteo2" name="Conteo 2" fill="#611232" radius={[8, 8, 0, 0]} />
-                          <Bar dataKey="tiempo_captura_conteo3" name="Conteo 3" fill="#bc955c" radius={[8, 8, 0, 0]} />
-                          <Bar dataKey="tiempo_captura_conteo7" name="Conteo 7" fill="#6f7271" radius={[8, 8, 0, 0]} />
+                          <Bar
+                            dataKey="tiempo_captura_conteo1"
+                            name="Conteo 1"
+                            fill="#235b4e"
+                            radius={[8, 8, 0, 0]}
+                          />
+                          <Bar
+                            dataKey="tiempo_captura_conteo2"
+                            name="Conteo 2"
+                            fill="#611232"
+                            radius={[8, 8, 0, 0]}
+                          />
+                          <Bar
+                            dataKey="tiempo_captura_conteo3"
+                            name="Conteo 3"
+                            fill="#bc955c"
+                            radius={[8, 8, 0, 0]}
+                          />
+                          <Bar
+                            dataKey="tiempo_captura_conteo7"
+                            name="Finalizado"
+                            fill="#6f7271"
+                            radius={[8, 8, 0, 0]}
+                          />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -1007,8 +1208,18 @@ export default function EstadisticasInventario() {
                           <YAxis />
                           <Tooltip content={<TooltipEjecutivo />} />
                           <Legend />
-                          <Bar dataKey="capturados" name="Capturados" fill="#235b4e" radius={[8, 8, 0, 0]} />
-                          <Bar dataKey="pendientes" name="Pendientes" fill="#9f2241" radius={[8, 8, 0, 0]} />
+                          <Bar
+                            dataKey="capturados"
+                            name="Capturados"
+                            fill="#235b4e"
+                            radius={[8, 8, 0, 0]}
+                          />
+                          <Bar
+                            dataKey="pendientes"
+                            name="Pendientes"
+                            fill="#9f2241"
+                            radius={[8, 8, 0, 0]}
+                          />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -1036,7 +1247,12 @@ export default function EstadisticasInventario() {
                           <YAxis />
                           <Tooltip content={<TooltipEjecutivo />} />
                           <Legend />
-                          <Bar dataKey="capturados" name="Capturados" fill="#235b4e" radius={[8, 8, 0, 0]} />
+                          <Bar
+                            dataKey="capturados"
+                            name="Capturados"
+                            fill="#235b4e"
+                            radius={[8, 8, 0, 0]}
+                          />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -1057,10 +1273,17 @@ export default function EstadisticasInventario() {
                         <BarChart data={resumenPorConteoTabla}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="conteo" />
-                          <YAxis tickFormatter={(value) => formatoTiempoCorto(value)} />
+                          <YAxis
+                            tickFormatter={(value) => formatoTiempoCorto(value)}
+                          />
                           <Tooltip content={<TooltipEjecutivo />} />
                           <Legend />
-                          <Bar dataKey="tiempo_sesion" name="Tiempo real" fill="#611232" radius={[8, 8, 0, 0]} />
+                          <Bar
+                            dataKey="tiempo_sesion"
+                            name="Tiempo real"
+                            fill="#611232"
+                            radius={[8, 8, 0, 0]}
+                          />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -1081,10 +1304,17 @@ export default function EstadisticasInventario() {
                         <BarChart data={resumenPorConteoTabla}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="conteo" />
-                          <YAxis tickFormatter={(value) => formatoTiempoCorto(value)} />
+                          <YAxis
+                            tickFormatter={(value) => formatoTiempoCorto(value)}
+                          />
                           <Tooltip content={<TooltipEjecutivo />} />
                           <Legend />
-                          <Bar dataKey="tiempo_captura" name="Tiempo captura" fill="#bc955c" radius={[8, 8, 0, 0]} />
+                          <Bar
+                            dataKey="tiempo_captura"
+                            name="Tiempo captura"
+                            fill="#bc955c"
+                            radius={[8, 8, 0, 0]}
+                          />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -1108,7 +1338,12 @@ export default function EstadisticasInventario() {
                           <YAxis />
                           <Tooltip content={<TooltipEjecutivo />} />
                           <Legend />
-                          <Bar dataKey="articulos_minuto" name="Art/min" fill="#235b4e" radius={[8, 8, 0, 0]} />
+                          <Bar
+                            dataKey="articulos_minuto"
+                            name="Art/min"
+                            fill="#235b4e"
+                            radius={[8, 8, 0, 0]}
+                          />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -1120,7 +1355,8 @@ export default function EstadisticasInventario() {
                         Capturados por empleado y conteo
                       </h2>
                       <p className="text-xs text-gray-500">
-                        Comparativo directo del empleado contra el conteo que ejecutó.
+                        Comparativo directo del empleado contra el conteo que
+                        ejecutó.
                       </p>
                     </div>
 
@@ -1132,7 +1368,12 @@ export default function EstadisticasInventario() {
                           <YAxis />
                           <Tooltip content={<TooltipEjecutivo />} />
                           <Legend />
-                          <Bar dataKey="capturados" name="Capturados" fill="#235b4e" radius={[8, 8, 0, 0]} />
+                          <Bar
+                            dataKey="capturados"
+                            name="Capturados"
+                            fill="#235b4e"
+                            radius={[8, 8, 0, 0]}
+                          />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -1153,10 +1394,17 @@ export default function EstadisticasInventario() {
                         <BarChart data={graficaDetalleTabla}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="empleado_conteo" />
-                          <YAxis tickFormatter={(value) => formatoTiempoCorto(value)} />
+                          <YAxis
+                            tickFormatter={(value) => formatoTiempoCorto(value)}
+                          />
                           <Tooltip content={<TooltipEjecutivo />} />
                           <Legend />
-                          <Bar dataKey="tiempo_sesion" name="Tiempo real" fill="#611232" radius={[8, 8, 0, 0]} />
+                          <Bar
+                            dataKey="tiempo_sesion"
+                            name="Tiempo real"
+                            fill="#611232"
+                            radius={[8, 8, 0, 0]}
+                          />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -1172,7 +1420,8 @@ export default function EstadisticasInventario() {
                     Tablas ejecutivas
                   </h2>
                   <p className="text-sm text-gray-500">
-                    La duración real no se suma por empleado. El tiempo operativo sí.
+                    La duración real no se suma por empleado. El tiempo
+                    operativo sí.
                   </p>
                 </div>
 
@@ -1216,7 +1465,9 @@ export default function EstadisticasInventario() {
                           <th className="px-3 py-3 text-left">CIA</th>
                           <th className="px-3 py-3 text-left">Almacén</th>
                           <th className="px-3 py-3 text-left">Fecha</th>
-                          <th className="px-3 py-3 text-right">Total artículos</th>
+                          <th className="px-3 py-3 text-right">
+                            Total artículos
+                          </th>
                           <th className="px-3 py-3 text-right">C1</th>
                           <th className="px-3 py-3 text-right">C2</th>
                           <th className="px-3 py-3 text-right">C3</th>
@@ -1224,8 +1475,12 @@ export default function EstadisticasInventario() {
                           <th className="px-3 py-3 text-right">Capturados</th>
                           <th className="px-3 py-3 text-right">Pendientes</th>
                           <th className="px-3 py-3 text-right">Avance</th>
-                          <th className="px-3 py-3 text-right">Duración real</th>
-                          <th className="px-3 py-3 text-right">Tiempo operativo</th>
+                          <th className="px-3 py-3 text-right">
+                            Duración real
+                          </th>
+                          <th className="px-3 py-3 text-right">
+                            Tiempo operativo
+                          </th>
                           <th className="px-3 py-3 text-right">Art/min</th>
                           <th className="px-3 py-3 text-center">Abiertas</th>
                           <th className="px-3 py-3 text-left">Estado</th>
@@ -1236,20 +1491,55 @@ export default function EstadisticasInventario() {
                         {resumenPaginado.map((item, index) => (
                           <tr key={index} className="border-b hover:bg-gray-50">
                             <td className="px-3 py-3">{item.cia}</td>
-                            <td className="px-3 py-3 font-bold text-[#611232]">{item.almacen}</td>
-                            <td className="px-3 py-3">{item.fecha_inventario}</td>
-                            <td className="px-3 py-3 text-right">{formatoNumero(item.total_articulos)}</td>
-                            <td className="px-3 py-3 text-right font-bold">{formatoNumero(item.conteo1)}</td>
-                            <td className="px-3 py-3 text-right font-bold">{formatoNumero(item.conteo2)}</td>
-                            <td className="px-3 py-3 text-right font-bold">{formatoNumero(item.conteo3)}</td>
-                            <td className="px-3 py-3 text-right font-bold">{formatoNumero(item.conteo7)}</td>
-                            <td className="px-3 py-3 text-right font-bold">{formatoNumero(item.total_capturados)}</td>
-                            <td className="px-3 py-3 text-right">{formatoNumero(Math.max(item.total_articulos - item.total_capturados, 0))}</td>
-                            <td className="px-3 py-3 text-right font-bold">{formatoDecimal(item.avance_porcentaje)}%</td>
-                            <td className="px-3 py-3 text-right font-bold text-[#235b4e]">{formatoTiempoSegundos(item.tiempo_real_segundos)}</td>
-                            <td className="px-3 py-3 text-right font-bold text-[#611232]">{formatoTiempoSegundos(item.tiempo_operativo_segundos)}</td>
-                            <td className="px-3 py-3 text-right font-bold">{formatoDecimal(item.articulos_por_minuto)}</td>
-                            <td className="px-3 py-3 text-center">{item.sesiones_abiertas}</td>
+                            <td className="px-3 py-3 font-bold text-[#611232]">
+                              {item.almacen}
+                            </td>
+                            <td className="px-3 py-3">
+                              {item.fecha_inventario}
+                            </td>
+                            <td className="px-3 py-3 text-right">
+                              {formatoNumero(item.total_articulos)}
+                            </td>
+                            <td className="px-3 py-3 text-right font-bold">
+                              {formatoNumero(item.conteo1)}
+                            </td>
+                            <td className="px-3 py-3 text-right font-bold">
+                              {formatoNumero(item.conteo2)}
+                            </td>
+                            <td className="px-3 py-3 text-right font-bold">
+                              {formatoNumero(item.conteo3)}
+                            </td>
+                            <td className="px-3 py-3 text-right font-bold">
+                              {formatoNumero(item.conteo7)}
+                            </td>
+                            <td className="px-3 py-3 text-right font-bold">
+                              {formatoNumero(item.total_capturados)}
+                            </td>
+                            <td className="px-3 py-3 text-right">
+                              {formatoNumero(
+                                Math.max(
+                                  item.total_articulos - item.total_capturados,
+                                  0,
+                                ),
+                              )}
+                            </td>
+                            <td className="px-3 py-3 text-right font-bold">
+                              {formatoDecimal(item.avance_porcentaje)}%
+                            </td>
+                            <td className="px-3 py-3 text-right font-bold text-[#235b4e]">
+                              {formatoTiempoSegundos(item.tiempo_real_segundos)}
+                            </td>
+                            <td className="px-3 py-3 text-right font-bold text-[#611232]">
+                              {formatoTiempoSegundos(
+                                item.tiempo_operativo_segundos,
+                              )}
+                            </td>
+                            <td className="px-3 py-3 text-right font-bold">
+                              {formatoDecimal(item.articulos_por_minuto)}
+                            </td>
+                            <td className="px-3 py-3 text-center">
+                              {item.sesiones_abiertas}
+                            </td>
                             <td className="px-3 py-3">{item.estado_tiempo}</td>
                           </tr>
                         ))}
@@ -1296,7 +1586,9 @@ export default function EstadisticasInventario() {
                           <th className="px-3 py-3 text-left">Inicio</th>
                           <th className="px-3 py-3 text-left">Fin</th>
                           <th className="px-3 py-3 text-right">Tiempo real</th>
-                          <th className="px-3 py-3 text-right">Tiempo captura</th>
+                          <th className="px-3 py-3 text-right">
+                            Tiempo captura
+                          </th>
                           <th className="px-3 py-3 text-right">Capturados</th>
                           <th className="px-3 py-3 text-right">Avance</th>
                           <th className="px-3 py-3 text-right">Art/min</th>
@@ -1308,19 +1600,43 @@ export default function EstadisticasInventario() {
                         {detallePaginado.map((item, index) => (
                           <tr key={index} className="border-b hover:bg-gray-50">
                             <td className="px-3 py-3">{item.cia}</td>
-                            <td className="px-3 py-3 font-bold text-[#611232]">{item.almacen}</td>
-                            <td className="px-3 py-3">{item.fecha_inventario}</td>
-                            <td className="px-3 py-3 font-semibold">{item.empleado}</td>
-                            <td className="px-3 py-3 text-center font-bold">{item.nro_conteo}</td>
-                            <td className="px-3 py-3">{item.tipo_conteo || "-"}</td>
+                            <td className="px-3 py-3 font-bold text-[#611232]">
+                              {item.almacen}
+                            </td>
+                            <td className="px-3 py-3">
+                              {item.fecha_inventario}
+                            </td>
+                            <td className="px-3 py-3 font-semibold">
+                              {item.empleado}
+                            </td>
+                            <td className="px-3 py-3 text-center font-bold">
+                              {item.nro_conteo}
+                            </td>
+                            <td className="px-3 py-3">
+                              {item.tipo_conteo || "-"}
+                            </td>
                             <td className="px-3 py-3">{item.fecha_inicio}</td>
-                            <td className="px-3 py-3">{item.fecha_fin || "Abierta"}</td>
-                            <td className="px-3 py-3 text-right font-bold">{formatoTiempoSegundos(item.tiempo_guardado_lote_segundos)}</td>
-                            <td className="px-3 py-3 text-right font-bold">{formatoTiempoSegundos(item.tiempo_guardado_lote_segundos)}</td>
-                            <td className="px-3 py-3 text-right font-bold">{formatoNumero(item.articulos_capturados)}</td>
-                            <td className="px-3 py-3 text-right">{formatoDecimal(item.avance_porcentaje)}%</td>
-                            <td className="px-3 py-3 text-right font-bold">{formatoDecimal(item.articulos_por_minuto)}</td>
-                            <td className="px-3 py-3">{formatearEstadoSesion(item.estado_sesion)}</td>
+                            <td className="px-3 py-3">
+                              {item.fecha_fin || "Abierta"}
+                            </td>
+                            <td className="px-3 py-3 text-right font-bold">
+                              {formatoTiempoSegundos(item.tiempo_operativo_real_segundos)}
+                            </td>
+                            <td className="px-3 py-3 text-right font-bold">
+                              {formatoTiempoSegundos(item.tiempo_guardado_lote_segundos)}
+                            </td>
+                            <td className="px-3 py-3 text-right font-bold">
+                              {formatoNumero(item.articulos_capturados)}
+                            </td>
+                            <td className="px-3 py-3 text-right">
+                              {formatoDecimal(item.avance_porcentaje)}%
+                            </td>
+                            <td className="px-3 py-3 text-right font-bold">
+                              {formatoDecimal(item.articulos_por_minuto)}
+                            </td>
+                            <td className="px-3 py-3">
+                              {formatearEstadoSesion(item.estado_sesion)}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
