@@ -46,9 +46,8 @@ if (count($faltantes) > 0) {
 
 $items_ajuste = json_decode($items_ajuste_raw, true);
 
-if (!$items_ajuste || !is_array($items_ajuste) || count($items_ajuste) === 0) {
-  echo json_encode(array("success" => false, "error" => "No hay artículos con diferencia para cerrar SAP"));
-  exit;
+if (!$items_ajuste || !is_array($items_ajuste)) {
+  $items_ajuste = array();
 }
 
 $server = "192.168.0.174";
@@ -140,9 +139,7 @@ foreach ($items_ajuste as $itFront) {
   );
 }
 
-if (count($items) === 0) {
-  responder_error($conn, "No hay artículos con diferencia para cerrar SAP");
-}
+
 
 $qr = mssql_query("
     SELECT MAX(estatus) AS estatus
@@ -166,6 +163,29 @@ $estatusActual = intval($row['estatus']);
 
 if ($estatusActual < 4) {
   responder_error($conn, "El inventario no está listo para cierre SAP");
+}
+
+if (count($items) === 0) {
+  $qUpdateSinDif = mssql_query("
+    UPDATE CAP_INVENTARIO
+    SET estatus = 5
+    WHERE almacen = '$almacen'
+      AND fecha_inv = '$fecha'
+      AND cias = '$cia'
+  ", $conn);
+
+  if (!$qUpdateSinDif) {
+    responder_error($conn, mssql_get_last_message());
+  }
+
+  echo json_encode(array(
+    "success" => true,
+    "sin_movimiento_sap" => true,
+    "mensaje" => "Inventario cerrado sin movimiento SAP porque no hay diferencias."
+  ));
+
+  mssql_close($conn);
+  exit;
 }
 
 $qExiste = mssql_query("

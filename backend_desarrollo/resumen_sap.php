@@ -237,32 +237,47 @@ foreach ($cierresPorAlmacen as $cierre) {
 
   $qAjustes = mssql_query("
     SELECT
-      ISNULL(SUM(
-        CASE
-          WHEN A.tipo_ajuste = 'F'
-          THEN ABS(A.cantidad_ajuste) * ISNULL(P.precio, 0)
-          ELSE 0
-        END
+      ISNULL((
+        SELECT SUM(X.total_doc)
+        FROM (
+          SELECT DISTINCT
+            T0.DocEntry,
+            T0.TransId,
+            ISNULL((
+              SELECT SUM(ISNULL(J.Credit, 0))
+              FROM {$ciaSap}.dbo.JDT1 J
+              WHERE J.TransId = T0.TransId
+            ), 0) AS total_doc
+          FROM CAP_INVENTARIO_AJUSTES_SAP A
+          INNER JOIN {$ciaSap}.dbo.OIGE T0
+            ON A.DocEntry_sap = T0.DocEntry
+          WHERE A.id_cierre = $idCierreActual
+            AND A.tipo_documento_sap = 'OIGE'
+            AND A.tipo_ajuste = 'F'
+            AND ISNULL(A.estado_proceso, 0) = 2
+        ) X
       ), 0) AS total_faltante,
 
-      ISNULL(SUM(
-        CASE
-          WHEN A.tipo_ajuste = 'S'
-          THEN ABS(A.cantidad_ajuste) * ISNULL(P.precio, 0)
-          ELSE 0
-        END
+      ISNULL((
+        SELECT SUM(X.total_doc)
+        FROM (
+          SELECT DISTINCT
+            T0.DocEntry,
+            T0.TransId,
+            ISNULL((
+              SELECT SUM(ISNULL(J.Debit, 0))
+              FROM {$ciaSap}.dbo.JDT1 J
+              WHERE J.TransId = T0.TransId
+            ), 0) AS total_doc
+          FROM CAP_INVENTARIO_AJUSTES_SAP A
+          INNER JOIN {$ciaSap}.dbo.OIGN T0
+            ON A.DocEntry_sap = T0.DocEntry
+          WHERE A.id_cierre = $idCierreActual
+            AND A.tipo_documento_sap = 'OIGN'
+            AND A.tipo_ajuste = 'S'
+            AND ISNULL(A.estado_proceso, 0) = 2
+        ) X
       ), 0) AS total_sobrante
-    FROM CAP_INVENTARIO_AJUSTES_SAP A
-    OUTER APPLY (
-  SELECT TOP 1
-    ISNULL(T1.Price, 0) AS precio
-  FROM {$ciaSap}.dbo.ITM1 T1
-  WHERE T1.ItemCode COLLATE SQL_Latin1_General_CP850_CI_AS =
-        A.ItemCode COLLATE SQL_Latin1_General_CP850_CI_AS
-    AND T1.PriceList = 1
-) P
-    WHERE A.id_cierre = $idCierreActual
-      AND ISNULL(A.estado_proceso, 0) = 2
   ", $conn);
 
   if (!$qAjustes) {

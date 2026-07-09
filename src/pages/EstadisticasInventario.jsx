@@ -464,14 +464,80 @@ export default function EstadisticasInventario() {
     0,
   );
 
-  const tiempoRealTotalSegundos =
-  resumenPorAlmacen.length > 0
-    ? Math.max(
-        ...resumenPorAlmacen.map((item) =>
-          numero(item.tiempo_real_segundos),
-        ),
-      )
-    : 0;
+  const duracionOperativaPorConteo = useMemo(() => {
+  const mapa = {};
+
+  datos.forEach((item) => {
+    const conteo = numero(item.nro_conteo);
+    if (!conteo) return;
+
+    const inicio =
+      fechaTs(item.fecha_inicio) || fechaTs(item.primera_captura_guardada);
+
+    const fin =
+      fechaTs(item.fecha_fin) ||
+      fechaTs(item.ultima_captura_guardada) ||
+      inicio;
+
+    if (inicio === null || fin === null || fin < inicio) return;
+
+    const key = `${item.cia}-${item.fecha_inventario}-${conteo}`;
+    const etiqueta = conteo === 7 ? "Finalizado" : `Conteo ${conteo}`;
+
+    if (!mapa[key]) {
+      mapa[key] = {
+        cia: item.cia,
+        fecha_inventario: item.fecha_inventario,
+        conteo,
+        etiqueta,
+        intervalos: [],
+        duracion_segundos: 0,
+      };
+    }
+
+    mapa[key].intervalos.push([inicio, fin]);
+  });
+
+  return Object.values(mapa)
+    .map((grupo) => {
+      const ordenados = grupo.intervalos.sort((a, b) => a[0] - b[0]);
+      const unidos = [];
+
+      ordenados.forEach(([inicio, fin]) => {
+        const ultimo = unidos[unidos.length - 1];
+
+        if (!ultimo || inicio > ultimo[1]) {
+          unidos.push([inicio, fin]);
+        } else {
+          ultimo[1] = Math.max(ultimo[1], fin);
+        }
+      });
+
+      const duracion_segundos = unidos.reduce(
+        (acc, [inicio, fin]) => acc + Math.round((fin - inicio) / 1000),
+        0,
+      );
+
+      return {
+        ...grupo,
+        duracion_segundos,
+      };
+    })
+    .sort((a, b) => {
+      if (a.fecha_inventario !== b.fecha_inventario) {
+        return String(a.fecha_inventario).localeCompare(
+          String(b.fecha_inventario),
+        );
+      }
+
+      return a.conteo - b.conteo;
+    });
+  }, [datos]);
+
+  const tiempoRealTotalSegundos = duracionOperativaPorConteo.reduce(
+    (acc, item) => acc + numero(item.duracion_segundos),
+    0,
+  );
 
   const tiempoOperativoTotalSegundos = resumenPorAlmacen.reduce(
     (acc, item) => acc + numero(item.tiempo_operativo_segundos),
@@ -493,10 +559,7 @@ export default function EstadisticasInventario() {
     0,
   );
 
-  const almacenesAtrasados = resumenPorAlmacen.filter(
-    (item) =>
-      item.estado_tiempo === "ATRASADO" && item.avance_actual !== "CERRADO",
-  ).length;
+  
 
   const almacenMasTardado =
     resumenPorAlmacen.length > 0
@@ -929,25 +992,25 @@ export default function EstadisticasInventario() {
 
               <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
                 <p className="text-xs text-gray-500 font-bold uppercase">
-                  Duración real
+                  Duración operativa
                 </p>
                 <p className="text-3xl font-black text-[#235b4e]">
                   {formatoTiempoCorto(tiempoRealTotalSegundos)}
                 </p>
                 <p className="text-xs text-gray-500">
-                  Tiempo cronológico de almacenes
+                  Tiempo activo por fases
                 </p>
               </div>
 
               <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
                 <p className="text-xs text-gray-500 font-bold uppercase">
-                  Tiempo operativo
+                  Horas-hombre
                 </p>
                 <p className="text-3xl font-black text-[#bc955c]">
                   {formatoTiempoCorto(tiempoOperativoTotalSegundos)}
                 </p>
                 <p className="text-xs text-gray-500">
-                  Tiempo efectivo de captura
+                  Suma de todas las sesiones
                 </p>
               </div>
 
@@ -980,7 +1043,7 @@ export default function EstadisticasInventario() {
             <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 mb-6">
               <div className="bg-[#611232] text-white rounded-2xl p-5 shadow-sm">
                 <p className="text-xs text-white/70 font-bold uppercase mb-1">
-                  Mayor duración real
+                  Mayor duración por almacén
                 </p>
                 <p className="text-2xl font-black">
                   {almacenMasTardado?.almacen || "-"}
@@ -996,7 +1059,7 @@ export default function EstadisticasInventario() {
 
               <div className="bg-[#7b183b] text-white rounded-2xl p-5 shadow-sm">
                 <p className="text-xs text-white/70 font-bold uppercase mb-1">
-                  Mayor tiempo operativo
+                  Mayor horas-hombre por almacén
                 </p>
                 <p className="text-2xl font-black">
                   {almacenMayorTiempoOperativo?.almacen || "-"}
@@ -1036,6 +1099,52 @@ export default function EstadisticasInventario() {
                     ? `${formatoDecimal(almacenMenorAvance.avance_porcentaje)}% avance`
                     : "-"}
                 </p>
+              </div>
+            </div>
+
+            <div className="bg-white border border-gray-200 rounded-3xl shadow-sm p-6 mb-6">
+              <div className="mb-4">
+                <h2 className="text-lg font-black text-gray-800">
+                  Desglose de duración operativa por fase
+                </h2>
+                <p className="text-xs text-gray-500">
+                  Suma de tiempo activo por conteo, sin duplicar sesiones simultáneas ni contar pausas.
+                </p>
+              </div>
+
+              <div className="overflow-auto border rounded-2xl">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-[#611232] text-white">
+                    <tr>
+                      <th className="px-3 py-3 text-left">Fecha</th>
+                      <th className="px-3 py-3 text-left">Fase</th>
+                      <th className="px-3 py-3 text-right">Duración operativa</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {duracionOperativaPorConteo.map((item, index) => (
+                      <tr key={index} className="border-b hover:bg-gray-50">
+                        <td className="px-3 py-3">{item.fecha_inventario}</td>
+                        <td className="px-3 py-3 font-bold text-[#611232]">
+                          {item.etiqueta}
+                        </td>
+                        <td className="px-3 py-3 text-right font-bold text-[#235b4e]">
+                          {formatoTiempoSegundos(item.duracion_segundos)}
+                        </td>
+                      </tr>
+                    ))}
+
+                    <tr className="bg-gray-50 font-black">
+                      <td className="px-3 py-3" colSpan="2">
+                        Total duración operativa
+                      </td>
+                      <td className="px-3 py-3 text-right text-[#235b4e]">
+                        {formatoTiempoSegundos(tiempoRealTotalSegundos)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
 
@@ -1093,11 +1202,10 @@ export default function EstadisticasInventario() {
                   <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm">
                     <div className="mb-4">
                       <h2 className="text-lg font-black text-gray-800">
-                        Tiempo operativo por conteo
+                        Horas-hombre por conteo
                       </h2>
                       <p className="text-xs text-gray-500">
-                        Tiempo de captura acumulado por conteo en los almacenes
-                        visibles.
+                        Suma de sesiones por conteo en los almacenes visibles.
                       </p>
                     </div>
 
@@ -1420,8 +1528,7 @@ export default function EstadisticasInventario() {
                     Tablas ejecutivas
                   </h2>
                   <p className="text-sm text-gray-500">
-                    La duración real no se suma por empleado. El tiempo
-                    operativo sí.
+                    La duración operativa suma las fases por conteo. Las horas-hombre suman todas las sesiones.
                   </p>
                 </div>
 
@@ -1476,14 +1583,14 @@ export default function EstadisticasInventario() {
                           <th className="px-3 py-3 text-right">Pendientes</th>
                           <th className="px-3 py-3 text-right">Avance</th>
                           <th className="px-3 py-3 text-right">
-                            Duración real
+                            Duración almacén
                           </th>
                           <th className="px-3 py-3 text-right">
-                            Tiempo operativo
+                            Horas-hombre
                           </th>
                           <th className="px-3 py-3 text-right">Art/min</th>
                           <th className="px-3 py-3 text-center">Abiertas</th>
-                          <th className="px-3 py-3 text-left">Estado</th>
+
                         </tr>
                       </thead>
 
@@ -1540,7 +1647,7 @@ export default function EstadisticasInventario() {
                             <td className="px-3 py-3 text-center">
                               {item.sesiones_abiertas}
                             </td>
-                            <td className="px-3 py-3">{item.estado_tiempo}</td>
+
                           </tr>
                         ))}
                       </tbody>

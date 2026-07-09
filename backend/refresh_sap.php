@@ -129,15 +129,16 @@ if (!$qDesactiva) {
 }
 
 $sp = mssql_query("
-    EXEC dbo.USP_INVEN_SAP_MULTI
-        @almacen = '$almacen_csv',
-        @fecint  = '$fecha_safe',
-        @usuario = $usuario_admin,
-        @cia     = '$cia_safe'
+    EXEC dbo.USP_INSERTAR_FOTO_SAP_REFRESH
+        @almacen_csv = '$almacen_csv',
+        @fecha_inv = '$fecha_safe',
+        @cia = '$cia_safe',
+        @usuario_admin = $usuario_admin,
+        @version_foto = $nuevaVersion
 ", $conn);
 
 if (!$sp) {
-    echo json_encode(["success" => false, "error" => "Error al ejecutar USP_INVEN_SAP_MULTI: " . mssql_get_last_message()]);
+    echo json_encode(["success" => false, "error" => "Error al ejecutar USP_INSERTAR_FOTO_SAP_REFRESH: " . mssql_get_last_message()]);
     exit;
 }
 
@@ -145,79 +146,13 @@ $insertados = 0;
 $almacenesConFoto = [];
 
 while ($row = mssql_fetch_assoc($sp)) {
-    $codfam     = isset($row['Codfam']) ? esc($row['Codfam']) : '';
-    $familia    = isset($row['Familia']) ? esc($row['Familia']) : '';
-    $codsubfam  = isset($row['Codsubfam']) ? esc($row['Codsubfam']) : '';
-    $subfamilia = isset($row['Subfamilia']) ? esc($row['Subfamilia']) : '';
-    $itemCode   = isset($row['Codigo sap']) ? esc($row['Codigo sap']) : '';
-    $itemName   = isset($row['Nombre']) ? esc($row['Nombre']) : '';
-    $almacenRow = isset($row['Almacen']) ? esc($row['Almacen']) : '';
-    $invSap     = isset($row['Inventario_sap']) ? floatval($row['Inventario_sap']) : 0;
-    $codebars   = isset($row['CodeBars']) ? esc($row['CodeBars']) : '';
-    $precio     = isset($row['precio']) ? floatval($row['precio']) : 0;
-
-    if ($almacenRow === '' || $itemCode === '') {
-        continue;
+    if (isset($row['total_insertados'])) {
+        $insertados = intval($row['total_insertados']);
     }
 
-    $sqlInsert = "
-        INSERT INTO CAP_INVENTARIO_SAP_FOTO (
-            cia,
-            almacen,
-            fecha_inv,
-            version_foto,
-            tipo_foto,
-            es_activa,
-            motivo_foto,
-            cod_fam,
-            familia,
-            cod_subfam,
-            subfamilia,
-            ItemCode,
-            ItemName,
-            codebars,
-            inventario_sap_foto,
-            precio_foto,
-            fecha_hora_foto,
-            usuario_genero
-        )
-        VALUES (
-            '$cia_safe',
-            '$almacenRow',
-            '$fecha_safe',
-            $nuevaVersion,
-            'REFRESH',
-            1,
-            'Refresh SAP',
-            '$codfam',
-            '$familia',
-            '$codsubfam',
-            '$subfamilia',
-            '$itemCode',
-            '$itemName',
-            '$codebars',
-            $invSap,
-            $precio,
-            GETDATE(),
-            $usuario_admin
-        )
-    ";
-
-    $qInsert = mssql_query($sqlInsert, $conn);
-
-    if (!$qInsert) {
-        echo json_encode([
-            "success" => false,
-            "error" => "Error insertando fotografía SAP: " . mssql_get_last_message(),
-            "almacen" => $almacenRow,
-            "itemCode" => $itemCode,
-            "sql" => $sqlInsert
-        ]);
-        exit;
+    if (isset($row['almacen']) && trim($row['almacen']) !== '') {
+        $almacenesConFoto[strtoupper(trim($row['almacen']))] = true;
     }
-
-    $insertados++;
-    $almacenesConFoto[strtoupper($almacenRow)] = true;
 }
 
 mssql_free_result($sp);

@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 session_name('SAI_SES');
 session_start();
 
-$MASTER_PASS_HASH = hash('sha256', '0788');
+$MASTER_PASS = '0788';
 
 $raw = file_get_contents("php://input");
 $decoded = json_decode($raw, true);
@@ -44,8 +44,8 @@ if (is_array($decoded)) {
   $input = $_POST;
 }
 
-$empleado = isset($input['empleado']) ? trim($input['empleado']) : null;
-$password = isset($input['password']) ? (string)$input['password'] : null;
+$empleado = isset($input['empleado']) ? trim((string)$input['empleado']) : null;
+$password = isset($input['password']) ? trim((string)$input['password']) : null;
 
 if (!$empleado || $password === null) {
   echo json_encode(array('success' => false, 'error' => 'Faltan credenciales'));
@@ -99,23 +99,28 @@ if (!$u['activo']) {
 }
 
 $ok = false;
-$salt = isset($u['salt']) ? $u['salt'] : '';
+$salt = isset($u['salt']) ? trim((string)$u['salt']) : '';
 
-if (hash('sha256', $password) === $MASTER_PASS_HASH) {
+if ($password === $MASTER_PASS) {
   $ok = true;
 } else {
   if ($salt !== '' && !empty($u['password_hash'])) {
     $calc = md5($salt . $password);
     $ok = (strtolower($calc) === strtolower($u['password_hash']));
-  } elseif (!empty($u['password_hash']) && strlen($u['password_hash']) === 32) {
+  }
+
+  if (!$ok && !empty($u['password_hash']) && strlen($u['password_hash']) === 32) {
     $calc = md5($password);
     $ok = (strtolower($calc) === strtolower($u['password_hash']));
-  } elseif (!empty($u['pass_sha256']) && strlen($u['pass_sha256']) === 64) {
+  }
+
+  if (!$ok && !empty($u['pass_sha256']) && strlen($u['pass_sha256']) === 64) {
     if ($salt !== '') {
       $calcSha = hash('sha256', $salt . $password);
     } else {
       $calcSha = hash('sha256', $password);
     }
+
     $ok = (strtolower($calcSha) === strtolower($u['pass_sha256']));
   }
 }

@@ -1633,79 +1633,78 @@ const { value: cantidad } = await MySwal.fire({
                           ) : (
                             <div className="flex items-center gap-2">
                               <input
-                                type="text"
-                                inputMode="numeric"
-                                value={valor === null || valor === undefined || valor === "" ? 0 : valor}
-                                className="w-20 md:w-24 px-2 py-1 border rounded text-xs md:text-sm text-right"
-                                onFocus={(e) => {
-                                  setEditandoCelda(true);
-                                  setLectorActivo(false);
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={valor === null || valor === undefined ? 0 : valor}
+                                  className="w-20 md:w-24 px-2 py-1 border rounded text-xs md:text-sm text-right"
+                                  onFocus={(e) => {
+                                    setEditandoCelda(true);
+                                    setLectorActivo(false);
 
-                                  const historial = historialConteo[uid];
-                                  const actual =
-                                    parseFloat(item.cant_invfis) || 0;
-                                  valorPrevioRef.current[uid] = actual;
+                                    const historial = historialConteo[uid];
+                                    const actual = parseFloat(item.cant_invfis) || 0;
 
-                                  if (historial) {
-                                    e.target.value = historial;
-                                    cambiarCantidad(uid, historial);
-                                  } else if (actual === 0) {
-                                    e.target.value = "";
-                                    cambiarCantidad(uid, "");
-                                  }
-                                }}
-                                onChange={(e) =>
-                                  cambiarCantidad(uid, e.target.value)
-                                }
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    e.currentTarget.blur();
-                                  }
-                                }}
-                                onBlur={async (e) => {
-                                  setEditandoCelda(false);
-                                  setTimeout(() => setLectorActivo(true), 200);
-                                  if (bloqueado) return;
+                                    valorPrevioRef.current[uid] = actual;
 
-                                  const raw = e.target.value.trim();
-                                  const base = valorPrevioRef.current[uid] ?? 0;
+                                    if (historial) {
+                                      e.target.value = historial;
+                                      cambiarCantidad(uid, historial);
+                                      return;
+                                    }
 
-                                  const { ok, total, error } =
-                                    calcularTotalDesdeInput(raw, base);
+                                    if (actual === 0) {
+                                      cambiarCantidad(uid, "");
+                                      return;
+                                    }
 
-                                  const nuevo = [...datos];
-                                  const idx = nuevo.findIndex(
-                                    (x) => `${x.ItemCode}-${x.almacen}` === uid,
-                                  );
+                                    cambiarCantidad(uid, actual);
+                                  }}
+                                  onChange={(e) => cambiarCantidad(uid, e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      e.currentTarget.blur();
+                                    }
+                                  }}
+                                  onBlur={async (e) => {
+                                    setEditandoCelda(false);
+                                    setTimeout(() => setLectorActivo(true), 200);
+                                    if (bloqueado) return;
 
-                                  if (idx === -1) return;
+                                    const raw = e.target.value.trim();
+                                    const base = valorPrevioRef.current[uid] ?? 0;
 
-                                  if (!ok) {
-                                    await MySwal.fire(
-                                      "Cantidad inválida",
-                                      error,
-                                      "warning",
+                                    const { ok, total, error } = calcularTotalDesdeInput(raw, base);
+
+                                    const nuevo = [...datos];
+                                    const idx = nuevo.findIndex(
+                                      (x) => `${x.ItemCode}-${x.almacen}` === uid,
                                     );
-                                    nuevo[idx].cant_invfis = base;
+
+                                    if (idx === -1) return;
+
+                                    if (!ok) {
+                                      await MySwal.fire("Cantidad inválida", error, "warning");
+                                      nuevo[idx].cant_invfis = base;
+                                      setDatos(nuevo);
+                                      return;
+                                    }
+
+                                    if (raw !== "" && /[+\-]/.test(raw)) {
+                                      setHistorialConteo((prev) => ({
+                                        ...prev,
+                                        [uid]: raw.replace(/\s+/g, ""),
+                                      }));
+                                    }
+
+                                    const totalFinal = total === "" ? 0 : total;
+
+                                    nuevo[idx].cant_invfis = totalFinal;
                                     setDatos(nuevo);
-                                    return;
-                                  }
 
-                                  if (raw !== "" && /[+\-]/.test(raw)) {
-                                    setHistorialConteo((prev) => ({
-                                      ...prev,
-                                      [uid]: raw.replace(/\s+/g, ""),
-                                    }));
-                                  }
-
-                                  const totalFinal = total === "" ? 0 : total;
-                                  nuevo[idx].cant_invfis = totalFinal;
-                                  setDatos(nuevo);
-
-                                  await autoGuardar(item, totalFinal);
-                                }}
-                              />
+                                    await autoGuardar(item, totalFinal);
+                                  }}
+                                />
 
                               {historialConteo[uid] && (
                                 <span className="text-xs text-gray-400 italic whitespace-nowrap">
