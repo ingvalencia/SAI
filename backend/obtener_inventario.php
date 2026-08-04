@@ -162,52 +162,128 @@ function loadConteo3Map($conn, $almacen, $fecha, $cia)
 $esBrigada = false;
 $usuarioConteo1 = null;
 $usuarioConteo2 = null;
+$esBrigada = false;
+$usuarioConteo1 = null;
+$usuarioConteo2 = null;
 
 $rMiC1 = mssql_query("
   SELECT TOP 1 1 AS x
   FROM CAP_INVENTARIO
-  WHERE almacen='$almacen' AND fecha_inv='$fecha' AND cias='$cia'
-    AND usuario=$empleado AND estatus=1
+  WHERE almacen='$almacen'
+    AND fecha_inv='$fecha'
+    AND cias='$cia'
+    AND usuario=$empleado
+    AND estatus=1
 ", $conn);
+
 $tengoC1 = ($rMiC1 && mssql_fetch_assoc($rMiC1)) ? true : false;
 
 $rMiC2 = mssql_query("
   SELECT TOP 1 1 AS x
   FROM CAP_INVENTARIO
-  WHERE almacen='$almacen' AND fecha_inv='$fecha' AND cias='$cia'
-    AND usuario=$empleado AND estatus=2
+  WHERE almacen='$almacen'
+    AND fecha_inv='$fecha'
+    AND cias='$cia'
+    AND usuario=$empleado
+    AND estatus=2
 ", $conn);
+
 $tengoC2 = ($rMiC2 && mssql_fetch_assoc($rMiC2)) ? true : false;
 
+$rMiC3 = mssql_query("
+  SELECT TOP 1 1 AS x
+  FROM CAP_INVENTARIO
+  WHERE almacen='$almacen'
+    AND fecha_inv='$fecha'
+    AND cias='$cia'
+    AND usuario=$empleado
+    AND estatus=3
+", $conn);
+
+$tengoC3 = ($rMiC3 && mssql_fetch_assoc($rMiC3)) ? true : false;
+
+$rMiC7 = mssql_query("
+  SELECT TOP 1 1 AS x
+  FROM CAP_INVENTARIO
+  WHERE almacen='$almacen'
+    AND fecha_inv='$fecha'
+    AND cias='$cia'
+    AND usuario=$empleado
+    AND estatus=7
+", $conn);
+
+$tengoC7 = ($rMiC7 && mssql_fetch_assoc($rMiC7)) ? true : false;
 
 if (!($tengoC1 && $tengoC2)) {
+
   $rU1 = mssql_query("
     SELECT TOP 1 usuario
     FROM CAP_INVENTARIO
-    WHERE almacen='$almacen' AND fecha_inv='$fecha' AND cias='$cia' AND estatus=1
+    WHERE almacen='$almacen'
+      AND fecha_inv='$fecha'
+      AND cias='$cia'
+      AND estatus=1
     ORDER BY usuario
   ", $conn);
 
   $rU2 = mssql_query("
     SELECT TOP 1 usuario
     FROM CAP_INVENTARIO
-    WHERE almacen='$almacen' AND fecha_inv='$fecha' AND cias='$cia' AND estatus=2
+    WHERE almacen='$almacen'
+      AND fecha_inv='$fecha'
+      AND cias='$cia'
+      AND estatus=2
     ORDER BY usuario
   ", $conn);
 
   if ($rU1 && $rU2) {
+
     $rowU1 = mssql_fetch_assoc($rU1);
     $rowU2 = mssql_fetch_assoc($rU2);
+
     if ($rowU1 && $rowU2) {
+
       $usuarioConteo1 = intval($rowU1['usuario']);
       $usuarioConteo2 = intval($rowU2['usuario']);
-      if ($usuarioConteo1 === $empleado || $usuarioConteo2 === $empleado) {
+
+      if (
+        $usuarioConteo1 === $empleado ||
+        $usuarioConteo2 === $empleado ||
+        $tengoC3 ||
+        $tengoC7
+      ) {
         $esBrigada = true;
       }
     }
   }
 }
 
+$rUID = mssql_query("
+  SELECT TOP 1 id
+  FROM usuarios
+  WHERE empleado = $empleado
+", $conn);
+
+if ($rUID && ($rowUID = mssql_fetch_assoc($rUID))) {
+
+  $usuarioId = intval($rowUID['id']);
+
+  $rBrigadaConfig = mssql_query("
+    SELECT TOP 1 1 AS x
+    FROM CAP_CONTEO_CONFIG
+    WHERE almacen = '$almacen'
+      AND cia = '$cia'
+      AND CONVERT(date, fecha_asignacion) = '$fecha'
+      AND LOWER(tipo_conteo) = 'brigada'
+      AND nro_conteo IN (3,7)
+      AND estatus IN (0,1)
+      AND usuarios_asignados LIKE '%$usuarioId%'
+  ", $conn);
+
+  if ($rBrigadaConfig && mssql_fetch_assoc($rBrigadaConfig)) {
+    $esBrigada = true;
+  }
+}
 
 $itemCodeIn = "";
 $sapMap = [];

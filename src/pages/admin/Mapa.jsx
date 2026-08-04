@@ -1673,7 +1673,7 @@ const itemConEstatus = {
                   alignment: "center",
                 },
                 {
-                  text: usuarioSesion.toUpperCase(),
+                  text: "",
                   alignment: "center",
                   fontSize: 9,
                   bold: true,

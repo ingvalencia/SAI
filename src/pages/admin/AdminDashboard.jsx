@@ -432,7 +432,7 @@ export default function AdminDashboard() {
                           </p>
 
                           <p className="text-5xl font-black text-white leading-none">
-                            v1.25
+                            v1.26
                           </p>
 
                           <p className="text-white/70 text-sm mt-4 leading-relaxed">
