@@ -111,6 +111,9 @@ export default function Mapa({ drawerRootId }) {
 
   const [mostrarConteo4, setMostrarConteo4] = useState(false);
 
+
+  const [verValidacionFisicoSAP, setVerValidacionFisicoSAP] = useState(true);
+
   const [mostrarResumenSAP, setMostrarResumenSAP] = useState(false);
   const [resumenSAP, setResumenSAP] = useState([]);
   const [idsCierreSAP, setIdsCierreSAP] = useState([]);
@@ -770,7 +773,9 @@ const itemConEstatus = {
       "CONTEO 1",
       "CONTEO 2",
       "CONTEO 3",
-      ...(mostrarConteo4 ? ["Validación Fisico vs SAP"] : []),
+      ...(mostrarConteo4 && verValidacionFisicoSAP
+      ? ["Validación Fisico vs SAP"]
+      : []),
       "COBRO A PRECIO VENTA",
       "TRANSFERENCIAS",
       "CAMBIOS DE CÓDIGO",
@@ -835,7 +840,7 @@ const itemConEstatus = {
     c1,
     c2,
     c3,
-    ...(mostrarConteo4 ? [c4] : []),
+    ...(mostrarConteo4 && verValidacionFisicoSAP ? [c4] : []),
     "",
     "",
     "",
@@ -2056,13 +2061,12 @@ const itemConEstatus = {
                                 C3
                               </th>
 
-                              {mostrarConteo4 && (
+                             {mostrarConteo4 && verValidacionFisicoSAP && (
                                 <th className="w-[75px] px-3 py-3 text-center font-black">
                                   Validación Fisico vs SAP
                                 </th>
                               )}
-
-                              <th className="w-[85px] px-3 py-3 text-center font-black">
+                                <th className="w-[85px] px-3 py-3 text-center font-black">
                                 Final
                               </th>
                               <th className="w-[85px] px-3 py-3 text-center font-black">
@@ -2121,7 +2125,7 @@ const itemConEstatus = {
                                     </span>
                                   </td>
 
-                                  {mostrarConteo4 && (
+                                  {mostrarConteo4 && verValidacionFisicoSAP && (
                                     <td className="px-3 py-3 text-center">
                                       <span className="inline-flex min-w-10 justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-black text-indigo-700">
                                         {d.conteo4}
@@ -2784,6 +2788,7 @@ const itemConEstatus = {
                     </button>
                   )}
 
+
                   <button
                     onClick={exportarExcelMapa}
                     className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-700 to-emerald-600 px-3 py-2 text-xs font-black text-white shadow-md transition-all duration-300 hover:from-emerald-800 hover:to-emerald-700 active:scale-[0.98]"
@@ -2968,12 +2973,28 @@ const itemConEstatus = {
                         <th className="w-[60px] px-2 py-3 text-center font-black">
                           C2
                         </th>
-                        <th className="w-[60px] px-2 py-3 text-center font-black">
-                          C3
+
+
+                        <th className="w-[75px] px-2 py-2 text-center font-black">
+                          <div className="flex flex-col items-center gap-1">
+                            <span>C3</span>
+
+                            {mostrarConteo4 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setVerValidacionFisicoSAP((prev) => !prev)
+                                }
+                                className="rounded-md bg-white/15 px-2 py-1 text-[8px] font-black text-white hover:bg-white/25"
+                              >
+                                {verValidacionFisicoSAP ? "👁 Ocultar C4" : "👁 Mostrar C4"}
+                              </button>
+                            )}
+                          </div>
                         </th>
 
-                        {mostrarConteo4 && (
-                          <th className="w-[60px] px-2 py-3 text-center font-black">
+                        {mostrarConteo4 && verValidacionFisicoSAP && (
+                          <th className="w-[90px] px-2 py-3 text-center font-black">
                             Validación Físico vs SAP
                           </th>
                         )}
@@ -2992,7 +3013,7 @@ const itemConEstatus = {
                         <React.Fragment key={alm}>
                           <tr className="bg-gradient-to-r from-slate-200 via-slate-100 to-white">
                             <td
-                              colSpan={mostrarConteo4 ? 13 : 12}
+                              colSpan={mostrarConteo4 && verValidacionFisicoSAP ? 13 : 12}
                               className="px-3 py-2"
                             >
                               <div className="flex items-center justify-between gap-3">
@@ -3083,7 +3104,7 @@ const itemConEstatus = {
                                   </span>
                                 </td>
 
-                                {mostrarConteo4 && (
+                                {mostrarConteo4 && verValidacionFisicoSAP && (
                                   <td className="px-2 py-2 text-center">
                                     <span className="inline-flex items-center justify-center min-w-9 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-black text-indigo-700">
                                       {d.conteo4 ?? 0}

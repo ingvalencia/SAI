@@ -269,7 +269,7 @@ export default function CompararInventario() {
 
       const hayDifVsSap = hayDifMioVsSap || hayDifCompVsSap;
 
-      setMostrarCuartoConteo(estatusActual === 3 && hayDifVsSap && !estaBloqueado);
+      setMostrarCuartoConteo(false);
 
       setEsBrigada(esBrig);
       setModoResuelto(true);
@@ -286,7 +286,8 @@ export default function CompararInventario() {
         !estaBloqueado &&
         !diferenciaConfirmada &&
         (
-          estatusActual === 7 ||
+          estatusActual === 3 ||
+          estatusActual === 4 ||
           (esBrig && !hayDif && !hayDifMioVsSap && !hayDifCompVsSap)
         );
 
@@ -892,14 +893,7 @@ export default function CompararInventario() {
 
         )}
 
-        {!bloqueado && mostrarCuartoConteo && (
-          <button
-            onClick={iniciarCuartoConteo}
-            className="px-4 py-2 rounded-lg text-sm font-semibold bg-fuchsia-200 text-fuchsia-900 hover:bg-fuchsia-300 transition shadow-sm"
-          >
-            Validación Físico vs SAP
-          </button>
-        )}
+        
 
         {mostrarConfirmarDiferencias && (
           <button
