@@ -48,6 +48,66 @@ if (!$conn) {
 }
 mssql_select_db($db, $conn);
 
+
+function copiarConteoTresACuatro($conn, $almacen, $fecha, $empleado, $cia)
+{
+    $almacen_safe = addslashes($almacen);
+    $fecha_safe = addslashes($fecha);
+    $cia_safe = addslashes($cia);
+    $empleado_safe = intval($empleado);
+
+    $sqlUpdate = "
+        UPDATE c4
+        SET c4.cantidad = c3.cantidad,
+            c4.usuario = c3.usuario,
+            c4.fecha = c3.fecha,
+            c4.estatus = c3.estatus
+        FROM CAP_INVENTARIO_CONTEOS c4
+        INNER JOIN CAP_INVENTARIO_CONTEOS c3
+            ON c3.id_inventario = c4.id_inventario
+           AND c3.nro_conteo = 3
+        INNER JOIN CAP_INVENTARIO i
+            ON i.id = c3.id_inventario
+        WHERE c4.nro_conteo = 7
+          AND i.almacen = '$almacen_safe'
+          AND i.fecha_inv = '$fecha_safe'
+          AND i.usuario = $empleado_safe
+          AND i.cias = '$cia_safe'
+    ";
+
+    if (!mssql_query($sqlUpdate, $conn)) {
+        return false;
+    }
+
+    $sqlInsert = "
+        INSERT INTO CAP_INVENTARIO_CONTEOS
+            (id_inventario, nro_conteo, cantidad, usuario, fecha, estatus)
+        SELECT
+            c3.id_inventario,
+            7,
+            c3.cantidad,
+            c3.usuario,
+            c3.fecha,
+            c3.estatus
+        FROM CAP_INVENTARIO_CONTEOS c3
+        INNER JOIN CAP_INVENTARIO i
+            ON i.id = c3.id_inventario
+        WHERE c3.nro_conteo = 3
+          AND i.almacen = '$almacen_safe'
+          AND i.fecha_inv = '$fecha_safe'
+          AND i.usuario = $empleado_safe
+          AND i.cias = '$cia_safe'
+          AND NOT EXISTS (
+              SELECT 1
+              FROM CAP_INVENTARIO_CONTEOS c4
+              WHERE c4.id_inventario = c3.id_inventario
+                AND c4.nro_conteo = 7
+          )
+    ";
+
+    return mssql_query($sqlInsert, $conn) !== false;
+}
+
 $almacen = addslashes($almacen);
 $fecha   = addslashes($fecha);
 $cia     = addslashes($cia);
@@ -105,6 +165,17 @@ foreach ($datos as $d) {
             INSERT INTO CAP_INVENTARIO_CONTEOS(id_inventario,nro_conteo,cantidad,usuario,fecha,estatus)
             VALUES($id_inv,$estatus,$cant,'$empleado',GETDATE(),1)
         ", $conn);
+    }
+}
+
+
+if ($estatus === 3) {
+    if (!copiarConteoTresACuatro($conn, $almacen, $fecha, $empleado, $cia)) {
+        echo json_encode([
+            "success" => false,
+            "error" => "No se pudo generar el Conteo 4 interno: " . mssql_get_last_message()
+        ]);
+        exit;
     }
 }
 

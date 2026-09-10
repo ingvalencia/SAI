@@ -1,98 +1,158 @@
-
 const isLocalhost = Boolean(
   window.location.hostname === "localhost" ||
-  window.location.hostname === "[::1]" ||
-  window.location.hostname.match(
-    /^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/
-  )
+    window.location.hostname === "[::1]" ||
+    window.location.hostname.match(
+      /^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/
+    )
 );
 
+const obtenerBasePath = () => {
+  const path = window.location.pathname.toLowerCase();
+
+  if (path.includes("/inventarios_pruebas/")) {
+    return "/diniz/inventarios_pruebas";
+  }
+
+  if (path.includes("/inventarios/")) {
+    return "/diniz/inventarios";
+  }
+
+  return "";
+};
+
 export function register(config) {
-  if ("serviceWorker" in navigator) {
-    const publicUrl = new URL(process.env.PUBLIC_URL, window.location.href);
-    if (publicUrl.origin !== window.location.origin) {
+  if (!("serviceWorker" in navigator)) {
+    return;
+  }
+
+  window.addEventListener("load", () => {
+    const basePath = obtenerBasePath();
+
+    const swUrl = basePath
+      ? `${basePath}/service-worker.js`
+      : "/service-worker.js";
+
+    if (isLocalhost) {
+      checkValidServiceWorker(swUrl, config);
+
+      navigator.serviceWorker.ready.then(() => {
+        console.log("SICAF Service Worker listo en local");
+      });
+
       return;
     }
 
-    window.addEventListener("load", () => {
-      const swUrl = `${process.env.PUBLIC_URL}/service-worker.js`;
-
-      if (isLocalhost) {
-
-        checkValidServiceWorker(swUrl, config);
-        navigator.serviceWorker.ready.then(() => {
-          console.log("SW listo en local");
-        });
-      } else {
-        registerValidSW(swUrl, config);
-      }
-    });
-  }
+    registerValidSW(swUrl, config);
+  });
 }
 
 function registerValidSW(swUrl, config) {
   navigator.serviceWorker
     .register(swUrl)
     .then((registration) => {
+      console.log(
+        "SICAF Service Worker registrado:",
+        registration.scope
+      );
+
       if (registration.waiting) {
-        console.log("Nuevo contenido está disponible; recarga la página.");
+        registration.waiting.postMessage({
+          type: "SKIP_WAITING",
+        });
       }
 
       registration.onupdatefound = () => {
         const installingWorker = registration.installing;
-        if (installingWorker == null) return;
+
+        if (!installingWorker) {
+          return;
+        }
+
         installingWorker.onstatechange = () => {
-          if (installingWorker.state === "installed") {
-            if (navigator.serviceWorker.controller) {
-              console.log("Nuevo contenido disponible.");
-              if (config && config.onUpdate) {
-                config.onUpdate(registration);
-              }
-            } else {
-              console.log("Contenido cacheado para uso offline.");
-              if (config && config.onSuccess) {
-                config.onSuccess(registration);
-              }
+          if (installingWorker.state !== "installed") {
+            return;
+          }
+
+          if (navigator.serviceWorker.controller) {
+            console.log("Nueva versión de SICAF disponible.");
+
+            if (config && config.onUpdate) {
+              config.onUpdate(registration);
+            }
+
+            if (registration.waiting) {
+              registration.waiting.postMessage({
+                type: "SKIP_WAITING",
+              });
+            }
+          } else {
+            console.log("SICAF disponible como PWA.");
+
+            if (config && config.onSuccess) {
+              config.onSuccess(registration);
             }
           }
         };
       };
     })
     .catch((error) => {
-      console.error("Error al registrar el SW:", error);
+      console.error(
+        "Error al registrar Service Worker de SICAF:",
+        error
+      );
     });
 }
 
 function checkValidServiceWorker(swUrl, config) {
-  fetch(swUrl)
+  fetch(swUrl, {
+    cache: "no-store",
+  })
     .then((response) => {
       const contentType = response.headers.get("content-type");
-      if (
-        response.status === 404 ||
-        (contentType != null && contentType.indexOf("javascript") === -1)
-      ) {
-        navigator.serviceWorker.ready.then((registration) => {
-          registration.unregister().then(() => {
+
+      const noExiste = response.status === 404;
+
+      const noEsJavaScript =
+        contentType &&
+        contentType.indexOf("javascript") === -1;
+
+      if (noExiste || noEsJavaScript) {
+        navigator.serviceWorker.ready
+          .then((registration) => {
+            return registration.unregister();
+          })
+          .then(() => {
             window.location.reload();
           });
-        });
-      } else {
-        registerValidSW(swUrl, config);
+
+        return;
       }
+
+      registerValidSW(swUrl, config);
     })
     .catch(() => {
-      console.log("Sin conexión a internet. Modo offline habilitado.");
+      console.log(
+        "No fue posible validar el Service Worker."
+      );
     });
 }
 
 export function unregister() {
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.ready
-      .then((registration) => {
-        registration.unregister();
-      })
-      .catch((error) => {
-        console.error(error.message);
-      });
+  if (!("serviceWorker" in navigator)) {
+    return;
   }
+
+  navigator.serviceWorker
+    .getRegistrations()
+    .then((registrations) => {
+      registrations.forEach((registration) => {
+        registration.unregister();
+      });
+    })
+    .catch((error) => {
+      console.error(
+        "Error al eliminar Service Worker:",
+        error
+      );
+    });
 }

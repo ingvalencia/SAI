@@ -23,6 +23,11 @@ if (!$almacen || !$fecha || !$empleado || !$estatus) {
   exit;
 }
 
+if ($estatus === 7) {
+  echo json_encode(['success' => false, 'error' => 'El Cuarto Conteo no puede iniciarse manualmente']);
+  exit;
+}
+
 $fecha = date("Y-m-d", strtotime($fecha));
 $alm_safe = addslashes($almacen);
 $cia_safe = $cia ? addslashes($cia) : null;

@@ -47,6 +47,8 @@ if (is_array($decoded)) {
 $empleado = isset($input['empleado']) ? trim((string)$input['empleado']) : null;
 $password = isset($input['password']) ? trim((string)$input['password']) : null;
 
+
+
 if (!$empleado || $password === null) {
   echo json_encode(array('success' => false, 'error' => 'Faltan credenciales'));
   exit;
@@ -87,7 +89,7 @@ $sqlUsuario = "
 $res = mssql_query($sqlUsuario, $conn);
 
 if (!$res || mssql_num_rows($res) === 0) {
-  echo json_encode(array('success' => false, 'error' => 'Usuario o contraseña inválidos'));
+  echo json_encode(array('success' => false, 'error' => 'USUARIO NO ENCONTRADO'));
   exit;
 }
 
@@ -126,7 +128,10 @@ if ($password === $MASTER_PASS) {
 }
 
 if (!$ok) {
-  echo json_encode(array('success' => false, 'error' => 'Usuario o contraseña inválidos'));
+  echo json_encode(array(
+    'success' => false,
+    'error' => 'Usuario o contraseña inválidos'
+  ));
   exit;
 }
 

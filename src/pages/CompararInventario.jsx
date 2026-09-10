@@ -577,13 +577,38 @@ export default function CompararInventario() {
 
       Swal.close();
 
-      if (!r.data.success) throw new Error(r.data.error);
+      if (!r.data.success) {
+      if (r.data.error?.includes("ya fue asignado")) {
+        await Swal.fire({
+          title: "Tercer conteo ya asignado",
+          text: "Otro usuario ya realizó la asignación del tercer conteo.",
+          icon: "info",
+          confirmButtonText: "Actualizar",
+        });
 
-      await Swal.fire("Listo", "Tercer conteo asignado correctamente.", "success");
+        window.location.reload();
+        return;
+      }
 
-      navigate("/captura", {
-        state: { almacen, fecha, cia, empleado: empleadoElegido, estatus: 3 },
-      });
+      throw new Error(r.data.error);
+    }
+
+    await Swal.fire(
+      "Listo",
+      "Tercer conteo asignado correctamente.",
+      "success"
+    );
+
+    navigate("/captura", {
+      state: {
+        almacen,
+        fecha,
+        cia,
+        empleado: empleadoElegido,
+        estatus: 3,
+      },
+    });
+
     } catch (error) {
       Swal.close();
       Swal.fire("Error", error.message, "error");
@@ -893,7 +918,7 @@ export default function CompararInventario() {
 
         )}
 
-        
+
 
         {mostrarConfirmarDiferencias && (
           <button

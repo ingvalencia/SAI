@@ -66,6 +66,27 @@ $rowId = mssql_fetch_assoc($resId);
 $idElegido = intval($rowId['id']);
 
 
+
+$sqlYaAsignado = "
+    SELECT TOP 1 id
+    FROM CAP_CONTEO_CONFIG
+    WHERE cia = '$cia'
+      AND almacen = '$almacen'
+      AND tipo_conteo = 'Brigada'
+      AND nro_conteo = 3
+      AND CONVERT(date, fecha_asignacion) = '$fecha'
+";
+
+$resYaAsignado = mssql_query($sqlYaAsignado, $conn);
+
+if ($resYaAsignado && mssql_num_rows($resYaAsignado) > 0) {
+    echo json_encode([
+        "success" => false,
+        "error" => "El tercer conteo ya fue asignado previamente."
+    ]);
+    exit;
+}
+
 $sqlElegido = "
     SELECT TOP 1 c.id, c.nro_conteo
     FROM CAP_CONTEO_CONFIG c

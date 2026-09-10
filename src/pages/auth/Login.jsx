@@ -429,6 +429,10 @@ const Login = () => {
                 </label>
                 <input
                   type="password"
+                  autoComplete="current-password"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full px-4 py-3.5 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#611232]/10 focus:border-[#611232] text-gray-900 transition-all bg-white/90 shadow-sm"
