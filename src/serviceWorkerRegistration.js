@@ -6,6 +6,8 @@ const isLocalhost = Boolean(
     )
 );
 
+const SERVICE_WORKER_VERSION = "2";
+
 const obtenerBasePath = () => {
   const path = window.location.pathname.toLowerCase();
 
@@ -29,16 +31,11 @@ export function register(config) {
     const basePath = obtenerBasePath();
 
     const swUrl = basePath
-      ? `${basePath}/service-worker.js`
-      : "/service-worker.js";
+      ? `${basePath}/service-worker.js?v=${SERVICE_WORKER_VERSION}`
+      : `/service-worker.js?v=${SERVICE_WORKER_VERSION}`;
 
     if (isLocalhost) {
       checkValidServiceWorker(swUrl, config);
-
-      navigator.serviceWorker.ready.then(() => {
-        console.log("SICAF Service Worker listo en local");
-      });
-
       return;
     }
 
@@ -48,18 +45,24 @@ export function register(config) {
 
 function registerValidSW(swUrl, config) {
   navigator.serviceWorker
-    .register(swUrl)
+    .register(swUrl, {
+      updateViaCache: "none",
+    })
     .then((registration) => {
       console.log(
         "SICAF Service Worker registrado:",
         registration.scope
       );
 
-      if (registration.waiting) {
-        registration.waiting.postMessage({
-          type: "SKIP_WAITING",
-        });
-      }
+      const activarWaiting = () => {
+        if (registration.waiting) {
+          registration.waiting.postMessage({
+            type: "SKIP_WAITING",
+          });
+        }
+      };
+
+      activarWaiting();
 
       registration.onupdatefound = () => {
         const installingWorker = registration.installing;
@@ -80,11 +83,7 @@ function registerValidSW(swUrl, config) {
               config.onUpdate(registration);
             }
 
-            if (registration.waiting) {
-              registration.waiting.postMessage({
-                type: "SKIP_WAITING",
-              });
-            }
+            activarWaiting();
           } else {
             console.log("SICAF disponible como PWA.");
 
@@ -94,6 +93,34 @@ function registerValidSW(swUrl, config) {
           }
         };
       };
+
+      registration.update().catch((error) => {
+        console.warn(
+          "No fue posible verificar actualización de SICAF:",
+          error
+        );
+      });
+
+      const intervaloActualizacion = window.setInterval(() => {
+        if (!navigator.onLine) {
+          return;
+        }
+
+        registration.update().catch((error) => {
+          console.warn(
+            "No fue posible verificar actualización de SICAF:",
+            error
+          );
+        });
+      }, 5 * 60 * 1000);
+
+      window.addEventListener(
+        "beforeunload",
+        () => {
+          window.clearInterval(intervaloActualizacion);
+        },
+        { once: true }
+      );
     })
     .catch((error) => {
       console.error(

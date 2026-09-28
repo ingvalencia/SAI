@@ -387,13 +387,35 @@ export default function CompararInventario() {
       });
 
       if (next_status < 4) {
-        navigate("/captura", {
-          state: { almacen, fecha, cia, empleado, estatus: next_status },
-        });
-      } else {
-        setDiferenciaConfirmada(true);
-        setEstatus(4);
-      }
+  const siguiente = await axios.get(
+  await endpoint("admin/verificar_asignacion.php"),
+  {
+    params: {
+      empleado
+    }
+  }
+);
+
+  if (
+    siguiente.data.success &&
+    siguiente.data.asignacion
+  ) {
+    navigate("/captura", {
+      state: {
+        almacen: siguiente.data.asignacion.almacen,
+        fecha: siguiente.data.asignacion.fecha,
+        cia: siguiente.data.asignacion.cia,
+        empleado,
+        estatus: siguiente.data.asignacion.nro_conteo,
+      },
+    });
+  } else {
+    navigate("/");
+  }
+} else {
+  setDiferenciaConfirmada(true);
+  setEstatus(4);
+}
     } catch (error) {
       Swal.close();
       Swal.fire("Error", error.message, "error");
@@ -478,8 +500,57 @@ export default function CompararInventario() {
     const datosPaginados = datosFiltrados.slice(indiceInicial, indiceFinal);
 
     const iniciarTercerConteo = async () => {
-        const resModal = await Swal.fire({
-          title: "¿Quién realizará el Tercer Conteo?",
+
+    try {
+        // Validar contra BD antes de permitir elegir usuario
+        const validacion = await axios.get(
+            await endpoint("comparar_inventarios.php"),
+            {
+                params: {
+                    almacen,
+                    fecha,
+                    usuario: empleado,
+                    cia
+                }
+            }
+        );
+
+        if (!validacion.data.success) {
+            throw new Error(validacion.data.error);
+        }
+
+        const tercerAsignado =
+            validacion.data.tercer_conteo_asignado == true ||
+            validacion.data.tercer_conteo_asignado == "1";
+
+        if (tercerAsignado) {
+
+            setMostrarTercerConteo(false);
+            setResGlobal(validacion.data);
+
+            await Swal.fire({
+                title: "Tercer conteo ya asignado",
+                text: `El tercer conteo ya fue asignado al usuario ${validacion.data.empleado_tercer_conteo ?? ""}.`,
+                icon: "info",
+                confirmButtonText: "Aceptar"
+            });
+
+            return;
+        }
+
+    } catch (error) {
+
+        Swal.fire(
+            "Error",
+            error.message || "No se pudo validar el tercer conteo.",
+            "error"
+        );
+
+        return;
+    }
+
+    const resModal = await Swal.fire({
+        title: "¿Quién realizará el Tercer Conteo?",
           html: `
             <div style="
               display:flex;

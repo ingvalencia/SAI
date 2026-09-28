@@ -69,6 +69,7 @@ export default function CapturaInventario() {
   const [modoLectura, setModoLectura] = useState("barra");
 
   const [editandoCelda, setEditandoCelda] = useState(false);
+  const [usandoFiltros, setUsandoFiltros] = useState(false);
 
   useEffect(() => {
     const empleado = sessionStorage.getItem("empleado");
@@ -617,7 +618,9 @@ export default function CapturaInventario() {
       const form = new FormData();
       form.append("id_inventario", item.id_inventario);
 
-      const conteoFinal = Number(estatus);
+      const conteoFinal = asignacionCargada
+      ? Number(nroConteo)
+      : Number(estatus);
 
       form.append("nro_conteo", conteoFinal);
 
@@ -1060,15 +1063,31 @@ const { value: cantidad } = await MySwal.fire({
       return false;
     }
 
-    const base = parseFloat(producto.cant_invfis) || 0;
-    const { ok, total, error } = calcularTotalDesdeInput(raw, base);
+    const cantidadActual = Number(producto.cant_invfis) || 0;
 
-    if (!ok) {
-      Swal.showValidationMessage(error);
+    let cantidadFinal;
+
+    if (/^[+-]\d+(\.\d+)?$/.test(raw)) {
+      cantidadFinal = cantidadActual + Number(raw);
+    } else if (/^\d+(\.\d+)?$/.test(raw)) {
+      cantidadFinal = Number(raw);
+    } else {
+      const resultado = calcularTotalDesdeInput(raw, cantidadActual);
+
+      if (!resultado.ok) {
+        Swal.showValidationMessage(resultado.error);
+        return false;
+      }
+
+      cantidadFinal = resultado.total;
+    }
+
+    if (cantidadFinal < 0) {
+      Swal.showValidationMessage("La cantidad no puede ser negativa");
       return false;
     }
 
-    return total;
+    return cantidadFinal;
   },
 });
 
@@ -1122,36 +1141,39 @@ const { value: cantidad } = await MySwal.fire({
   };
 
   const datosFiltrados = useMemo(() => {
-    const q = normalizarValorEscaneado(busqueda);
+    const textoBusqueda = String(busqueda || "")
+      .trim()
+      .toLowerCase();
+
+    const familiaFiltro = String(familiaSeleccionada || "").trim();
+    const subfamiliaFiltro = String(subfamiliaSeleccionada || "").trim();
 
     return datos.filter((item) => {
-      const itemCode = normalizarValorEscaneado(item.ItemCode);
-      const itemName = String(item.Itemname || "")
-        .toLowerCase()
-        .trim();
-      const codebars = normalizarValorEscaneado(item.codebars);
+      const codigo = String(item.ItemCode || "").toLowerCase();
+      const nombre = String(item.Itemname || "").toLowerCase();
+      const codigoBarras = String(item.codebars || "").toLowerCase();
 
-      const matchBusqueda =
-        q === "" ||
-        itemCode.includes(q) ||
-        itemName.includes(busqueda.toLowerCase().trim()) ||
-        codebars.includes(q);
+      const coincideBusqueda =
+        textoBusqueda === "" ||
+        codigo.includes(textoBusqueda) ||
+        nombre.includes(textoBusqueda) ||
+        codigoBarras.includes(textoBusqueda);
 
-      const matchFamilia =
-        !familiaSeleccionada || item.nom_fam === familiaSeleccionada;
+      const coincideFamilia =
+        familiaFiltro === "" ||
+        String(item.nom_fam || "").trim() === familiaFiltro;
 
-      const matchSubfamilia =
-        !subfamiliaSeleccionada || item.nom_subfam === subfamiliaSeleccionada;
+      const coincideSubfamilia =
+        subfamiliaFiltro === "" ||
+        String(item.nom_subfam || "").trim() === subfamiliaFiltro;
 
-      return matchBusqueda && matchFamilia && matchSubfamilia;
+      return coincideBusqueda && coincideFamilia && coincideSubfamilia;
     });
   }, [
     datos,
     busqueda,
     familiaSeleccionada,
     subfamiliaSeleccionada,
-    estatus,
-    esBrigada,
   ]);
 
   const indiceInicial = (paginaActual - 1) * registrosPorPagina;
@@ -1176,14 +1198,14 @@ const { value: cantidad } = await MySwal.fire({
           activo.tagName === "SELECT" ||
           activo.tagName === "TEXTAREA");
 
-      if (esCampoEditable || editandoCelda) return;
+      if (esCampoEditable || editandoCelda || usandoFiltros) return;
 
       const input = document.getElementById("inputCaptura");
       if (input && document.activeElement !== input) input.focus();
     }, 1000);
 
     return () => clearInterval(mantenerFoco);
-  }, []);
+  }, [editandoCelda, usandoFiltros]);
 
   return (
     <div className="w-full max-w-none mx-auto px-3 md:px-6">
@@ -1455,20 +1477,27 @@ const { value: cantidad } = await MySwal.fire({
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   Buscar por código o nombre
                 </label>
+
                 <input
                   type="text"
                   placeholder="Buscar..."
                   value={busqueda}
-                  onFocus={() => setLectorActivo(false)}
-                  onBlur={() => {
-                    setTimeout(() => {
-                      const ae = document.activeElement;
-                      const tag = ae?.tagName?.toUpperCase() || "";
-                      if (tag !== "INPUT" && tag !== "SELECT")
-                        setLectorActivo(true);
-                    }, 500);
+                  onFocus={() => {
+                    setUsandoFiltros(true);
+                    setLectorActivo(false);
                   }}
-                  onChange={(e) => setBusqueda(e.target.value)}
+                  onBlur={() => {
+                    setUsandoFiltros(false);
+
+                    setTimeout(() => {
+                      setLectorActivo(true);
+                    }, 300);
+                  }}
+                  onChange={(e) => {
+                    const valor = e.target.value;
+                    setBusqueda(valor);
+                    setPaginaActual(1);
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>

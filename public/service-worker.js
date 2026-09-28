@@ -1,7 +1,9 @@
-const CACHE_VERSION = "sicaf-v1";
+/* eslint-disable no-restricted-globals */
+
+const CACHE_VERSION = "sicaf-v2";
 
 const getBasePath = () => {
-  const path = self.location.pathname;
+  const path = self.location.pathname.toLowerCase();
 
   if (path.includes("/inventarios_pruebas/")) {
     return "/diniz/inventarios_pruebas/";
@@ -12,41 +14,47 @@ const getBasePath = () => {
 
 const BASE_PATH = getBasePath();
 
-const CACHE_NAME = `${CACHE_VERSION}-${BASE_PATH.replace(/\//g, "_")}`;
+const AMBIENTE = BASE_PATH.includes("inventarios_pruebas")
+  ? "pruebas"
+  : "produccion";
+
+const CACHE_PREFIX = `sicaf-${AMBIENTE}-`;
+const CACHE_NAME = `${CACHE_PREFIX}${CACHE_VERSION}`;
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
 
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll([
+    caches.open(CACHE_NAME).then((cache) =>
+      cache.addAll([
         BASE_PATH,
         `${BASE_PATH}index.html`,
         `${BASE_PATH}manifest.json`,
-      ]);
-    })
+      ])
+    )
   );
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (
-            cacheName.startsWith("sicaf-") &&
-            cacheName !== CACHE_NAME
-          ) {
-            return caches.delete(cacheName);
-          }
+    Promise.all([
+      caches.keys().then((cacheNames) =>
+        Promise.all(
+          cacheNames.map((cacheName) => {
+            if (
+              cacheName.startsWith(CACHE_PREFIX) &&
+              cacheName !== CACHE_NAME
+            ) {
+              return caches.delete(cacheName);
+            }
 
-          return Promise.resolve();
-        })
-      );
-    })
+            return Promise.resolve();
+          })
+        )
+      ),
+      self.clients.claim(),
+    ])
   );
-
-  self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
@@ -58,9 +66,6 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
 
-  /*
-   * Nunca cachear llamadas a la API.
-   */
   if (
     url.pathname.includes(
       "/servicios/services/admin_inventarios_sap/"
@@ -69,41 +74,30 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  /*
-   * Solo manejar recursos del propio SICAF.
-   */
   if (!url.pathname.startsWith(BASE_PATH)) {
     return;
   }
 
-  /*
-   * Para navegación:
-   * primero red, después caché.
-   */
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request)
+      fetch(request, { cache: "no-store" })
         .then((response) => {
-          const copy = response.clone();
+          if (response && response.status === 200) {
+            const copy = response.clone();
 
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, copy);
-          });
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(`${BASE_PATH}index.html`, copy);
+            });
+          }
 
           return response;
         })
-        .catch(() => {
-          return caches.match(`${BASE_PATH}index.html`);
-        })
+        .catch(() => caches.match(`${BASE_PATH}index.html`))
     );
 
     return;
   }
 
-  /*
-   * Para archivos estáticos:
-   * primero red para evitar versiones viejas.
-   */
   event.respondWith(
     fetch(request)
       .then((response) => {
@@ -119,9 +113,7 @@ self.addEventListener("fetch", (event) => {
 
         return response;
       })
-      .catch(() => {
-        return caches.match(request);
-      })
+      .catch(() => caches.match(request))
   );
 });
 

@@ -9,6 +9,7 @@ const MySwal = withReactContent(Swal);
 
 export default function Control() {
   const [usuarios, setUsuarios] = useState([]);
+  const [busquedaUsuario, setBusquedaUsuario] = useState("");
   const [filtroRol, setFiltroRol] = useState("");
   const [filtroCiaUsuario, setFiltroCiaUsuario] = useState("");
   const [filtroLocalUsuario, setFiltroLocalUsuario] = useState("");
@@ -247,24 +248,38 @@ export default function Control() {
       base = usuarios.filter((u) => Number(u.rol) === 4);
     }
 
+    if (busquedaUsuario.trim()) {
+      const busqueda = busquedaUsuario.trim().toLowerCase();
+
+      base = base.filter((u) => {
+        const empleado = String(u.empleado || "").toLowerCase();
+        const nombre = String(u.nombre || "").toLowerCase();
+
+        return empleado.includes(busqueda) || nombre.includes(busqueda);
+      });
+    }
+
     if (filtroRol) {
       base = base.filter((u) => String(u.rol) === filtroRol);
     }
 
     if (filtroCiaUsuario) {
       base = base.filter(
-        (u) => String(u.cia_asignada || "").toLowerCase() === filtroCiaUsuario.toLowerCase()
+        (u) =>
+          String(u.cia_asignada || "").toLowerCase() ===
+          filtroCiaUsuario.toLowerCase()
       );
     }
 
     if (filtroLocalUsuario) {
-      base = base.filter((u) =>
-        Array.isArray(u.locales) &&
-        u.locales.some((l) =>
-          String(l)
-            .toLowerCase()
-            .startsWith(filtroLocalUsuario.toLowerCase())
-        )
+      base = base.filter(
+        (u) =>
+          Array.isArray(u.locales) &&
+          u.locales.some((l) =>
+            String(l)
+              .toLowerCase()
+              .startsWith(filtroLocalUsuario.toLowerCase())
+          )
       );
     }
 
@@ -272,6 +287,7 @@ export default function Control() {
   }, [
     usuarios,
     rolLogueado,
+    busquedaUsuario,
     filtroRol,
     filtroCiaUsuario,
     filtroLocalUsuario,
@@ -301,7 +317,13 @@ export default function Control() {
 
   useEffect(() => {
     setPaginaActual(1);
-  }, [filtroRol, filtroCiaUsuario, filtroLocalUsuario, usuarios]);
+  }, [
+    busquedaUsuario,
+    filtroRol,
+    filtroCiaUsuario,
+    filtroLocalUsuario,
+    usuarios
+  ]);
 
   const porPagina = 10;
   const [paginaActual, setPaginaActual] = useState(1);
@@ -582,7 +604,8 @@ export default function Control() {
 
         <button
           type="button"
-          onClick={() => {
+         onClick={() => {
+            setBusquedaUsuario("");
             setFiltroRol("");
             setFiltroCiaUsuario("");
             setFiltroLocalUsuario("");
@@ -593,6 +616,32 @@ export default function Control() {
         </button>
       </div>
 
+
+      <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+        <label className="block text-[11px] font-black text-slate-500 uppercase tracking-[0.18em] mb-2">
+          Buscar usuario
+        </label>
+
+        <div className="relative">
+          <input
+            type="text"
+            value={busquedaUsuario}
+            onChange={(e) => setBusquedaUsuario(e.target.value)}
+            placeholder="Buscar por empleado o nombre..."
+            className="w-full px-4 py-2.5 pr-10 border border-slate-300 rounded-xl text-sm bg-white text-slate-700 font-semibold focus:outline-none focus:ring-4 focus:ring-[#611232]/10 focus:border-[#611232] transition"
+          />
+
+          {busquedaUsuario && (
+            <button
+              type="button"
+              onClick={() => setBusquedaUsuario("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#611232] font-black text-lg"
+            >
+              ×
+            </button>
+          )}
+        </div>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {(rolLogueado === 1 || rolLogueado === 2) && (
           <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
@@ -941,21 +990,23 @@ export default function Control() {
               {configuracionesPaginadas.map((c, i) => {
                 const numero = (paginaFechas - 1) * porPaginaFechas + i + 1;
 
-                const ultimoConteo = Number(
-                  String(c.conteos || "")
-                    .split(",")
-                    .map(v => Number(v))
-                    .pop()
-                );
+                const conteos = String(c.conteos || "")
+                  .split(",")
+                  .map(v => Number(v))
+                  .filter(v => !isNaN(v));
 
-                const etiquetaConteo =
-                  {
-                    1: "Conteo 1",
-                    2: "Conteo 2",
-                    3: "Conteo 3",
-                    4: "Finalizado",
-                    7: "Conteo 4",
-                  }[ultimoConteo] || "—";
+                const conteosRealizados = String(c.conteos_realizados || "")
+                  .split(",")
+                  .map(v => Number(v))
+                  .filter(v => !isNaN(v));
+
+                const etiquetasConteo = {
+                  1: "Conteo 1",
+                  2: "Conteo 2",
+                  3: "Conteo 3",
+                  4: "Finalizado",
+                  7: "Conteo 4",
+                };
 
                 return (
                   <tr
@@ -993,12 +1044,26 @@ export default function Control() {
                     </td>
 
                     <td className="px-4 md:px-6 py-4">
-                      <span
-                        className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-black shadow-sm
-                        ${estilosConteo[ultimoConteo] || "bg-slate-100 text-slate-700 border-slate-300"}`}
-                      >
-                        {etiquetaConteo}
-                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        {conteos.length > 0 ? (
+                          conteos.map((conteo) => {
+                            const realizado = conteosRealizados.includes(conteo);
+
+                            return (
+                              <span
+                                key={conteo}
+                                className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-black shadow-sm
+                                  ${estilosConteo[conteo] || "bg-slate-100 text-slate-700 border-slate-300"}`}
+                              >
+                                {etiquetasConteo[conteo] || `Conteo ${conteo}`}
+                                {realizado && <span>✓</span>}
+                              </span>
+                            );
+                          })
+                        ) : (
+                          <span className="text-slate-400 font-semibold">—</span>
+                        )}
+                      </div>
                     </td>
 
                     <td className="px-4 md:px-6 py-4 text-slate-700 whitespace-pre-wrap">

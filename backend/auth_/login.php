@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 session_name('SAI_SES');
 session_start();
 
-$MASTER_PASS = '0788';
+$MASTER_PASS = '2196';
 
 $raw = file_get_contents("php://input");
 $decoded = json_decode($raw, true);

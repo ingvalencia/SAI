@@ -12,7 +12,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit;
 }
 
-
 $almacen    = isset($_GET['almacen'])      ? $_GET['almacen']      : null;
 $fecha      = isset($_GET['fecha'])        ? $_GET['fecha']        : null;
 $empleado   = isset($_GET['empleado'])     ? intval($_GET['empleado']) : null;
@@ -29,25 +28,29 @@ if (!in_array($nro_conteo, [1,2,3,7], true)) {
   exit;
 }
 
-
 $server = "192.168.0.174";
 $user   = "sa";
 $pass   = "P@ssw0rd";
 $db     = "SAP_PROCESOS";
 
 $conn = mssql_connect($server, $user, $pass);
+
 if (!$conn) {
   echo json_encode(['success' => false, 'error' => 'No se pudo conectar a la base de datos']);
   exit;
 }
-mssql_select_db($db, $conn);
 
+mssql_select_db($db, $conn);
 
 $almacen_safe = addslashes($almacen);
 $cia_safe     = addslashes($cia);
 
+$sqlUser = "
+  SELECT TOP 1 id
+  FROM usuarios
+  WHERE empleado = CONVERT(VARCHAR(50), $empleado)
+";
 
-$sqlUser = "SELECT TOP 1 id FROM usuarios WHERE empleado = $empleado";
 $resUser = mssql_query($sqlUser, $conn);
 
 if (!$resUser || mssql_num_rows($resUser) === 0) {
@@ -61,16 +64,24 @@ if (!$resUser || mssql_num_rows($resUser) === 0) {
 $rowUser    = mssql_fetch_assoc($resUser);
 $usuario_id = intval($rowUser['id']);
 
-
 $sqlPermiso = "
-  SELECT TOP 1 id, tipo_conteo, nro_conteo, estatus
-  FROM CAP_CONTEO_CONFIG
-  WHERE cia = '$cia_safe'
-    AND almacen = '$almacen_safe'
-    AND estatus IN (0,1)
-   AND usuarios_asignados LIKE '%$usuario_id%'
-
-
+  SELECT TOP 1
+    c.id,
+    c.tipo_conteo,
+    c.nro_conteo,
+    c.estatus
+  FROM CAP_CONTEO_CONFIG c
+  CROSS APPLY OPENJSON(c.usuarios_asignados) uj
+  WHERE c.cia = '$cia_safe'
+    AND c.almacen = '$almacen_safe'
+    AND c.estatus IN (0,1)
+    AND (
+      TRY_CONVERT(INT, uj.value) = $usuario_id
+      OR TRY_CONVERT(INT, uj.value) = $empleado
+    )
+  ORDER BY
+    c.nro_conteo DESC,
+    c.id DESC
 ";
 
 $resPermiso = mssql_query($sqlPermiso, $conn);
@@ -96,7 +107,6 @@ $tipo_conteo   = $rowPermiso['tipo_conteo'];
 $nro_asignado  = intval($rowPermiso['nro_conteo']);
 $estatus_cfg   = intval($rowPermiso['estatus']);
 
-
 if ($estatus_cfg === 1) {
     echo json_encode([
         'success' => true,
@@ -118,22 +128,20 @@ if ($nro_conteo !== $nro_asignado) {
     exit;
 }
 
-
 $sqlEstatus = "
   SELECT MAX(estatus) AS estatus
   FROM CAP_INVENTARIO
   WHERE almacen = '$almacen_safe'
     AND fecha_inv = '$fecha'
-    AND usuario = $empleado
+    AND usuario = $usuario_id
 ";
+
 $resEstatus = mssql_query($sqlEstatus, $conn);
 
 if ($resEstatus && $row = mssql_fetch_assoc($resEstatus)) {
   $estatus_inv = intval($row['estatus']);
 
-
   if ($estatus_inv >= 4 && $estatus_inv != 7) {
-
     echo json_encode([
       'success'    => true,
       'modo'       => 'solo lectura',
@@ -144,7 +152,6 @@ if ($resEstatus && $row = mssql_fetch_assoc($resEstatus)) {
     exit;
   }
 }
-
 
 $sql = "
   DECLARE @modo NVARCHAR(20);
@@ -169,6 +176,7 @@ if (!$resSP) {
 }
 
 $rowSP = mssql_fetch_assoc($resSP);
+
 if (!$rowSP) {
   echo json_encode([
     'success' => false,
@@ -181,8 +189,6 @@ $modo       = $rowSP['modo_resultado'];
 $capturista = null;
 $mensaje    = "";
 
-
-
 if ($modo === 'solo lectura') {
 
   $sqlUsuario = "
@@ -190,15 +196,16 @@ if ($modo === 'solo lectura') {
     FROM CAP_INVENTARIO
     WHERE almacen = '$almacen_safe'
       AND fecha_inv = '$fecha'
-      AND usuario = $empleado
+      AND usuario = $usuario_id
   ";
+
   $resUsuario = mssql_query($sqlUsuario, $conn);
 
   if ($resUsuario && $rowUsuario = mssql_fetch_assoc($resUsuario)) {
     $capturista = intval($rowUsuario['usuario']);
   }
 
-  if ($capturista === $empleado) {
+  if ($capturista === $usuario_id) {
     $modo    = 'edicion';
     $mensaje = "✍️ Modo: Edición reabierta para el mismo usuario";
   } else {
@@ -207,16 +214,17 @@ if ($modo === 'solo lectura') {
 
 } else {
   $mensaje    = "✍️ Modo: Edición habilitada";
-  $capturista = $empleado;
+  $capturista = $usuario_id;
 }
-
 
 echo json_encode([
   'success'    => true,
   'modo'       => $modo,
   'mensaje'    => $mensaje,
   'nro_conteo_asignado' => $nro_asignado,
-  'estatus_proceso'     => $estatus_cfg ,
+  'estatus_proceso'     => $estatus_cfg,
   'capturista' => $capturista
 ]);
+
 exit;
+?>
